@@ -4,8 +4,16 @@
 Created on Wed Feb 14 13:08:28 2018
 
 @author: danny
+Costum loss functions for use with theano. Currently includes hinge loss functions using the 
+Dot product and cosine similarity as similarity measures for the embeddings
+
+L2norm is somewhat in between cosine and dot product. It normalises the magnitude of 1 of the 2 embeddings, like in the original paper by Harwath and Glass where only the speech embeddings are l2 normalised. According to them this gave better results than the dot product or normalising both embeddings (i.e. cosine similarity)
+
 """
+
+
 import theano.tensor as T
+
 # batch hinge loss function using dot product similarity measure
 def dot_hinge_loss(embeddings_1, embeddings_2):
     # batch size

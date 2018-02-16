@@ -4,6 +4,9 @@
 Created on Tue Jan 30 14:20:04 2018
 
 @author: danny
+script for training neural networks which embed speech and images into the same
+vector space. To-do: create balanced train, test and validation sets. Move some hard 
+coding to the argparser
 """
 
 #!/usr/bin/env python
@@ -40,17 +43,19 @@ args = parser.parse_args()
 
 # open the data file
 data_file = tables.open_file(args.data_loc, mode='r+') 
-#get a list of file nodes
+#get a list of all the nodes in the file
 f_nodes = data_file.root._f_list_nodes()
 # total number of nodes (i.e. files) 
 n_nodes= len(f_nodes)
 
+# shuffle before dividing into train test and validation sets
 np.random.shuffle(f_nodes)
 
 train = f_nodes[0:7000]
 val = f_nodes[7000:7500]
 test = f_nodes[7500:8000]
 
+# the network for embedding the vgg16 features
 def build_img_net(input_var=None):
     # input layer
     network = lasagne.layers.InputLayer(shape = (None, 4096),
@@ -62,6 +67,7 @@ def build_img_net(input_var=None):
 
     return network
 
+# network for embedding the spoken captions
 def build_audio_net(input_var=None):
     network = lasagne.layers.InputLayer(shape = (None, 1, 40, 1024),
                                         input_var = input_var)
@@ -93,7 +99,6 @@ def build_audio_net(input_var=None):
 
 # ############################## Main program ################################
 
-
 def main(num_epochs = 50):
     # Prepare Theano variables for inputs and targets
     # image input tensor    
@@ -112,15 +117,15 @@ def main(num_epochs = 50):
     speech_embedding = lasagne.layers.get_output(speech_network)
     
     # loss function
-    loss = batch_hinge_loss(img_embedding, speech_embedding)
+    loss = l2norm_hinge_loss(img_embedding, speech_embedding)
     loss = loss.mean()
     
     # create the parameters and update functions
     params = lasagne.layers.get_all_params([img_network,speech_network], trainable=True)
+    # learning rate as a shared variable so that it can be adapted over time
     lr_shared = theano.shared(np.array(0.01,dtype = theano.config.floatX))
     updates = lasagne.updates.momentum(
             loss, params, learning_rate=lr_shared, momentum=0.9)
-
 
     #training function
     train_fn = theano.function([input_var_img, input_var_audio], loss, updates=updates,allow_input_downcast=True)
@@ -129,14 +134,15 @@ def main(num_epochs = 50):
     ############## TEST ######################################
     # test functions
     # test_embed functions (set to deterministic to turn off features like drop-out)
-    # can be used for the test loss or to embed unseen data.
+    # can be used for the test loss or to embed unseen data (e.g. for calculating the recall).
     test_embed_img = lasagne.layers.get_output(img_network, deterministic=True)
     img_out_fn = theano.function([input_var_img], test_embed_img)
+    
     test_embed_speech = lasagne.layers.get_output(speech_network, deterministic=True)
     speech_out_fn = theano.function([input_var_audio], speech_embedding)
     
     # validation function 
-    test_loss = batch_hinge_loss(test_embed_img, test_embed_speech)
+    test_loss = l2norm_hinge_loss(test_embed_img, test_embed_speech)
     test_loss = test_loss.mean()
    
     test_fn = theano.function([input_var_img, input_var_audio], test_loss)
@@ -159,27 +165,28 @@ def main(num_epochs = 50):
         train_batches = 0
         start_time = time.time()
         print('epoch: '+ str(epoch+1))
-        #for batch in iterate_minibatches(Train_index, args.batch_size, args.splice_size, shuffle = False):
+        
         for batch in iterate_minibatches(train, args.batch_size, shuffle = True):
             img, speech = batch
             train_err += train_fn(img, speech)
             train_batches += 1
         print('train error: ' + str(train_err/train_batches))
+        # optionally save the network parameters after each epoch
         #np.savez('model.npz', *lasagne.layers.get_all_param_values(network))
-        # And a full pass over the validation data:
-#        prev_val_acc=val_acc
+        
+        # full pass over the validation data:
         val_err = 0
-        val_acc = 0
         val_batches = 0
         for batch in iterate_minibatches(val,args.batch_size, shuffle = False):
             img, speech = batch
             val_err += test_fn(img, speech)
             val_batches += 1
         print('validation error: ' + str(val_err/val_batches))
-        # calculate the recall
+        # calculate the recall@n
+        # create an minibatcher over the validation set
         iterator = iterate_minibatches(val,args.batch_size, shuffle = False)
+        # calc recal, pass it the iterator, the embedding functions and n
         recall, avg_rank = calc_recall_at_n(iterator, speech_out_fn, img_out_fn, [1, 5, 10])
-
 
         # Then we print the results for this epoch:
         print("Epoch {} of {} took {:.3f}s".format(
