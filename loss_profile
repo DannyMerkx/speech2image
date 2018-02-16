@@ -1,0 +1,103 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Feb 14 10:54:14 2018
+
+@author: danny
+"""
+import time
+import numpy as np
+import theano
+import theano.tensor as T
+import lasagne
+
+embeddings_1 = np.random.sample([128,1024])
+embeddings_2 = np.random.sample([128,1024])
+
+
+def batch_hinge_loss_1(embeddings_1, embeddings_2):
+    # check if the embedding size and batch sizes match
+    
+    batch_size = embeddings_1.shape[0]
+    
+    numerator = theano.tensor.dot(embeddings_1,embeddings_2.T)
+    
+    denom1 = theano.tensor.sum(embeddings_1**2,axis=1).dimshuffle('x',0)
+    denom2 = theano.tensor.sum(embeddings_2**2,axis=1).dimshuffle(0,'x')
+    
+    denominator = theano.tensor.sqrt(denom1 * denom2)
+    sim = numerator/denominator
+    
+
+    # get the similarity of the correct image-caption pairs (the diagonal of the similarity matrix)
+    matched = sim.diagonal()
+    # get the average mismatch of the image with incorrect captions
+    # sum the matrix along the corresponding axis, correct for including the correct pair, divide by batch size -1
+    # (also to correct for including the correct pair)
+    mismatch_1 = (sim.sum(axis=0) - sim.diagonal() ) /(batch_size-1)
+    # get the average mismatch of the captions with incorrect images
+    mismatch_2 = (sim.sum(axis=1) - sim.diagonal() ) /(batch_size-1)
+
+    return theano.tensor.sum(theano.tensor.nnet.relu(mismatch_1 - matched+1) + theano.tensor.nnet.relu(mismatch_2 - matched+1))
+
+def batch_hinge_loss_2(embeddings_1, embeddings_2):
+    
+    batch_size = embeddings_1.shape[0]
+    
+    numerator = theano.tensor.dot(embeddings_1,embeddings_2.T)
+    
+    denom1 = theano.tensor.sum(theano.tensor.sqr(embeddings_1),axis=1).dimshuffle('x',0)
+    denom2 = theano.tensor.sum(theano.tensor.sqr(embeddings_2),axis=1).dimshuffle(0,'x')
+    
+    denominator = theano.tensor.sqrt(denom1 * denom2)
+    
+    sim = numerator/denominator
+     # get the similarity of the correct image-caption pairs (the diagonal of the similarity matrix)
+    matched = sim.diagonal()
+    # get the average mismatch of the image with incorrect captions
+    # sum the matrix along the corresponding axis, correct for including the correct pair, divide by batch size -1
+    # (also to correct for including the correct pair)
+    mismatch_1 = (sim.sum(axis=0) - sim.diagonal() ) /(batch_size-1)
+    # get the average mismatch of the captions with incorrect images
+    mismatch_2 = (sim.sum(axis=1) - sim.diagonal() ) /(batch_size-1)
+
+    return T.sum(T.maximum(0, mismatch_1 - matched+1) + T.maximum(0, mismatch_2 - matched+1))
+
+def batch_hinge_loss_3(embeddings_1, embeddings_2):
+    
+    batch_size = embeddings_1.shape[0]
+    
+    numerator = theano.tensor.dot(embeddings_1,embeddings_2.T)
+    
+    denom1 = theano.tensor.sum(theano.tensor.sqr(embeddings_1),axis=1)
+    denom2 = theano.tensor.sum(theano.tensor.sqr(embeddings_2),axis=1)
+    
+    denominator = theano.tensor.sqrt(theano.tensor.tensordot(denom1, denom2, axes = 0))
+    
+    sim = numerator/denominator
+     # get the similarity of the correct image-caption pairs (the diagonal of the similarity matrix)
+    matched = sim.diagonal()
+    # get the average mismatch of the image with incorrect captions
+    # sum the matrix along the corresponding axis, correct for including the correct pair, divide by batch size -1
+    # (also to correct for including the correct pair)
+    mismatch_1 = (sim.sum(axis=0) - sim.diagonal() ) /(batch_size-1)
+    # get the average mismatch of the captions with incorrect images
+    mismatch_2 = (sim.sum(axis=1) - sim.diagonal() ) /(batch_size-1)
+
+    return T.sum(T.maximum(0, mismatch_1 - matched+1) + T.maximum(0, mismatch_2 - matched+1))
+
+
+start_time = time.time()
+for z in range(0,1000):
+    x = batch_hinge_loss_1(embeddings_1, embeddings_2)
+end_time = time.time() - start_time
+
+start_time_2 = time.time()
+for z in range(0,1000):
+    y = batch_hinge_loss_2(embeddings_1,embeddings_2)
+end_time_2 = time.time() - start_time_2
+
+start_time_3 = time.time()
+for z in range(0,1000):
+    a = batch_hinge_loss_3(embeddings_1,embeddings_2)
+end_time_3 = time.time() - start_time_3
