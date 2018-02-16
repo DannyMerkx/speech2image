@@ -4,6 +4,9 @@
 Created on Fri Jan 26 12:04:54 2018
 
 @author: danny
+extract vgg16 features using pretrained network and add them to an h5 file. 
+to-do: vgg16 weight location is hard coded, add option to pass it through prep_features.py
+
 """
 import theano
 from keras.models import Sequential
@@ -17,6 +20,9 @@ import tables
 
 from keras import backend as K
 K.set_image_dim_ordering('th')
+
+# this script uses a pretrained vgg16 model to extract the penultimate layer activations
+# for images
 
 # pretrained vgg_16 model
 def VGG_16(weights_path=None):
@@ -72,8 +78,7 @@ def VGG_16(weights_path=None):
 
 def vgg(img_path, output_file, append_name):
     # initialise the pretrained model
-    model = VGG_16('/home/danny/Documents/Flickr/vgg16_weights.h5')
-    #model = VGG_16(os.path.join('C:\\','Users', 'Beheerder','Documents','PhD','Flickr','vgg16_weights.h5'))
+    model = VGG_16('/data/Flickr/vgg16_weights.h5')
     sgd = SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
     model.compile(optimizer=sgd, loss='categorical_crossentropy')
     # function to get penultimate layer activations

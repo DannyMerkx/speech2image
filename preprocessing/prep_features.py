@@ -12,7 +12,7 @@ import os
 import tables
 
 from vgg16 import vgg
-from audio import audio_features
+from audio_features import audio_features
 
 # path to the flickr audio and image files
 audio_path = os.path.join('/home/danny/Documents/Flickr/flickr_audio/wavs')

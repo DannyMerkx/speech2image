@@ -5,13 +5,13 @@ Created on Fri Feb  3 11:41:47 2017
 
 @author: danny
 """
-from preproc import four,pad,preemph, hamming, notch
+from audio_preproc import four,pad,preemph, hamming, notch
 from filters import apply_filterbanks,filter_centers, create_filterbanks
 from scipy.fftpack import dct
 import numpy
 import math
 
-# this file contains several feature creation steps. 
+# this file contains the main bulk of the actuall feature creation functions 
 
 def delta (data, N):
 # calculate delta features, n is the number of frames to look forward and backward

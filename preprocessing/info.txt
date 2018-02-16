@@ -1,0 +1,4 @@
+This folder contains all the scripts to create vgg features and speech features and put them in
+the appropriate format in an h5 file. 
+
+prep_features.py is the main script to run which calls all other functions and delivers an h5 file with vgg16 penultimate layer activations and 40 mel spaced filter banks, similar to the original harwath and glass paper. 
