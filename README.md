@@ -6,5 +6,5 @@ The code is my own work, using python, theano, keras and lasagne. However some o
 
 get the vgg16 pretrained weights here https://github.com/fchollet/deep-learning-models/releases , this is NOT my work, my thanks to F. Chollet who made these availlable. I used the following weights from that page : vgg16_weights_th_dim_ordering_th_kernels.h5
 
-The speech2image neural networks were originally introduced by D. Harwath and J. Glass  (2016) in the paper called: Unsupervised Learning of Spoken Language with Visual Context. The basic neural network structure and the l2norm hinge loss function is a theano based reproduction of the work described in that paper.
+The speech2image neural networks were originally introduced by D. Harwath and J. Glass  (2016) in the paper called: Unsupervised Learning of Spoken Language with Visual Context. The basic neural network structure (the one in speech2im_net.py) and the use of the l2norm hinge loss function is a theano based reproduction of the ideas and work described in that paper.
 
