@@ -42,13 +42,13 @@ def fix_wav(path_to_file):
 # audio file names start with numbers but pytables naming conventions require group names to 
 # start with a letter in order to call the nodes and their contents.
 
-def audio_features (params, img_audio, audio_path, append_name):
+def audio_features (params, img_audio, audio_path, append_name, node_list):
     
     output_file = params[5]
     # create pytable atom for the features   
     f_atom= tables.Float32Atom() 
     count = 1
-    for node in output_file.root:
+    for node in node_list:
         print('processing file:' + str(count))
         count+=1
         # create a group for the desired feature type (e.g. a group called 'fbanks')
@@ -56,12 +56,17 @@ def audio_features (params, img_audio, audio_path, append_name):
         # get the base name of the node this feature will be appended to
         base_name = node._v_name.split(append_name)[1]
         # get the caption file names corresponding to the image of this node
-        caption_files = img_audio[base_name + '.jpg']
+        caption_files = img_audio[base_name][1]
         
         for cap in caption_files:
             # basename for the caption file, i.e. cut of the file extension as dots arent
-	    # allowed in pytables group names. 
+	        # allowed in pytables group names. 
             base_capt = cap.split('.')[0]
+            # as the places database splits the audio files over multiple subfolders these paths from
+            # the top folder are included the captions in the dictionary but can be removed from the base_name
+            # of the node in the h5 file. 
+            if '/' in base_capt:
+                base_capt = base_capt.split('/')[:]
             # read audio samples
             try:
                 input_data = read(os.path.join(audio_path, cap))

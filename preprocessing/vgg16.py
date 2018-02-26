@@ -76,9 +76,9 @@ def VGG_16(weights_path=None):
     return model
 
 
-def vgg(img_path, output_file, append_name):
+def vgg(img_path, output_file, append_name, img_audio, node_list):
     # initialise the pretrained model
-    model = VGG_16('/data/Flickr/vgg16_weights.h5')
+    model = VGG_16('/home/danny/Documents/Flickr/vgg16_weights.h5')
     sgd = SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
     model.compile(optimizer=sgd, loss='categorical_crossentropy')
     # function to get penultimate layer activations
@@ -88,14 +88,15 @@ def vgg(img_path, output_file, append_name):
     
     count = 1
     # loop through all nodes (the main function creates a h5 file with an empty node for each image file)
-    for node in output_file.root:
+    for node in node_list:
         print('processing file:' + str(count))
         count+=1
+        # split the appended name from the node name to get the dictionary key for the current file
         base_name = node._v_name.split(append_name)[1]
         # strip the appended naming convention from the group name to be able to retrieve the file
-        filename = base_name + '.jpg'
+        img_file = img_audio[base_name][0]
         # read and resize the image
-        im = cv2.resize(cv2.imread(os.path.join(img_path, filename)), (224, 224)).astype(np.float32)
+        im = cv2.resize(cv2.imread(os.path.join(img_path, img_file)), (224, 224)).astype(np.float32)
         im[:,:,0] -= 103.939
         im[:,:,1] -= 116.779
         im[:,:,2] -= 123.68
@@ -107,6 +108,6 @@ def vgg(img_path, output_file, append_name):
         feature_shape= numpy.shape(activations)[1]
         vgg_node = output_file.create_group(node, 'vgg')
         # create a pytable array named 'vgg' at the current image node. Remove file extension from filename as dots arent allowed in pytable names
-        vgg_array = output_file.create_earray(vgg_node, append_name + base_name, img_atom, (0,feature_shape), expectedrows=1)
+        vgg_array = output_file.create_earray(vgg_node, append_name + img_file.split('.')[0], img_atom, (0,feature_shape), expectedrows=1)
         # append the vgg features to the array
         vgg_array.append(activations)
