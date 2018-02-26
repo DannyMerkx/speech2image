@@ -66,7 +66,7 @@ def audio_features (params, img_audio, audio_path, append_name, node_list):
             # the top folder are included the captions in the dictionary but can be removed from the base_name
             # of the node in the h5 file. 
             if '/' in base_capt:
-                base_capt = base_capt.split('/')[:]
+                base_capt = base_capt.split('/')[-1]
             # read audio samples
             try:
                 input_data = read(os.path.join(audio_path, cap))
