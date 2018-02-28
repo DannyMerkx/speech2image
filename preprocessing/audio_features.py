@@ -48,6 +48,9 @@ def audio_features (params, img_audio, audio_path, append_name, node_list):
     # create pytable atom for the features   
     f_atom= tables.Float32Atom() 
     count = 1
+    # keep track of the nodes for which no features could be made, places database contains some
+    # empty audio files
+    invalid = []
     for node in node_list:
         print('processing file:' + str(count))
         count+=1
@@ -70,10 +73,16 @@ def audio_features (params, img_audio, audio_path, append_name, node_list):
             # read audio samples
             try:
                 input_data = read(os.path.join(audio_path, cap))
+                # in the places database some of the audiofiles are empty. To keep this script
+                #compatible with database that might have more captions to one image, we check 
+                # if the audio node is empty at the end of the loop and delete the entire node
+                # if no caption features could be made.
+                if len(input_data[1]) == 0:
+                    # break as we can do nothing with an empty audio file.
+                    break
             except:
                 fix_wav(os.path.join(audio_path, cap))
                 input_data = read(os.path.join(audio_path, cap))
-                break
             # sampling frequency
             fs = input_data[0]
             # get window and frameshift size in samples
@@ -115,5 +124,10 @@ def audio_features (params, img_audio, audio_path, append_name, node_list):
         
             # append new data to the tables
             f_table.append(features)
-
+        if audio_node._f_list_nodes() == []:
+            # keep track of all the invalid nodes for which no features could be made
+            invalid.append(node._v_name())
+            # remove the top node including all other features if no captions features could be created
+            output_file.remove_node(node, recursive = True)
+    print(invalid)
     return 

@@ -28,14 +28,14 @@ def batcher(batch_size, img_audio):
             yield excerpt
 
 # path to the flickr audio and image files
-audio_path = os.path.join('/home/danny/Downloads/placesaudio_distro_part_1/')
+audio_path = os.path.join('/data/places_corpus/placesaudio_distro_part_1/')
 #audio_path = os.path.join('C:\\','Users', 'Beheerder','Documents','PhD','Flickr','flickr_audio', 'wavs')
 
-img_path = os.path.join('/home/danny/Documents/Flickr/Flickr8k_Dataset/Flicker8k_Dataset')
+img_path = os.path.join('/data/places_corpus/places_images')
             
 # for the places database, there is metadata availlable which links a unique 
 # identifier to both the wavs and the images
-meta_data_loc = '/home/danny/Downloads/placesaudio_distro_part_1/metadata/'
+meta_data_loc = os.path.join(audio_path, 'metadata')
 
 file = open(os.path.join(meta_data_loc, 'utt2wav'))
 
@@ -55,14 +55,14 @@ file.close()
 img_audio = {}
 for im in imgs:
     im  = im.split()
-    img_audio[im[0].replace('-','_')] = im[1]
+    img_audio[im[0].replace('-','_')] = im[1][1:]
     
 for wav in wavs:
     wav = wav.split()
     img_audio[wav[0].replace('-','_')] = img_audio[wav[0].replace('-','_')], [wav[1]]
     
 # create h5 output file for preprocessed images and audio
-output_file = tables.open_file('/home/danny/Documents/data/places_features.h5', mode='a')
+output_file = tables.open_file('/data/places_corpus/places_features.h5', mode='a')
 
 #output_file = tables.open_file(os.path.join('C:\\','Users', 'Beheerder','Documents','PhD','Flickr','features.h5'), mode='a')
 # we need to append something to the flickr files names because pytable group names cannot start
