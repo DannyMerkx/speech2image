@@ -33,7 +33,8 @@ parser = argparse.ArgumentParser(description='Create and run an articulatory fea
 parser.add_argument('-data_loc', type = str, default = '/train_data/flickr_features.h5',
                     help = 'location of the feature file, default: /data/processed/fbanks.h5')
 parser.add_argument('-batch_size', type = int, default = 128, help = 'batch size, default: 128')
-
+parser.add_argument('-lr', type = float, default = 0.00005, help = 'learning rate, default:0.00005')
+parser.add_argument('-data_base', type = str, default = 'places', help = 'database to train on')
 #parser.add_argument('-test', type = bool, default = False, 
 #                    help = 'set to True to skip training and only run the network on the test set, use in combination with a pretrained model of course, default: False')
 #parser.add_argument('-feat_type', type = str, default = 'fbanks', 
@@ -44,7 +45,22 @@ args = parser.parse_args()
 # open the data file
 data_file = tables.open_file(args.data_loc, mode='r+') 
 #get a list of all the nodes in the file
-f_nodes = data_file.root._f_list_nodes()
+def iterate_places(h5_file):
+    for x in h5_file.root:
+        for y in x:
+            yield y
+            
+def iterate_flickr(h5_file):
+    for x in h5_file.root:
+        yield x
+
+if args.data_base == 'places':
+    f_nodes = [node for node in iterate_places(data_file)]
+elif args.data_base == 'flickr':
+    f_nodes = [node for node in iterate_flickr(data_file)]
+else:
+    print('incorrect database')
+    exit()
 # total number of nodes (i.e. files) 
 n_nodes= len(f_nodes)
 
@@ -123,7 +139,7 @@ def main(num_epochs = 50):
     # create the parameters and update functions
     params = lasagne.layers.get_all_params([img_network,speech_network], trainable=True)
     # learning rate as a shared variable so that it can be adapted over time
-    lr_shared = theano.shared(np.array(0.01,dtype = theano.config.floatX))
+    lr_shared = theano.shared(np.array(args.lr, dtype = theano.config.floatX))
     updates = lasagne.updates.momentum(
             loss, params, learning_rate=lr_shared, momentum=0.9)
 
@@ -151,13 +167,12 @@ def main(num_epochs = 50):
 
     # Finally, launch the training loop.
     print("Starting training...")
-    epoch=0
+    epoch=1
     num_epochs = 50
     while epoch < num_epochs:
     ################################
     # learning rate scheme
-        if  (epoch+1) % 5 == 0:
-            lr_shared.set_value(lr_shared.get_value() / 2)
+        lr_shared.set_value(args.lr * (0.5 ** (epoch // 5)))
 
     ################################################################
        # In each epoch, we do a full pass over the training data:

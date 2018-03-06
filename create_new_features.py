@@ -25,13 +25,32 @@ args = parser.parse_args()
 # of some feature e.g. for calculating the mean or variance of that feature. Takes an opened
 # h5 file and the group name of the features
 
-def iterate_nodes(h5_file, feature_name):
+# this iterator is specifically for the file structure used in the flickr_database
+def iterate_flickr(h5_file, feature_name):
     for x in h5_file.root:
         for y in x:
             if y._v_name == feature_name:
                 for z in y:
                     yield z
+# this iterator is specifically for the structure in the places database                    
+def iterate_places(h5_file, feature_name):
+    for x in h5_file.root:
+        for y in x:
+            for z in y:                
+                if z._v_name == feature_name:
+                    for q in z:
+                        yield q
 
+# this iterator is more flexible as it doesnt care about the depth of the nodes, however
+# recursively listing all nodes and then selecting the nodes you need is slower then a targeted search
+def recursive_iter(h5_file, feature_name):
+    # iterator which finds all EArrays (the feature nodes)
+    node_iter = h5_file.walk_nodes(h5_file.root, 'EArray')
+    # select only those features given by feature_name
+    for x in node_iter:
+        if x._v_parent._v_name == feature_name:
+            yield x
+    
 ################################################################################
 ##### Functions for calculating arguments to use in new feature creation #######
 

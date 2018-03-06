@@ -31,8 +31,8 @@ def fix_wav(path_to_file):
     file.close()
     # now save the file with a new header containing the correct number of frames
     out_file = wave.open(path_to_file, 'w')
-    out_file.setparams(file.getparams())
-    out_file.writeframes(x)
+    out_file.setparams(out_file.getparams())
+    out_file.writeframes(frames)
     out_file.close()
 
 
@@ -81,8 +81,13 @@ def audio_features (params, img_audio, audio_path, append_name, node_list):
                     # break as we can do nothing with an empty audio file.
                     break
             except:
-                fix_wav(os.path.join(audio_path, cap))
-                input_data = read(os.path.join(audio_path, cap))
+                # try to repair the file, however I found some files in places, so broken that
+                # such that they could not be read at all. Just remove such nodes
+                try:
+                    fix_wav(os.path.join(audio_path, cap))
+                    input_data = read(os.path.join(audio_path, cap))
+                except:
+                    break
             # sampling frequency
             fs = input_data[0]
             # get window and frameshift size in samples
@@ -126,7 +131,7 @@ def audio_features (params, img_audio, audio_path, append_name, node_list):
             f_table.append(features)
         if audio_node._f_list_nodes() == []:
             # keep track of all the invalid nodes for which no features could be made
-            invalid.append(node._v_name())
+            invalid.append(node._v_name)
             # remove the top node including all other features if no captions features could be created
             output_file.remove_node(node, recursive = True)
     print(invalid)
