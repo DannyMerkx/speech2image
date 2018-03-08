@@ -23,7 +23,7 @@ import argparse
 
 from minibatchers import iterate_minibatches, iterate_minibatches_resize
 from costum_loss import batch_hinge_loss
-from evaluate import calc_recall_at_n
+from evaluate import speech2image, image2speech
 
 ## implementation of a DNN structure for speech2im embedding/retrieval in Theano+Lasagne
 parser = argparse.ArgumentParser(description='Create and run an articulatory feature classification DNN')
@@ -200,9 +200,9 @@ def main(num_epochs = 50):
             val_batches += 1
         # calculate the recall@n
         # create a minibatcher over the validation set
-        iterator = batcher(val,args.batch_size, shuffle = False)
+        iterator = batcher(val, args.batch_size, shuffle = False)
         # calc recal, pass it the iterator, the embedding functions and n
-        recall, avg_rank = calc_recall_at_n(iterator, speech_out_fn, img_out_fn, [1, 5, 10])
+        recall, avg_rank = speech2image(iterator, img_out_fn, speech_out_fn, [1, 5, 10])
 
         # Then we print the results for this epoch:
         print("Epoch {} of {} took {:.3f}s".format(
@@ -223,8 +223,8 @@ def main(num_epochs = 50):
         test_err += test_fn(img, speech)
         test_batches += 1
     # calculate the recall
-    iterator = batcher(val,args.batch_size, shuffle = False)
-    recall, avg_rank = calc_recall_at_n(iterator, speech_out_fn, img_out_fn, [1, 5, 10])
+    iterator = batcher(val, args.batch_size, shuffle = False)
+    recall, avg_rank = speech2image(iterator, img_out_fn, speech_out_fn, [1, 5, 10])
     print("Final results:")
     print("  test loss:\t\t\t{:.6f}".format(test_err / test_batches))
     print('Test recall@1 = ' + str(recall[0]*100) + '%')

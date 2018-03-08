@@ -1,71 +1,42 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Mar  8 11:11:56 2018
+Created on Thu Mar  8 13:34:33 2018
 
 @author: danny
 """
 
-import time
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Feb 13 10:36:08 2018
+
+@author: danny
+
+evaluation functions. contains only recall@n now. convenience functions for embedding
+the data and calculating the recall@n to keep your NN training script clean
+"""
 import numpy as np
+import time
+from evaluate import recall_at_n
 
-from costum_loss import cosine_hinge_loss, dot_hinge_loss, l2norm_hinge_loss, batch_hinge_loss
-
-start_time = time.time()
-
-for x in range(0,1000):
-    embeddings_1 = np.random.rand(128, 1024)
-    embeddings_2 = np.random.rand(128, 1024)
-    
-    loss = cosine_hinge_loss(embeddings_1, embeddings_2)
-
-print("cosine hinge took {:.3f}s".format(time.time() - start_time))
+embeddings_1 = [np.random.rand(2**8, 1024)]
+embeddings_2 = [np.random.rand(2**8, 1024)]
 
 start_time = time.time()
+ 
+recall1, avg_rank1 = recall_at_n(embeddings_1,embeddings_2, [1,5,10], mode = 'full')
 
-for x in range(0,1000):
-    embeddings_1 = np.random.rand(128, 1024)
-    embeddings_2 = np.random.rand(128, 1024)
-    
-    loss = dot_hinge_loss(embeddings_1, embeddings_2)
-
-print("dot hinge took {:.3f}s".format(time.time() - start_time))
+print("full mode took {:.3f}s".format( time.time() - start_time))
 
 start_time = time.time()
+ 
+recall2, avg_rank2 = recall_at_n(embeddings_1,embeddings_2, [1,5,10], mode = 'array')
 
-for x in range(0,1000):
-    embeddings_1 = np.random.rand(128, 1024)
-    embeddings_2 = np.random.rand(128, 1024)
-    
-    loss = l2norm_hinge_loss(embeddings_1, embeddings_2)
-
-print("l2 norm hinge took {:.3f}s".format(time.time() - start_time))
+print("array mode took {:.3f}s".format( time.time() - start_time))
 
 start_time = time.time()
+ 
+recall3, avg_rank3 = recall_at_n(embeddings_1, embeddings_2, [1,5,10], mode = 'big')
 
-for x in range(0,1000):
-    embeddings_1 = np.random.rand(128, 1024)
-    embeddings_2 = np.random.rand(128, 1024)
-    
-    loss = batch_hinge_loss(embeddings_1, embeddings_2, [False, False])
-
-print("batch dot hinge took {:.3f}s".format(time.time() - start_time))
-
-start_time = time.time()
-
-for x in range(0,1000):
-    embeddings_1 = np.random.rand(128, 1024)
-    embeddings_2 = np.random.rand(128, 1024)
-    
-    loss = batch_hinge_loss(embeddings_1, embeddings_2, [True,True])
-    
-print("batch cosine hinge took {:.3f}s".format(time.time() - start_time))
-
-start_time = time.time()
-
-for x in range(0,1000):
-    embeddings_1 = np.random.rand(128, 1024)
-    embeddings_2 = np.random.rand(128, 1024)
-    
-    loss = batch_hinge_loss(embeddings_1, embeddings_2, [True,False])
-print("batch l2norm hinge took {:.3f}s".format(time.time() - start_time))
+print("big mode took {:.3f}s".format( time.time() - start_time))

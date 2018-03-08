@@ -13,7 +13,7 @@ import numpy as np
 # minibatch iterator which pads and truncates the inputs to a given size.
 # slighly faster to pad on the go than to load a bigger dataset, but impractical
 # when you want normalisation to also apply to the padding for instance
-def iterate_minibatches_resize(f_nodes, batchsize, input_size, shuffle=True):  
+def iterate_minibatches_resize(f_nodes, batchsize, input_size = 1024, shuffle=True):  
     if shuffle:
         # optionally shuffle the input
         np.random.shuffle(f_nodes)
