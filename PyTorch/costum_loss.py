@@ -17,6 +17,7 @@ import torch.nn as nn
 
 # batch hinge loss function using dot product similarity measure
 def dot_hinge_loss(embeddings_1, embeddings_2):
+    print('outdated function, use batch_hinge_loss in the future')
     # batch size
     batch_size = embeddings_1.size(0)
     # calculate the dot product
@@ -35,6 +36,7 @@ def dot_hinge_loss(embeddings_1, embeddings_2):
 
 # hinge loss using cosine similarity
 def cosine_hinge_loss(embeddings_1, embeddings_2):
+    print('outdated function, use batch_hinge_loss in the future')
     # batch size
     batch_size = embeddings_1.size(0)
     # calculate the numerator
@@ -61,6 +63,7 @@ def cosine_hinge_loss(embeddings_1, embeddings_2):
 # harwath and glass paper (l2 normalise of speech embeddings). uncomment the appropriate 
 # line to switch which embeddings to normalise, normalising both results in the cosine hinge loss of course. 
 def l2norm_hinge_loss(embeddings_1, embeddings_2):
+    print('outdated function, use batch_hinge_loss in the future')
     # batch size
     batch_size = embeddings_1.size(0)   
     # calculate the norms of the embeddings
@@ -73,6 +76,35 @@ def l2norm_hinge_loss(embeddings_1, embeddings_2):
     #sim = torch.mm((embeddings_1.t()/denom1.t(), embeddings_2.t())
     #sim = torch.mm((embeddings_1.t()/denom1.t(), embeddings_2.t()/denom2)
     
+    # get the similarity of the correct image-caption pairs (the diagonal of the similarity matrix)
+    matched = sim.diag()
+    # get the average mismatch of the image with incorrect captions
+    # sum the matrix along the corresponding axis, correct for including the correct pair, divide by batch size -1
+    # (also to correct for including the correct pair)
+    mismatch_1 = (sim.sum(dim = 0) - matched) / (batch_size - 1)
+    # get the average mismatch of the captions with incorrect images
+    mismatch_2 = (sim.sum(dim = 1) - matched) / (batch_size - 1)
+
+    return torch.sum(nn.functional.relu(mismatch_1 - matched+1) + nn.functional.relu(mismatch_2 - matched+1))
+
+# hinge loss function to replace all those above, by using a list of bools to indicate which set of embeddings
+# need to be normalised. Setting both to false results in the dot product, setting both to true
+# results in the cosine similarit. normalising only the speech embeddings is what Harwath and Glass found
+# worked best on their data.
+def batch_hinge_loss(embeddings_1, embeddings_2, norm):
+    # batch size
+    batch_size = embeddings_1.size(0)   
+    # calculate the norms of the embeddings and normalise the embeddings
+    if norm[0]:
+        denom1 = torch.sqrt(torch.sum(torch.pow(embeddings_1, 2), dim = 1))
+        embeddings_1 = (embeddings_1.t()/denom1).t()
+    if norm[1]:
+        denom2 = torch.sqrt(torch.sum(torch.pow(embeddings_2, 2), dim = 1))
+        embeddings_2 = embeddings_2.t()/denom2
+        
+    # calculate the similarity score
+    sim = torch.mm(embeddings_1, embeddings_2)
+
     # get the similarity of the correct image-caption pairs (the diagonal of the similarity matrix)
     matched = sim.diag()
     # get the average mismatch of the image with incorrect captions

@@ -16,6 +16,7 @@ import theano.tensor as T
 
 # batch hinge loss function using dot product similarity measure
 def dot_hinge_loss(embeddings_1, embeddings_2):
+    print('outdated function, use batch_hinge_loss in the future')
     # batch size
     batch_size = embeddings_1.shape[0]
     # calculate the dot product
@@ -34,6 +35,7 @@ def dot_hinge_loss(embeddings_1, embeddings_2):
 
 # hinge loss using cosine similarity
 def cosine_hinge_loss(embeddings_1, embeddings_2):
+    print('outdated function, use batch_hinge_loss in the future')
     # batch size
     batch_size = embeddings_1.shape[0]
     # calculate the numerator
@@ -60,6 +62,7 @@ def cosine_hinge_loss(embeddings_1, embeddings_2):
 # harwath and glass paper (l2 normalise of speech embeddings). uncomment the appropriate 
 # line to switch which embeddings to normalise, normalising both results in the cosine hinge loss of course. 
 def l2norm_hinge_loss(embeddings_1, embeddings_2):
+    print('outdated function, use batch_hinge_loss in the future')
     # batch size
     batch_size = embeddings_1.shape[0]   
     # calculate the norms of the embeddings
