@@ -78,7 +78,7 @@ def VGG_16(weights_path=None):
 
 def vgg(img_path, output_file, append_name, img_audio, node_list):
     # initialise the pretrained model
-    model = VGG_16('/data/places_corpus/vgg16_weights.h5')
+    model = VGG_16('/data/vgg16_weights.h5')
     sgd = SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
     model.compile(optimizer=sgd, loss='categorical_crossentropy')
     # function to get penultimate layer activations

@@ -10,10 +10,8 @@ can be passed as arguments
 """
 import numpy as np
 
-# minibatch iterator which pads and truncates the inputs to a given size.
-# slighly faster to pad on the go than to load a bigger dataset, but impractical
-# when you want normalisation to also apply to the padding for instance
-def iterate_minibatches_resize(f_nodes, batchsize, input_size, shuffle=True):  
+# minibatcher which pads/truncates input of inconsistant size
+def iterate_minibatches_resize(f_nodes, batchsize, input_size = 1024, shuffle = True):  
     if shuffle:
         # optionally shuffle the input
         np.random.shuffle(f_nodes)
@@ -25,8 +23,10 @@ def iterate_minibatches_resize(f_nodes, batchsize, input_size, shuffle=True):
         for ex in excerpt:
             # extract and append the vgg16 features
             images.append(ex.vgg._f_list_nodes()[0][:])
-            # randomly choose a speech file. transpose the features if # frames is not yet the last dimension
-            sp = np.random.choice(ex.fbanks._f_list_nodes())[:].transpose()
+            # get the number of speech files for this image to do random sampling
+            n = np.shape(ex.fbanks._f_list_nodes())[0]
+            # extract and append randomly one of the speech file features (transpose if the #frames is not yet the last dimension)
+            sp = (ex.fbanks._f_list_nodes()[np.random.randint(0,n)][:].transpose())
             # padd to the given input size
             while np.shape(sp)[1] < input_size:
                 sp = np.concatenate((sp, np.zeros([40,1])),1)
@@ -44,7 +44,7 @@ def iterate_minibatches_resize(f_nodes, batchsize, input_size, shuffle=True):
         yield images, speech    
 
 # minibatch iterator which assumes inputs of uniform size
-def iterate_minibatches(f_nodes, batchsize, shuffle=True):  
+def iterate_minibatches(f_nodes, batchsize, shuffle = True):  
     if shuffle:
         # optionally shuffle the input during training
         np.random.shuffle(f_nodes)

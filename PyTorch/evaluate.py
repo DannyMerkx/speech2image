@@ -10,19 +10,24 @@ the data and calculating the recall@n to keep your NN training script clean
 """
 import sklearn.metrics.pairwise as sk
 import numpy as np
-
+from torch.autograd import Variable
 # embeds the validation or test data using the trained neural network. Takes
 # an iterator (minibatcher) and the embedding functions (i.e. deterministic 
 # output functions for your network). 
-def embed_data(iterator, embed_function_1, embed_function_2):
+def embed_data(iterator, embed_function_1, embed_function_2, dtype):
     speech = []
     image = []
+    # set to evaluation mode
+    embed_function_1.eval()
+    embed_function_2.eval()
     for batch in iterator:
         img, sp = batch
+        # convert data to pytorch variables
+        img, sp = Variable(dtype(img), requires_grad=False), Variable(dtype(sp),requires_grad=False)
         sp = embed_function_1(sp)
         img = embed_function_2(img)
-        speech.append(sp)
-        image.append(img)
+        speech.append((sp.data).cpu().numpy())
+        image.append((img.data).cpu().numpy())
     return speech, image
 
 # returns the recall@n over your test or validation set. Takes the embeddings 
@@ -33,10 +38,15 @@ def recall_at_n(embeddings_1, embeddings_2, n):
 # data we want to retrieve the embedding of a related piece of data (e.g. images and captions)
     
     # concatenate the embeddings (the embed data function delivers a list of batches)
+
     if len(embeddings_1) > 1:
         embeddings_1 = np.concatenate(embeddings_1)
+    else:
+        embeddings_1 = embeddings_1[0]
     if len(embeddings_2) > 1:
         embeddings_2 = np.concatenate(embeddings_2)
+    else:
+        embeddings_2 = embeddings_2[0]
         
     # get the cosine similarity matrix for the embeddings.
     sim = sk.cosine_similarity(embeddings_1, embeddings_2)
@@ -76,7 +86,7 @@ def recall_at_n(embeddings_1, embeddings_2, n):
     return recall_col, avg_rank_col, recall_row, avg_rank_row
 
 # small convenience function for combining everything in this script
-def calc_recall_at_n(iterator, embed_function_1, embed_function_2, n):
-    embeddings_1, embeddings_2 = embed_data(iterator, embed_function_1, embed_function_2)
+def calc_recall_at_n(iterator, embed_function_1, embed_function_2, n, dtype):
+    embeddings_1, embeddings_2 = embed_data(iterator, embed_function_1, embed_function_2, dtype)
     return recall_at_n(embeddings_1, embeddings_2, n)
     

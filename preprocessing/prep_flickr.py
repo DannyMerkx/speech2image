@@ -15,10 +15,10 @@ from vgg16 import vgg
 from audio_features import audio_features
 
 # path to the flickr audio and image files
-audio_path = os.path.join('/home/danny/Documents/Flickr/flickr_audio/wavs')
+audio_path = os.path.join('/data/flickr/flickr_audio/wavs')
 #audio_path = os.path.join('C:\\','Users', 'Beheerder','Documents','PhD','Flickr','flickr_audio', 'wavs')
 
-img_path = os.path.join('/home/danny/Documents/Flickr/Flickr8k_Dataset/Flicker8k_Dataset')
+img_path = os.path.join('/data/flickr/Flickr8k_Dataset/Flicker8k_Dataset')
 #img_path = os.path.join('C:\\','Users', 'Beheerder','Documents','PhD','Flickr','Flickr8k_Dataset','Flicker8k_Dataset')
 # list the img and audio directories
 audio = os.listdir(audio_path)
@@ -48,7 +48,7 @@ for im in imgs_base:
         # keep track of images without captions
         no_cap.append(im)
 # create h5 output file for preprocessed images and audio
-output_file = tables.open_file('/home/danny/Documents/data/flickr_features.h5', mode='a')
+output_file = tables.open_file('/prep_data/flickr_features.h5', mode='a')
 
 #output_file = tables.open_file(os.path.join('C:\\','Users', 'Beheerder','Documents','PhD','Flickr','features.h5'), mode='a')
 # we need to append something to the flickr files names because pytable group names cannot start

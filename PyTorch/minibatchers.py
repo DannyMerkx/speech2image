@@ -39,10 +39,10 @@ def iterate_minibatches_resize(f_nodes, batchsize, input_size, shuffle=True):
         # reshape the features into appropriate shape and recast as float32
         speech_shape = np.shape(speech)
         # for the speech features the network expects inputs of dim(batch_size, #channels, #fbanks, #frames(1024))
-        speech = np.float32(np.reshape(speech,(speech_shape[0],1,speech_shape[1],speech_shape[2])))
+        speech = np.float64(np.reshape(speech,(speech_shape[0],1,speech_shape[1],speech_shape[2])))
         images_shape = np.shape(images)
         # images should be shape (batch_size, 1024). images_shape[1] is collapsed as the original features are of shape (1,1024) 
-        images = np.float32(np.reshape(images,(images_shape[0],images_shape[2])))
+        images = np.float64(np.reshape(images,(images_shape[0],images_shape[2])))
         yield images, speech    
 
 # minibatch iterator which assumes inputs of uniform size
@@ -65,8 +65,8 @@ def iterate_minibatches(f_nodes, batchsize, shuffle=True):
         # reshape the features into appropriate shape and recast as float32
         speech_shape = np.shape(speech)
         # for the speech features the network expects inputs of dim(batch_size, #channels, #fbanks, #frames(1024))
-        speech = np.float32(np.reshape(speech,(speech_shape[0],1,speech_shape[1],speech_shape[2])))
+        speech = np.float64(np.reshape(speech,(speech_shape[0],1,speech_shape[1],speech_shape[2])))
         images_shape = np.shape(images)
         # images should be shape (batch_size, 1024). images_shape[1] is collapsed as the original features are of shape (1,1024) 
-        images = np.float32(np.reshape(images,(images_shape[0],images_shape[2])))
+        images = np.float64(np.reshape(images,(images_shape[0],images_shape[2])))
         yield images, speech   

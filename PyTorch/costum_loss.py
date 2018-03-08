@@ -70,8 +70,8 @@ def l2norm_hinge_loss(embeddings_1, embeddings_2):
     
     # calculate the similarity score and normalise one or both embeddings
     sim = torch.mm(embeddings_1, embeddings_2.t()/denom2)
-    #sim = torch.mm((embeddings_1.t()/denom1).t(), embeddings_2.t())
-    #sim = torch.mm((embeddings_1.t()/denom1).t(), embeddings_2.t()/denom2)
+    #sim = torch.mm((embeddings_1.t()/denom1.t(), embeddings_2.t())
+    #sim = torch.mm((embeddings_1.t()/denom1.t(), embeddings_2.t()/denom2)
     
     # get the similarity of the correct image-caption pairs (the diagonal of the similarity matrix)
     matched = sim.diag()

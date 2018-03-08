@@ -20,9 +20,9 @@ import os
 
 import glob
 
-meta_data_loc = '/data/places_corpus/placesaudio_distro_part_1/metadata/'
+meta_data_loc = '/data/places/audio/placesaudio_distro_part_1/metadata/'
 
-img_path = os.path.join('/data/places_corpus/places_images')
+img_path = os.path.join('/prep_data/data/images')
 
 file = open(os.path.join(meta_data_loc, 'utt2image'))
 
@@ -30,8 +30,8 @@ imgs =file.readlines()
 
 imgs= [os.path.join(img_path, x.split()[1][1:]) for x in imgs]
 
-x = glob.glob(img_path + '/*/*/*/*.jpg')
-y = glob.glob(img_path + '/*/*/*.jpg')
+x = glob.glob(img_path + '/*/*/*.jpg')
+y = glob.glob(img_path + '/*/*/*/*.jpg')
 places_data = x + y 
 
 # check if all files in the metadata are actually in the places database
