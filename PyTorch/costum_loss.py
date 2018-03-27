@@ -100,10 +100,10 @@ def batch_hinge_loss(embeddings_1, embeddings_2, norm):
         embeddings_1 = (embeddings_1.t()/denom1).t()
     if norm[1]:
         denom2 = torch.sqrt(torch.sum(torch.pow(embeddings_2, 2), dim = 1))
-        embeddings_2 = embeddings_2.t()/denom2
+        embeddings_2 = (embeddings_2.t()/denom2).t()
         
     # calculate the similarity score
-    sim = torch.mm(embeddings_1, embeddings_2)
+    sim = torch.mm(embeddings_1, embeddings_2.t())
 
     # get the similarity of the correct image-caption pairs (the diagonal of the similarity matrix)
     matched = sim.diag()

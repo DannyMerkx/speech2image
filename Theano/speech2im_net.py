@@ -69,11 +69,11 @@ n_nodes= len(f_nodes)
 # shuffle before dividing into train test and validation sets
 np.random.shuffle(f_nodes)
 
-args.data_split = [np.floor(x * n_nodes) for x in args.data_split]
+args.data_split = [int(np.floor(x * n_nodes)) for x in args.data_split]
 
 train = f_nodes[0 : args.data_split[0]]
-val = f_nodes[args.data_split[0] : args.data_split[1]]
-test = f_nodes[args.data_split[1] : args.data_split[2]]
+val = f_nodes[args.data_split[0] : args.data_split[1] + args.data_split[0]]
+test = f_nodes[args.data_split[1] + args.data_split[0]: args.data_split[2] + args.data_split[1] + args.data_split[0]]
 
 # the network for embedding the vgg16 features
 def build_img_net(input_var=None):
@@ -172,7 +172,7 @@ def main(num_epochs = 50):
 
     # Finally, launch the training loop.
     print("Starting training...")
-    epoch=1
+    epoch=0
     while epoch < args.n_epochs:
         # learning rate scheme
         lr_shared.set_value(args.lr * (0.5 ** (epoch // 5)))

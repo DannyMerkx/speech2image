@@ -20,6 +20,7 @@ from torch.autograd import Variable
 from minibatchers import iterate_minibatches, iterate_minibatches_resize
 from costum_loss import batch_hinge_loss
 from evaluate import speech2image
+from encoders.py import img_encoder, Harwath_audio_encoder, RHN_audio_encoder
 
 ## implementation of an CNN for af recognition. made for use with mel filterbank features
 parser = argparse.ArgumentParser(description='Create and run an articulatory feature classification DNN')
@@ -79,53 +80,17 @@ n_nodes= len(f_nodes)
 np.random.shuffle(f_nodes)
 
 
-args.data_split = [np.floor(x * n_nodes) for x in args.data_split]
+args.data_split = [int(np.floor(x * n_nodes)) for x in args.data_split]
 
 train = f_nodes[0 : args.data_split[0]]
 val = f_nodes[args.data_split[0] : args.data_split[1]]
 test = f_nodes[args.data_split[1] : args.data_split[2]]
 
-
-# the network for embedding the vgg16 features
-class build_img_net(nn.Module):
-    def __init__(self):
-        super(build_img_net, self).__init__()
-        self.linear_transform = nn.Linear(4096,1024)
-    
-    def forward(self, input):
-        x = self.linear_transform(input)
-        return x
-
-class build_audio_net(nn.Module):
-    def __init__(self):
-        super(build_audio_net, self).__init__()
-        self.Conv2d_1 = nn.Conv2d(in_channels = 1, out_channels = 64, kernel_size = (40,5), 
-                                 stride = (1,1), padding = 0, groups = 1)
-        self.Pool1 = nn.MaxPool1d(kernel_size = 4, stride = 2, padding = 0, dilation = 1, 
-                                  return_indices = False, ceil_mode = False)
-        self.Conv1d_1 = nn.Conv1d(in_channels = 64, out_channels = 512, kernel_size = 25,
-                                  stride = 1, padding = 0, groups = 1)
-        self.Conv1d_2 = nn.Conv1d(in_channels = 512, out_channels = 1024, kernel_size = 25,
-                                  stride = 1, padding = 0, groups = 1)
-        #self.Pool2 = nn.MaxPool1d(kernel_size = 217, stride = 1, padding = 0 , dilation = 1, return_indices = False, ceil_mode = False)
-        self.Pool2 = nn.AdaptiveMaxPool1d(output_size = 1, return_indices=False)
-        
-    def forward(self, input):
-        x = self.Conv2d_1(input)
-        x = x.view(x.size(0), x.size(1),x.size(3))
-        x = self.Pool1(x)
-        x = self.Conv1d_1(x)
-        x = self.Pool1(x)
-        x = self.Conv1d_2(x)
-        x = self.Pool2(x)
-        x = torch.squeeze(x)
-        return x.view(x.size(0), x.size(1))
-
 #####################################################
 
 # network modules
-img_net = build_img_net()
-audio_net = build_audio_net()
+img_net = img_encoder()
+audio_net = RHN_audio_encoder()
 # move graph to gpu if cuda is availlable
 if cuda:
     img_net.cuda()
@@ -205,7 +170,7 @@ while epoch <= args.n_epochs:
     iterator = batcher(val, args.batch_size, shuffle = False)
     # calc recal, pass it the iterator, the embedding functions and n
     # returns the measures columnise (speech2image retrieval) and rowwise(image2speech retrieval)
-    recall, avg_rank = speech2image(iterator, audio_net, img_net, [1, 5, 10],dtype)
+    recall, avg_rank = speech2image(iterator, audio_net, img_net, [1, 5, 10], dtype)
 
     # print some info about this epoch
     print("Epoch {} of {} took {:.3f}s".format(
@@ -224,7 +189,7 @@ test_loss = test_epoch(img_net, audio_net, test, args.batch_size)
 iterator = batcher(test, args.batch_size, shuffle = False)
 # calc recal, pass it the iterator, the embedding functions and n
 # returns the measures columnise (speech2image retrieval) and rowwise(image2speech retrieval)
-recall, avg_rank = speech2image(iterator, audio_net, img_net, [1, 5, 10],dtype)
+recall, avg_rank = speech2image(iterator, audio_net, img_net, [1, 5, 10], dtype)
 
 print("test loss:\t\t{:.6f}".format(test_loss.cpu()))
 print('test recall@1 = ' + str(recall[0]*100) + '%')
