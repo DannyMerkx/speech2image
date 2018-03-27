@@ -52,9 +52,9 @@ class RHN(nn.Module):
             #hx = hx.squeeze()
             # apply the microsteps to the hidden state of the GRU
             for step in range(self.n_steps):            
-                hx = self.perform_microstep(x ,step)
+                x = self.perform_microstep(x ,step)
             # append the hidden state of time step n to the output. 
-            output.append(hx)
+            output.append(x)
         return torch.cat(output)
 
 # attention layer for the RHN audio encoder

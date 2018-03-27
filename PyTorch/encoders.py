@@ -67,11 +67,10 @@ class RHN_audio_encoder(nn.Module):
         x = self.RHN_2(x)
         x = self.RHN_3(x)
         x = self.RHN_4(x)
-        print(x.data)
         x = self.att(x)
         return x
 
-rhn = RHN_audio_encoder()
-input = torch.autograd.Variable(torch.rand(3, 1, 40, 1024))
-hx = torch.autograd.Variable(torch.rand(1, 3, 1024))
-output = rhn(input)
+#rhn = RHN_audio_encoder()
+#input = torch.autograd.Variable(torch.rand(3, 1, 40, 1024))
+#hx = torch.autograd.Variable(torch.rand(1, 3, 1024))
+#output = rhn(input)
