@@ -34,7 +34,9 @@ class Harwath_audio_encoder(nn.Module):
                                   stride = 1, padding = 0, groups = 1)
         #self.Pool2 = nn.MaxPool1d(kernel_size = 217, stride = 1, padding = 0 , dilation = 1, return_indices = False, ceil_mode = False)
         self.Pool2 = nn.AdaptiveMaxPool1d(output_size = 1, return_indices=False)
-        
+        self.norm1 = nn.BatchNorm1d(64)
+        self.norm2 = nn.BatchNorm1d(512)
+        self.norm3 = nn.BatchNorm1d(1024)
     def forward(self, input):
         x = self.Conv2d_1(input)
         x = x.view(x.size(0), x.size(1),x.size(3))
