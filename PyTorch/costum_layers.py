@@ -68,9 +68,5 @@ class attention(nn.Module):
         x = torch.exp(self.out(nn.functional.tanh(self.hidden(input))))
         x = torch.sum(torch.div(x, torch.sum(x,0)) * x, 0)
         return x
-        
-
-        
-        
-        
+           
         

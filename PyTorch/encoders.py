@@ -70,7 +70,28 @@ class RHN_audio_encoder(nn.Module):
         x = self.att(x)
         return x
 
-#rhn = RHN_audio_encoder()
-#input = torch.autograd.Variable(torch.rand(3, 1, 40, 1024))
-#hx = torch.autograd.Variable(torch.rand(1, 3, 1024))
-#output = rhn(input)
+# Recurrent highway network audio encoder.
+class GRU_audio_encoder(nn.Module):
+    def __init__(self):
+        super(GRU_audio_encoder, self).__init__()
+        self.Conv2d = nn.Conv2d(in_channels = 1, out_channels = 64, kernel_size = (40,6), 
+                                 stride = (1,2), padding = 0, groups = 1)
+        self.GRU = nn.GRU(64, 1024)
+        self.GRU_2 = nn.GRU(1024, 1024)
+        self.GRU_3 = nn.GRU(1024, 1024)
+        self.GRU_4 = nn.GRU(1024, 1024)
+        self.att = attention(1024, 128, 1024)
+        
+    def forward(self, input):
+        x = self.Conv2d(input)
+        x = x.squeeze().permute(2,0,1).contiguous()
+        x, hx = self.GRU(x)
+        x, hx = self.GRU_2(x)
+        x, hx = self.GRU_3(x)
+        x, hx = self.GRU_4(x)
+        x= self.att(x)
+        return x
+
+gru = RHN_audio_encoder()
+input = torch.autograd.Variable(torch.rand(6, 1, 40, 1024))
+output = gru(input)
