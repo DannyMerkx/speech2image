@@ -25,7 +25,7 @@ class RHN(nn.Module):
         self.GRU = nn.GRU(in_size, hidden_size)
         # create 3 linear layers serving as the hidden, transform and carry gate,
         # one each for each microstep. 
-        self.H, self.T, self.C = [], [], []
+        self.H, self.T, self.C = nn.ModuleList(), nn.ModuleList(), nn.ModuleList()
         layer_list = [self.H, self.T, self.C]
         for steps in range(self.n_steps):
             for layers, lists in zip(self.init_microstep(hidden_size), layer_list):
@@ -45,16 +45,14 @@ class RHN(nn.Module):
     def forward(self, input):
         # list to append the output of each time step to
         output = []
-        print(input)
         # loop through all time steps
         for x in input:
-            # apply the GRU 
-            print(x)
+            # apply the GRU
             x , hx = self.GRU(x.view(-1, x.size(0), x.size(1)))
             #hx = hx.squeeze()
             # apply the microsteps to the hidden state of the GRU
             for step in range(self.n_steps):            
-                x = self.perform_microstep(x ,step)
+                x = self.perform_microstep(x, step)
             # append the hidden state of time step n to the output. 
             output.append(x)
         return torch.cat(output)
