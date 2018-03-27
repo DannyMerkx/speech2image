@@ -45,9 +45,11 @@ class RHN(nn.Module):
     def forward(self, input):
         # list to append the output of each time step to
         output = []
+        print(input)
         # loop through all time steps
         for x in input:
             # apply the GRU 
+            print(x)
             x , hx = self.GRU(x.view(-1, x.size(0), x.size(1)))
             #hx = hx.squeeze()
             # apply the microsteps to the hidden state of the GRU
