@@ -60,17 +60,18 @@ class RHN_audio_encoder(nn.Module):
         self.RHN_4 = RHN(1024, 1024, 2)
         self.att = attention(1024, 128, 1024)
         
-    def forward(self, input, hx):
+    def forward(self, input):
         x = self.Conv2d(input)
         x = x.squeeze().permute(2,0,1).contiguous()
-        x = self.RHN(x, hx)
-        x = self.RHN_2(x, hx)
-        x = self.RHN_3(x, hx)
-        x = self.RHN_4(x, hx)
+        x = self.RHN(x)
+        x = self.RHN_2(x)
+        x = self.RHN_3(x)
+        x = self.RHN_4(x)
+        print(x.data)
         x = self.att(x)
         return x
 
-#rhn = RHN_audio_encoder()
-#input = torch.autograd.Variable(torch.rand(3, 1, 40, 1024))
-#hx = torch.autograd.Variable(torch.rand(1, 3, 1024))
-#output = rhn(input, hx)
+rhn = RHN_audio_encoder()
+input = torch.autograd.Variable(torch.rand(3, 1, 40, 1024))
+hx = torch.autograd.Variable(torch.rand(1, 3, 1024))
+output = rhn(input)

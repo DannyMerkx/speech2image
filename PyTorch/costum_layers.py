@@ -42,13 +42,13 @@ class RHN(nn.Module):
         output = nn.functional.tanh(self.H[step](input)) * nn.functional.sigmoid(self.T[step](input)) + input * (1 - nn.functional.sigmoid(self.C[step](input)))
         return(output)
         
-    def forward(self, input, hx):
+    def forward(self, input):
         # list to append the output of each time step to
         output = []
         # loop through all time steps
         for x in input:
             # apply the GRU 
-            x , hx = self.GRU(x.view(-1, x.size(0), x.size(1)), hx)
+            x , hx = self.GRU(x.view(-1, x.size(0), x.size(1)))
             #hx = hx.squeeze()
             # apply the microsteps to the hidden state of the GRU
             for step in range(self.n_steps):            
@@ -66,7 +66,7 @@ class attention(nn.Module):
         
     def forward(self, input):
         x = torch.exp(self.out(nn.functional.tanh(self.hidden(input))))
-        x = torch.sum(torch.div(x, torch.sum(x,0)) * x,0)
+        x = torch.sum(torch.div(x, torch.sum(x,0)) * x, 0)
         return x
         
 

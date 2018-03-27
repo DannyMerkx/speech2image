@@ -20,7 +20,7 @@ from torch.autograd import Variable
 from minibatchers import iterate_minibatches, iterate_minibatches_resize
 from costum_loss import batch_hinge_loss
 from evaluate import speech2image
-from encoders.py import img_encoder, Harwath_audio_encoder, RHN_audio_encoder
+from encoders import img_encoder, Harwath_audio_encoder, RHN_audio_encoder
 
 ## implementation of an CNN for af recognition. made for use with mel filterbank features
 parser = argparse.ArgumentParser(description='Create and run an articulatory feature classification DNN')
@@ -33,7 +33,7 @@ parser.add_argument('-lr', type = float, default = 0.00005, help = 'learning rat
 parser.add_argument('-n_epochs', type = int, default = 50, help = 'number of training epochs, default: 5')
 parser.add_argument('-loss', type = list, default = [True, False], help = 'determines which embeddings are normalised by the loss function')
 parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, default: True')
-parser.add_argument('-data_base', type = str, default = 'places', help = 'database to train on, options: places, flickr')
+parser.add_argument('-data_base', type = str, default = 'flickr', help = 'database to train on, options: places, flickr')
 parser.add_argument('-data_split', type = list, default = [.9, .05, .05], help = 'split of the dataset into train, val and test respectively. Make sure it adds up to 1')
 
 args = parser.parse_args()
