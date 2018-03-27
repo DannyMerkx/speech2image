@@ -92,6 +92,6 @@ class GRU_audio_encoder(nn.Module):
         x= self.att(x)
         return x
 
-gru = RHN_audio_encoder()
+gru = GRU_audio_encoder()
 input = torch.autograd.Variable(torch.rand(6, 1, 40, 1024))
 output = gru(input)

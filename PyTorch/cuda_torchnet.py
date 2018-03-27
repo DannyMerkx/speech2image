@@ -20,7 +20,7 @@ from torch.autograd import Variable
 from minibatchers import iterate_minibatches, iterate_minibatches_resize
 from costum_loss import batch_hinge_loss
 from evaluate import speech2image
-from encoders import img_encoder, Harwath_audio_encoder, RHN_audio_encoder
+from encoders import img_encoder, Harwath_audio_encoder, RHN_audio_encoder, GRU_audio_encoder
 
 ## implementation of an CNN for af recognition. made for use with mel filterbank features
 parser = argparse.ArgumentParser(description='Create and run an articulatory feature classification DNN')
@@ -83,8 +83,8 @@ np.random.shuffle(f_nodes)
 args.data_split = [int(np.floor(x * n_nodes)) for x in args.data_split]
 
 train = f_nodes[0 : args.data_split[0]]
-val = f_nodes[args.data_split[0] : args.data_split[1]]
-test = f_nodes[args.data_split[1] : args.data_split[2]]
+val = f_nodes[args.data_split[0] : args.data_split[0] + args.data_split[1]]
+test = f_nodes[args.data_split[0] + args.data_split[1] : args.data_split[0] + args.data_split[1] + args.data_split[2]]
 
 #####################################################
 

@@ -16,12 +16,12 @@ from torch.autograd import Variable
 # N.B. make sure the order in which you pass the embedding functions is the 
 # order in which the iterator yields the appropriate features!
 
-def image2speech(iterator, image_embed_function, speech_embed_function, n, mode ='full'):
-    im_embeddings, speech_embeddings = embed_data(iterator, image_embed_function, speech_embed_function)
+def image2speech(iterator, image_embed_function, speech_embed_function, n, dtype, mode ='full'):
+    im_embeddings, speech_embeddings = embed_data(iterator, image_embed_function, speech_embed_function, dtype)
     return recall_at_n(im_embeddings, speech_embeddings, n, mode)
 
-def speech2image(iterator, image_embed_function, speech_embed_function, n, mode = 'full'):
-    im_embeddings, speech_embeddings = embed_data(iterator, image_embed_function, speech_embed_function)
+def speech2image(iterator, image_embed_function, speech_embed_function, n, dtype, mode = 'full'):
+    im_embeddings, speech_embeddings = embed_data(iterator, image_embed_function, speech_embed_function, dtype)
     return recall_at_n(speech_embeddings, im_embeddings, n, mode)  
 
 # embeds the validation or test data using the trained neural network. Takes
