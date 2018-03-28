@@ -175,8 +175,8 @@ while epoch <= args.n_epochs:
     # print some info about this epoch
     print("Epoch {} of {} took {:.3f}s".format(
             epoch, args.n_epochs, time.time() - start_time))
-    print("training loss:\t\t{:.6f}".format(train_loss.cpu().numpy()))
-    print("validation loss:\t\t{:.6f}".format(val_loss.cpu()))
+    print("training loss:\t\t{:.6f}".format(train_loss.cpu()[0]))
+    print("validation loss:\t\t{:.6f}".format(val_loss.cpu()[0]))
     epoch += 1
     print('recall@1 = ' + str(recall[0]*100) + '%')
     print('recall@5 = ' + str(recall[1]*100) + '%')
@@ -191,7 +191,7 @@ iterator = batcher(test, args.batch_size, shuffle = False)
 # returns the measures columnise (speech2image retrieval) and rowwise(image2speech retrieval)
 recall, avg_rank = speech2image(iterator, audio_net, img_net, [1, 5, 10], dtype)
 
-print("test loss:\t\t{:.6f}".format(test_loss.cpu()))
+print("test loss:\t\t{:.6f}".format(test_loss.cpu()[0]))
 print('test recall@1 = ' + str(recall[0]*100) + '%')
 print('test recall@5 = ' + str(recall[1]*100) + '%')
 print('test recall@10 = ' + str(recall[2]*100) + '%')
