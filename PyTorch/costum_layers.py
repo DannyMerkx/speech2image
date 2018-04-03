@@ -59,19 +59,20 @@ class RHN(nn.Module):
 
 # implementation of recurrent highway networks using existing PyTorch layers (GRU and linear)
 class RHN_2(nn.Module):
-    def __init__(self, in_size, hidden_size, n_steps):
+    def __init__(self, in_size, hidden_size, n_steps, batch_size):
         super(RHN_2, self).__init__()
         self.n_steps = n_steps
-        self.initial_state = torch.autograd.Variable(torch.rand(1, 2, hidden_size))
+        self.initial_state = torch.autograd.Variable(torch.rand(1, batch_size, hidden_size))
         # create 3 linear layers serving as the hidden, transform and carry gate,
         # one each for each microstep. 
         self.H, self.T, self.C = nn.ModuleList(), nn.ModuleList(), nn.ModuleList()
+        # linear layers for the input in the first microstep
         self.init_h = (nn.Linear(in_size, hidden_size))
         self.init_t = (nn.Linear(in_size, hidden_size))
         self.init_c = (nn.Linear(in_size, hidden_size))
         self.tan = nn.Tanh()
         self.sig = nn.Sigmoid()
-        
+        # linear layers for the history in the microsteps
         layer_list = [self.H, self.T, self.C]
         for steps in range(self.n_steps):
             for layers, lists in zip(self.create_microstep(hidden_size), layer_list):
@@ -83,18 +84,15 @@ class RHN_2(nn.Module):
         T = nn.Linear(n_nodes,n_nodes)
         C = nn.Linear(n_nodes,n_nodes)
         return(H,T,C)
-    
-    def calc_h(self, x, hx, step):
-        return self.tan(((step+1)//1 * self.init_h(x)) + self.H[step](hx))
-    
-    def calc_t(self, x, hx, step):
-        return self.sig(((step+1)//1 * self.init_t(x)) + self.T[step](hx))
-    
-    def calc_c(self, x, hx, step):
-        return self.sig(((step+1)//1 * self.init_c(x)) + self.C[step](hx))
-    
+    # the input is only used in the first microstep. For the first step the history is a random initial state.
+    def calc_htc(self, x, hx, step, non_linearity):
+        if step == 0:
+            return non_linearity(((step+1)//1 * self.init_h(x)) + self.H[step](hx))
+        else:
+            return non_linearity(self.H[step](hx))
+                                 
     def perform_microstep(self, x, hx, step):
-        output = self.calc_h(x, hx, step) * self.calc_t(x, hx, step) + hx * (1 - self.calc_c(x, hx, step))
+        output = self.calc_htc(x, hx, step, self.tan) * self.calc_htc(x, hx, step, self.sig) + hx * (1 - self.calc_htc(x, hx, step,self.sig))
         return(output)
         
     def forward(self, input):

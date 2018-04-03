@@ -52,14 +52,14 @@ class Harwath_audio_encoder(nn.Module):
 
 # Recurrent highway network audio encoder.
 class RHN_audio_encoder(nn.Module):
-    def __init__(self):
+    def __init__(self, batch_size):
         super(RHN_audio_encoder, self).__init__()
         self.Conv2d = nn.Conv2d(in_channels = 1, out_channels = 64, kernel_size = (40,6), 
                                  stride = (1,2), padding = 0, groups = 1)
-        self.RHN = RHN_2(64, 1024, 2)
-        self.RHN_2 = RHN_2(1024, 1024, 2)
-        self.RHN_3 = RHN_2(1024, 1024, 2)
-        self.RHN_4 = RHN_2(1024, 1024, 2)
+        self.RHN = RHN_2(64, 1024, 2, batch_size)
+        self.RHN_2 = RHN_2(1024, 1024, 2, batch_size)
+        self.RHN_3 = RHN_2(1024, 1024, 2, batch_size)
+        self.RHN_4 = RHN_2(1024, 1024, 2, batch_size)
         self.att = attention(1024, 128, 1024)
         
     def forward(self, input):
@@ -74,30 +74,30 @@ class RHN_audio_encoder(nn.Module):
 
 # Recurrent highway network audio encoder.
 class GRU_audio_encoder(nn.Module):
-    def __init__(self):
+    def __init__(self, batch_size):
         super(GRU_audio_encoder, self).__init__()
         self.Conv2d = nn.Conv2d(in_channels = 1, out_channels = 64, kernel_size = (40,6), 
                                  stride = (1,2), padding = 0, groups = 1)
-        self.GRU = nn.GRU(64, 1024)
-        self.GRU_2 = nn.GRU(1024, 1024)
-        self.GRU_3 = nn.GRU(1024, 1024)
-        self.GRU_4 = nn.GRU(1024, 1024)
+        self.GRU = nn.GRU(64, 1024, num_layers = 4)
         self.att = attention(1024, 128, 1024)
-        
+        self.norm = nn.BatchNorm2d(1)
+        self.norm2 = nn.BatchNorm2d(64)
+        self.norm3 = nn.BatchNorm2d(510)
+        self.batch_size = batch_size
     def forward(self, input):
-        x = self.Conv2d(input)
+        x = self.norm(input)
+        x = self.Conv2d(x)
+        x = self.norm2(x)
         x = x.squeeze().permute(2,0,1).contiguous()
         x, hx = self.GRU(x)
-        x, hx = self.GRU_2(x)
-        x, hx = self.GRU_3(x)
-        x, hx = self.GRU_4(x)
-        x= self.att(x)
+        x = self.norm3(x.view(self.batch_size, 510, 1024))
+        x= self.att(x.view(510, self.batch_size, 1024))
         return x
 
-#start_time = time.time()
-#gru = RHN_audio_encoder()
-#input = torch.autograd.Variable(torch.rand(2, 1, 40, 1024))
-#output = gru(input)
-#
-#time = time.time() - start_time
-#print(time)
+start_time = time.time()
+gru = GRU_audio_encoder(8)
+input = torch.autograd.Variable(torch.rand(8, 1, 40, 1024))
+output = gru(input)
+
+time = time.time() - start_time
+print(time)
