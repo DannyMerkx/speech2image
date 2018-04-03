@@ -56,10 +56,10 @@ class RHN_audio_encoder(nn.Module):
         super(RHN_audio_encoder, self).__init__()
         self.Conv2d = nn.Conv2d(in_channels = 1, out_channels = 64, kernel_size = (40,6), 
                                  stride = (1,2), padding = 0, groups = 1)
-        self.RHN = RHN_2(64, 1024, 2, batch_size)
-        self.RHN_2 = RHN_2(1024, 1024, 2, batch_size)
-        self.RHN_3 = RHN_2(1024, 1024, 2, batch_size)
-        self.RHN_4 = RHN_2(1024, 1024, 2, batch_size)
+        self.RHN = RHN(64, 1024, 2, batch_size)
+        self.RHN_2 = RHN(1024, 1024, 2, batch_size)
+        self.RHN_3 = RHN(1024, 1024, 2, batch_size)
+        self.RHN_4 = RHN(1024, 1024, 2, batch_size)
         self.att = attention(1024, 128, 1024)
         
     def forward(self, input):
