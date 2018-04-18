@@ -71,10 +71,7 @@ class RCNN_audio_encoder(nn.Module):
         x = self.Conv1d_2(x)
         x = x.permute(0,2,1)
         x, hx = self.GRU(x)
-        #x = self.Pool2(x)
         x = self.att(x)
-        print(x.size())
-        x = torch.squeeze(x)
         return x
 
 # Recurrent highway network audio encoder.
@@ -118,9 +115,9 @@ class GRU_audio_encoder(nn.Module):
 
 
 #start_time = time.time()
-gru = RCNN_audio_encoder()
-input = torch.autograd.Variable(torch.rand(8, 40, 1024))
-output = gru(input)
+#gru = RCNN_audio_encoder()
+#input = torch.autograd.Variable(torch.rand(8, 40, 1024))
+#output = gru(input)
 
 #time = time.time() - start_time
 #print(time)
