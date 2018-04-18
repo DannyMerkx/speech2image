@@ -6,7 +6,7 @@ Created on Mon Mar 26 17:54:07 2018
 @author: danny
 """
 
-from costum_layers import RHN, attention, RHN_2
+from costum_layers import RHN, attention
 import torch
 import torch.nn as nn
 
@@ -36,9 +36,6 @@ class Harwath_audio_encoder(nn.Module):
                                   stride = 1, padding = 0, groups = 1)
         #self.Pool2 = nn.MaxPool1d(kernel_size = 217, stride = 1, padding = 0 , dilation = 1, return_indices = False, ceil_mode = False)
         self.Pool2 = nn.AdaptiveMaxPool1d(output_size = 1, return_indices=False)
-        self.norm1 = nn.BatchNorm1d(64)
-        self.norm2 = nn.BatchNorm1d(512)
-        self.norm3 = nn.BatchNorm1d(1024)
     def forward(self, input):
         x = self.Conv2d_1(input)
         x = x.view(x.size(0), x.size(1),x.size(3))
@@ -48,7 +45,37 @@ class Harwath_audio_encoder(nn.Module):
         x = self.Conv1d_2(x)
         x = self.Pool2(x)
         x = torch.squeeze(x)
-        return x.view(x.size(0), x.size(1))
+        return x
+
+class RCNN_audio_encoder(nn.Module):
+    def __init__(self):
+        super(RCNN_audio_encoder, self).__init__()
+        self.Conv2d_1 = nn.Conv1d(in_channels = 40, out_channels = 64, kernel_size = 5, 
+                                 stride = 2, padding = 0, groups = 1, bias = False)
+        self.Pool1 = nn.MaxPool1d(kernel_size = 4, stride = 2, padding = 0, dilation = 1, 
+                                  return_indices = False, ceil_mode = False)
+        self.Conv1d_1 = nn.Conv1d(in_channels = 64, out_channels = 512, kernel_size = 25,
+                                  stride = 1, padding = 0, groups = 1)
+        self.Conv1d_2 = nn.Conv1d(in_channels = 512, out_channels = 1024, kernel_size = 25,
+                                  stride = 1, padding = 0, groups = 1)
+        #self.Pool2 = nn.MaxPool1d(kernel_size = 217, stride = 1, padding = 0 , dilation = 1, return_indices = False, ceil_mode = False)
+        self.Pool2 = nn.AdaptiveMaxPool1d(output_size = 1, return_indices=False)
+
+        self.GRU = nn.GRU(1024, 1024, num_layers = 1, batch_first = True)
+        self.att = attention(1024, 128)
+    def forward(self, input):
+        x = self.Conv2d_1(input)
+        x = self.Pool1(x)
+        x = self.Conv1d_1(x)
+        x = self.Pool1(x)
+        x = self.Conv1d_2(x)
+        x = x.permute(0,2,1)
+        x, hx = self.GRU(x)
+        #x = self.Pool2(x)
+        x = self.att(x)
+        print(x.size())
+        x = torch.squeeze(x)
+        return x
 
 # Recurrent highway network audio encoder.
 class RHN_audio_encoder(nn.Module):
@@ -74,30 +101,26 @@ class RHN_audio_encoder(nn.Module):
 
 # Recurrent highway network audio encoder.
 class GRU_audio_encoder(nn.Module):
-    def __init__(self, batch_size):
+    def __init__(self):
         super(GRU_audio_encoder, self).__init__()
-        self.Conv2d = nn.Conv2d(in_channels = 1, out_channels = 64, kernel_size = (40,6), 
-                                 stride = (1,2), padding = 0, groups = 1)
-        self.GRU = nn.GRU(64, 1024, num_layers = 4)
-        self.att = attention(1024, 128, 1024)
-        self.norm = nn.BatchNorm2d(1)
-        self.norm2 = nn.BatchNorm2d(64)
-        self.norm3 = nn.BatchNorm2d(510)
-        self.batch_size = batch_size
+        self.Conv1d = nn.Conv1d(in_channels = 40, out_channels = 64, kernel_size = 6,
+                                 stride = 2, padding = 0, groups = 1, bias = False)
+        nn.init.xavier_uniform(self.Conv1d.weight.data)
+        self.GRU = nn.GRU(64, 1024, num_layers = 2, batch_first =  True)
+        self.att = attention(1024, 128)
     def forward(self, input):
-        x = self.norm(input)
-        x = self.Conv2d(x)
-        x = self.norm2(x)
-        x = x.squeeze().permute(2,0,1).contiguous()
-        x, hx = self.GRU(x)
-        x = self.norm3(x.view(self.batch_size, 510, 1024))
-        x= self.att(x.view(510, self.batch_size, 1024))
+        x = self.Conv1d(input)
+        x = x.permute(0, 2, 1)
+        x, hx = self.GRU(x)        
+        x = nn.functional.normalize(self.att(x), p=2, dim=1)
+        print(x.size())
         return x
 
-start_time = time.time()
-gru = GRU_audio_encoder(8)
-input = torch.autograd.Variable(torch.rand(8, 1, 40, 1024))
+
+#start_time = time.time()
+gru = RCNN_audio_encoder()
+input = torch.autograd.Variable(torch.rand(8, 40, 1024))
 output = gru(input)
 
-time = time.time() - start_time
-print(time)
+#time = time.time() - start_time
+#print(time)

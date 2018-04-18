@@ -13,79 +13,6 @@ L2norm is somewhat in between cosine and dot product. It normalises the magnitud
 
 
 import torch
-import torch.nn as nn
-
-# batch hinge loss function using dot product similarity measure
-def dot_hinge_loss(embeddings_1, embeddings_2):
-    print('outdated function, use batch_hinge_loss in the future')
-    # batch size
-    batch_size = embeddings_1.size(0)
-    # calculate the dot product
-    dot_prod = torch.mm(embeddings_1, embeddings_2.t())
-    
-    # get the similarity of the correct image-caption pairs (the diagonal of the similarity matrix)
-    matched = dot_prod.diag()
-    # get the average mismatch of the image with incorrect captions
-    # sum the matrix along the corresponding axis, correct for including the correct pair, divide by batch size -1
-    # (also to correct for including the correct pair)
-    mismatch_1 = (dot_prod.sum(dim = 0) - matched) / (batch_size - 1)
-    # get the average mismatch of the captions with incorrect images
-    mismatch_2 = (dot_prod.sum(dim = 1) - matched) / (batch_size - 1)
-
-    return torch.sum(nn.functional.relu(mismatch_1 - matched + 1) + nn.functional.relu(mismatch_2 - matched + 1))
-
-# hinge loss using cosine similarity
-def cosine_hinge_loss(embeddings_1, embeddings_2):
-    print('outdated function, use batch_hinge_loss in the future')
-    # batch size
-    batch_size = embeddings_1.size(0)
-    # calculate the numerator
-    numerator = torch.mm(embeddings_1, embeddings_2.t())
-    # calculate the denominator
-    denom1 = torch.sum(torch.pow(embeddings_1, 2), dim = 1)
-    denom2 = torch.sum(torch.pow(embeddings_2, 2), dim = 1)
-    
-    denominator = torch.sqrt(torch.mm(denom1.expand(1,denom1.size(0)).t(), denom2.expand(1,denom2.size(0))))
-    # similarity matrix
-    sim = numerator/denominator
-     # get the similarity of the correct image-caption pairs (the diagonal of the similarity matrix)
-    matched = sim.diag()
-    # get the average mismatch of the image with incorrect captions
-    # sum the matrix along the corresponding axis, correct for including the correct pair, divide by batch size -1
-    # (also to correct for including the correct pair)
-    mismatch_1 = (sim.sum(dim = 0) - matched) / (batch_size - 1)
-    # get the average mismatch of the captions with incorrect images
-    mismatch_2 = (sim.sum(dim = 1) - matched) / (batch_size - 1)
-
-    return torch.sum(nn.functional.relu(mismatch_1 - matched + 1) + nn.functional.relu(mismatch_2 - matched + 1))
-
-# hinge loss where only one set of embeddings is l2 normalised like in the original
-# harwath and glass paper (l2 normalise of speech embeddings). uncomment the appropriate 
-# line to switch which embeddings to normalise, normalising both results in the cosine hinge loss of course. 
-def l2norm_hinge_loss(embeddings_1, embeddings_2):
-    print('outdated function, use batch_hinge_loss in the future')
-    # batch size
-    batch_size = embeddings_1.size(0)   
-    # calculate the norms of the embeddings
-    
-    #denom1 = torch.sqrt(torch.sum(torch.pow(embeddings_1, 2), dim = 1))
-    denom2 = torch.sqrt(torch.sum(torch.pow(embeddings_2, 2), dim = 1))   
-    
-    # calculate the similarity score and normalise one or both embeddings
-    sim = torch.mm(embeddings_1, embeddings_2.t()/denom2)
-    #sim = torch.mm((embeddings_1.t()/denom1.t(), embeddings_2.t())
-    #sim = torch.mm((embeddings_1.t()/denom1.t(), embeddings_2.t()/denom2)
-    
-    # get the similarity of the correct image-caption pairs (the diagonal of the similarity matrix)
-    matched = sim.diag()
-    # get the average mismatch of the image with incorrect captions
-    # sum the matrix along the corresponding axis, correct for including the correct pair, divide by batch size -1
-    # (also to correct for including the correct pair)
-    mismatch_1 = (sim.sum(dim = 0) - matched) / (batch_size - 1)
-    # get the average mismatch of the captions with incorrect images
-    mismatch_2 = (sim.sum(dim = 1) - matched) / (batch_size - 1)
-
-    return torch.sum(nn.functional.relu(mismatch_1 - matched+1) + nn.functional.relu(mismatch_2 - matched+1))
 
 # hinge loss function to replace all those above, by using a list of bools to indicate which set of embeddings
 # need to be normalised. Setting both to false results in the dot product, setting both to true
@@ -96,22 +23,21 @@ def batch_hinge_loss(embeddings_1, embeddings_2, norm):
     batch_size = embeddings_1.size(0)   
     # calculate the norms of the embeddings and normalise the embeddings
     if norm[0]:
-        denom1 = torch.sqrt(torch.sum(torch.pow(embeddings_1, 2), dim = 1))
-        embeddings_1 = (embeddings_1.t()/denom1).t()
+        embeddings_1 = embeddings_1 / embeddings_1.norm(2, dim = 1, keepdim = True)
     if norm[1]:
-        denom2 = torch.sqrt(torch.sum(torch.pow(embeddings_2, 2), dim = 1))
-        embeddings_2 = (embeddings_2.t()/denom2).t()
-        
+        embeddings_2 = embeddings_2 / embeddings_2.norm(2, dim = 1, keepdim = True)
+    
     # calculate the similarity score
-    sim = torch.mm(embeddings_1, embeddings_2.t())
+    error = - torch.matmul(embeddings_1, embeddings_2.t())
 
     # get the similarity of the correct image-caption pairs (the diagonal of the similarity matrix)
-    matched = sim.diag()
-    # get the average mismatch of the image with incorrect captions
-    # sum the matrix along the corresponding axis, correct for including the correct pair, divide by batch size -1
-    # (also to correct for including the correct pair)
-    mismatch_1 = (sim.sum(dim = 0) - matched) / (batch_size - 1)
-    # get the average mismatch of the captions with incorrect images
-    mismatch_2 = (sim.sum(dim = 1) - matched) / (batch_size - 1)
+    I = torch.autograd.Variable(torch.eye(batch_size), requires_grad = True).cuda()
+    diag = (error * I).sum(dim=0)
 
-    return torch.sum(nn.functional.relu(mismatch_1 - matched+1) + nn.functional.relu(mismatch_2 - matched+1))
+    cost_1 = torch.clamp(1 - error + diag, min = 0)
+    cost_2 = torch.clamp(1 - error + diag.view(-1, 1), min = 0)
+    cost = cost_1 + cost_2
+    I_2 = torch.autograd.Variable(torch.eye(batch_size), requires_grad = True).cuda()
+    cost = (1 - I_2) * cost
+
+    return cost.mean()

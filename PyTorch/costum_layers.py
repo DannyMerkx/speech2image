@@ -17,9 +17,9 @@ import torch.nn as nn
 # implementation of recurrent highway networks using existing PyTorch layers
 class RHN(nn.Module):
     def __init__(self, in_size, hidden_size, n_steps, batch_size):
-        super(RHN_2, self).__init__()
+        super(RHN, self).__init__()
         self.n_steps = n_steps
-        self.initial_state = torch.autograd.Variable(torch.rand(1, batch_size, hidden_size))
+        self.initial_state = torch.autograd.Variable(torch.rand(1, batch_size, hidden_size)).gpu()
         # create 3 linear layers serving as the hidden, transform and carry gate,
         # one each for each microstep. 
         self.H, self.T, self.C = nn.ModuleList(), nn.ModuleList(), nn.ModuleList()
@@ -67,16 +67,16 @@ class RHN(nn.Module):
 
 # attention layer for the RHN audio encoder
 class attention(nn.Module):
-    def __init__(self, in_size, hidden_size, out_size):
+    def __init__(self, in_size, hidden_size):
         super(attention, self).__init__()
         self.hidden = nn.Linear(in_size, hidden_size)
-        self.out = nn.Linear(hidden_size, out_size)
-        self.softmax = nn.Softmax(dim = 0)
+        self.out = nn.Linear(hidden_size, 1)
+        self.softmax = nn.Softmax(dim = 1)
     def forward(self, input):
         # calculate the attention weights
-        att_weights = self.out(nn.functional.tanh(self.hidden(input)))
+        alpha = self.softmax(self.out(nn.functional.tanh(self.hidden(input))))
         # apply the weights to the input and sum over all timesteps
-        x = torch.sum(self.softmax(att_weights) * input, 0)
+        x = torch.sum(alpha.expand_as(input) * input, 1)
         return x
            
         

@@ -1,0 +1,407 @@
+using gpu
+training epoch: 1
+Epoch 1 of 50 took 281.655s
+training loss:		500.675781
+validation loss:		477.228546
+recall@1 = 0.78125%
+recall@5 = 3.90625%
+recall@10 = 6.640625%
+average rank= 108.8046875
+training epoch: 2
+Epoch 2 of 50 took 245.341s
+training loss:		407.183868
+validation loss:		296.288422
+recall@1 = 1.171875%
+recall@5 = 6.25%
+recall@10 = 10.15625%
+average rank= 82.625
+training epoch: 3
+Epoch 3 of 50 took 243.637s
+training loss:		269.273254
+validation loss:		197.340576
+recall@1 = 1.5625%
+recall@5 = 7.03125%
+recall@10 = 11.328125%
+average rank= 75.37109375
+training epoch: 4
+Epoch 4 of 50 took 243.092s
+training loss:		215.416519
+validation loss:		170.036011
+recall@1 = 0.390625%
+recall@5 = 6.25%
+recall@10 = 14.0625%
+average rank= 72.36328125
+training epoch: 5
+Epoch 5 of 50 took 245.125s
+training loss:		152.214813
+validation loss:		166.864349
+recall@1 = 1.171875%
+recall@5 = 8.203125%
+recall@10 = 16.796875%
+average rank= 64.34375
+training epoch: 6
+Epoch 6 of 50 took 242.666s
+training loss:		119.791107
+validation loss:		113.446754
+recall@1 = 1.953125%
+recall@5 = 7.8125%
+recall@10 = 14.453125%
+average rank= 61.90625
+training epoch: 7
+Epoch 7 of 50 took 241.062s
+training loss:		95.566170
+validation loss:		98.171913
+recall@1 = 1.5625%
+recall@5 = 6.640625%
+recall@10 = 16.40625%
+average rank= 60.23046875
+training epoch: 8
+Epoch 8 of 50 took 241.882s
+training loss:		78.613907
+validation loss:		96.663315
+recall@1 = 2.734375%
+recall@5 = 11.328125%
+recall@10 = 22.265625%
+average rank= 57.4140625
+training epoch: 9
+Epoch 9 of 50 took 241.083s
+training loss:		76.224953
+validation loss:		113.454895
+recall@1 = 1.5625%
+recall@5 = 8.203125%
+recall@10 = 14.84375%
+average rank= 60.515625
+training epoch: 10
+Epoch 10 of 50 took 241.222s
+training loss:		55.013176
+validation loss:		87.857628
+recall@1 = 1.953125%
+recall@5 = 9.375%
+recall@10 = 16.015625%
+average rank= 56.18359375
+training epoch: 11
+Epoch 11 of 50 took 241.089s
+training loss:		41.583282
+validation loss:		126.882614
+recall@1 = 2.34375%
+recall@5 = 10.546875%
+recall@10 = 17.578125%
+average rank= 57.76171875
+training epoch: 12
+Epoch 12 of 50 took 242.312s
+training loss:		36.332706
+validation loss:		105.380516
+recall@1 = 1.5625%
+recall@5 = 13.671875%
+recall@10 = 21.875%
+average rank= 55.46875
+training epoch: 13
+Epoch 13 of 50 took 241.436s
+training loss:		28.613955
+validation loss:		86.429039
+recall@1 = 1.953125%
+recall@5 = 12.5%
+recall@10 = 21.09375%
+average rank= 57.875
+training epoch: 14
+Epoch 14 of 50 took 241.617s
+training loss:		25.677347
+validation loss:		76.798416
+recall@1 = 2.34375%
+recall@5 = 11.328125%
+recall@10 = 16.40625%
+average rank= 58.30078125
+training epoch: 15
+Epoch 15 of 50 took 241.253s
+training loss:		21.746525
+validation loss:		57.440315
+recall@1 = 3.125%
+recall@5 = 12.109375%
+recall@10 = 20.3125%
+average rank= 57.24609375
+training epoch: 16
+Epoch 16 of 50 took 241.339s
+training loss:		19.970848
+validation loss:		82.326157
+recall@1 = 2.734375%
+recall@5 = 13.28125%
+recall@10 = 21.875%
+average rank= 55.82421875
+training epoch: 17
+Epoch 17 of 50 took 241.992s
+training loss:		18.328522
+validation loss:		68.260246
+recall@1 = 3.125%
+recall@5 = 10.546875%
+recall@10 = 19.140625%
+average rank= 58.57421875
+training epoch: 18
+Epoch 18 of 50 took 242.960s
+training loss:		14.790771
+validation loss:		101.754532
+recall@1 = 2.34375%
+recall@5 = 11.328125%
+recall@10 = 19.53125%
+average rank= 57.16015625
+training epoch: 19
+Epoch 19 of 50 took 242.674s
+training loss:		15.435445
+validation loss:		56.580189
+recall@1 = 3.90625%
+recall@5 = 12.109375%
+recall@10 = 18.75%
+average rank= 53.23828125
+training epoch: 20
+Epoch 20 of 50 took 242.412s
+training loss:		11.264136
+validation loss:		92.657349
+recall@1 = 3.125%
+recall@5 = 12.109375%
+recall@10 = 20.3125%
+average rank= 55.109375
+training epoch: 21
+Epoch 21 of 50 took 241.741s
+training loss:		10.321115
+validation loss:		89.175385
+recall@1 = 1.953125%
+recall@5 = 10.546875%
+recall@10 = 19.140625%
+average rank= 56.1171875
+training epoch: 22
+Epoch 22 of 50 took 241.275s
+training loss:		9.775030
+validation loss:		80.918968
+recall@1 = 2.734375%
+recall@5 = 10.9375%
+recall@10 = 18.75%
+average rank= 55.8125
+training epoch: 23
+Epoch 23 of 50 took 241.873s
+training loss:		7.624502
+validation loss:		59.364441
+recall@1 = 3.125%
+recall@5 = 13.28125%
+recall@10 = 21.875%
+average rank= 52.109375
+training epoch: 24
+Epoch 24 of 50 took 241.927s
+training loss:		8.066230
+validation loss:		84.242271
+recall@1 = 1.953125%
+recall@5 = 10.546875%
+recall@10 = 20.703125%
+average rank= 52.99609375
+training epoch: 25
+Epoch 25 of 50 took 241.230s
+training loss:		7.493942
+validation loss:		70.130348
+recall@1 = 3.90625%
+recall@5 = 13.671875%
+recall@10 = 20.3125%
+average rank= 57.61328125
+training epoch: 26
+Epoch 26 of 50 took 242.345s
+training loss:		5.652166
+validation loss:		75.911949
+recall@1 = 1.953125%
+recall@5 = 9.375%
+recall@10 = 18.359375%
+average rank= 55.0234375
+training epoch: 27
+Epoch 27 of 50 took 241.745s
+training loss:		6.163224
+validation loss:		77.552422
+recall@1 = 2.734375%
+recall@5 = 12.109375%
+recall@10 = 21.875%
+average rank= 57.109375
+training epoch: 28
+Epoch 28 of 50 took 241.803s
+training loss:		5.646871
+validation loss:		67.606842
+recall@1 = 2.734375%
+recall@5 = 11.71875%
+recall@10 = 18.359375%
+average rank= 54.4375
+training epoch: 29
+Epoch 29 of 50 took 241.399s
+training loss:		5.688827
+validation loss:		58.880779
+recall@1 = 2.734375%
+recall@5 = 11.328125%
+recall@10 = 19.921875%
+average rank= 53.5
+training epoch: 30
+Epoch 30 of 50 took 241.847s
+training loss:		5.646505
+validation loss:		90.435760
+recall@1 = 2.734375%
+recall@5 = 13.28125%
+recall@10 = 22.65625%
+average rank= 52.859375
+training epoch: 31
+Epoch 31 of 50 took 241.083s
+training loss:		3.632908
+validation loss:		84.545044
+recall@1 = 2.34375%
+recall@5 = 13.671875%
+recall@10 = 21.484375%
+average rank= 55.14453125
+training epoch: 32
+Epoch 32 of 50 took 242.374s
+training loss:		5.912859
+validation loss:		95.445999
+recall@1 = 3.125%
+recall@5 = 11.71875%
+recall@10 = 18.359375%
+average rank= 57.49609375
+training epoch: 33
+Epoch 33 of 50 took 241.828s
+training loss:		4.261478
+validation loss:		76.116409
+recall@1 = 2.34375%
+recall@5 = 13.28125%
+recall@10 = 21.875%
+average rank= 50.98046875
+training epoch: 34
+Epoch 34 of 50 took 241.183s
+training loss:		4.345645
+validation loss:		85.902504
+recall@1 = 1.5625%
+recall@5 = 13.28125%
+recall@10 = 23.4375%
+average rank= 52.0390625
+training epoch: 35
+Epoch 35 of 50 took 243.084s
+training loss:		3.818302
+validation loss:		71.163261
+recall@1 = 2.34375%
+recall@5 = 10.9375%
+recall@10 = 19.921875%
+average rank= 55.30078125
+training epoch: 36
+Epoch 36 of 50 took 241.537s
+training loss:		4.279078
+validation loss:		87.826950
+recall@1 = 1.171875%
+recall@5 = 12.109375%
+recall@10 = 21.875%
+average rank= 54.54296875
+training epoch: 37
+Epoch 37 of 50 took 241.502s
+training loss:		3.752064
+validation loss:		75.585403
+recall@1 = 2.734375%
+recall@5 = 13.28125%
+recall@10 = 25.390625%
+average rank= 51.82421875
+training epoch: 38
+Epoch 38 of 50 took 242.172s
+training loss:		4.895686
+validation loss:		70.370811
+recall@1 = 1.5625%
+recall@5 = 10.546875%
+recall@10 = 17.578125%
+average rank= 52.359375
+training epoch: 39
+Epoch 39 of 50 took 242.391s
+training loss:		4.621778
+validation loss:		91.287224
+recall@1 = 1.953125%
+recall@5 = 10.546875%
+recall@10 = 20.703125%
+average rank= 51.0625
+training epoch: 40
+Epoch 40 of 50 took 241.989s
+training loss:		5.007608
+validation loss:		68.435799
+recall@1 = 2.34375%
+recall@5 = 11.328125%
+recall@10 = 19.921875%
+average rank= 54.140625
+training epoch: 41
+Epoch 41 of 50 took 241.871s
+training loss:		4.330241
+validation loss:		69.298256
+recall@1 = 2.34375%
+recall@5 = 11.328125%
+recall@10 = 20.3125%
+average rank= 53.3203125
+training epoch: 42
+Epoch 42 of 50 took 241.582s
+training loss:		3.396897
+validation loss:		99.505417
+recall@1 = 2.34375%
+recall@5 = 12.5%
+recall@10 = 21.09375%
+average rank= 53.3515625
+training epoch: 43
+Epoch 43 of 50 took 242.246s
+training loss:		3.026292
+validation loss:		66.624199
+recall@1 = 3.515625%
+recall@5 = 8.984375%
+recall@10 = 20.703125%
+average rank= 56.13671875
+training epoch: 44
+Epoch 44 of 50 took 242.192s
+training loss:		4.318553
+validation loss:		91.233345
+recall@1 = 2.734375%
+recall@5 = 11.71875%
+recall@10 = 22.65625%
+average rank= 51.703125
+training epoch: 45
+Epoch 45 of 50 took 242.452s
+training loss:		3.782946
+validation loss:		73.726212
+recall@1 = 2.34375%
+recall@5 = 10.546875%
+recall@10 = 19.53125%
+average rank= 58.875
+training epoch: 46
+Epoch 46 of 50 took 242.335s
+training loss:		4.407677
+validation loss:		76.058319
+recall@1 = 3.515625%
+recall@5 = 12.5%
+recall@10 = 21.875%
+average rank= 55.58984375
+training epoch: 47
+Epoch 47 of 50 took 242.973s
+training loss:		3.135232
+validation loss:		78.442169
+recall@1 = 2.734375%
+recall@5 = 8.59375%
+recall@10 = 17.578125%
+average rank= 55.12109375
+training epoch: 48
+Epoch 48 of 50 took 243.093s
+training loss:		4.109943
+validation loss:		93.903374
+recall@1 = 2.734375%
+recall@5 = 10.9375%
+recall@10 = 17.96875%
+average rank= 54.015625
+training epoch: 49
+Epoch 49 of 50 took 241.827s
+training loss:		3.274737
+validation loss:		67.234138
+recall@1 = 1.5625%
+recall@5 = 12.5%
+recall@10 = 25.390625%
+average rank= 53.375
+training epoch: 50
+Epoch 50 of 50 took 241.256s
+training loss:		3.895884
+validation loss:		80.561531
+recall@1 = 2.734375%
+recall@5 = 10.9375%
+recall@10 = 20.703125%
+average rank= 55.52734375
+test loss:		69.132706
+test recall@1 = 1.5625%
+test recall@5 = 10.9375%
+test recall@10 = 17.578125%
+test average rank= 59.73828125
+Closing remaining open files:/prep_data/flickr_features.h5...done

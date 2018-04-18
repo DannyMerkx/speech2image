@@ -10,10 +10,10 @@ can be passed as arguments
 """
 import numpy as np
 
-# minibatch iterator which pads and truncates the inputs to a given size.
-# slighly faster to pad on the go than to load a bigger dataset, but impractical
-# when you want normalisation to also apply to the padding for instance
-def iterate_minibatches_resize(f_nodes, batchsize, input_size = 1024, shuffle=True):  
+# minibatcher which takes a list of nodes and returns the visual and audio features, possibly resized.
+# visual and audio should contain a string of the names of the visual and audio features nodes in the h5 file.
+# input size is the number of input features, frames is the length of the sequence
+def iterate_minibatches(f_nodes, batchsize, visual, audio, frames = 1024, shuffle=True):  
     if shuffle:
         # optionally shuffle the input
         np.random.shuffle(f_nodes)
@@ -24,49 +24,22 @@ def iterate_minibatches_resize(f_nodes, batchsize, input_size = 1024, shuffle=Tr
         images=[]
         for ex in excerpt:
             # extract and append the vgg16 features
-            images.append(ex.vgg._f_list_nodes()[0][:])
+            images.append(eval('ex.' + visual + '._f_list_nodes()[0][:]'))
             # get the number of speech files for this image to do random sampling
             n = np.shape(ex.fbanks._f_list_nodes())[0]
             # randomly choose a speech file. transpose the features if # frames is not yet the last dimension
-            sp = ex.fbanks._f_list_nodes()[np.random.randint(0,n)][:].transpose()
-            # padd to the given input size
-            while np.shape(sp)[1] < input_size:
-                sp = np.concatenate((sp, np.zeros([40,1])),1)
+            sp = eval('ex.' + audio + '._f_list_nodes()[np.random.randint(0,n)][:].transpose()')
+            # padd to the given output size
+            n_frames = sp.shape[1]
+            if n_frames < frames:
+                sp = np.pad(sp, [(0, 0), (0, frames - n_frames )], 'constant')
             # truncate to the given input size
-            if np.shape(sp)[1] >input_size:
-                sp = sp[:,:input_size]
+            if n_frames > frames:
+                sp = sp[:,:frames]
             speech.append(sp)
         # reshape the features into appropriate shape and recast as float32
-        speech_shape = np.shape(speech)
-        # for the speech features the network expects inputs of dim(batch_size, #channels, #fbanks, #frames(1024))
-        speech = np.float64(np.reshape(speech,(speech_shape[0],1,speech_shape[1],speech_shape[2])))
+        speech = np.float64(speech)
         images_shape = np.shape(images)
         # images should be shape (batch_size, 1024). images_shape[1] is collapsed as the original features are of shape (1,1024) 
         images = np.float64(np.reshape(images,(images_shape[0],images_shape[2])))
         yield images, speech    
-
-# minibatch iterator which assumes inputs of uniform size
-def iterate_minibatches(f_nodes, batchsize, shuffle=True):  
-    if shuffle:
-        # optionally shuffle the input during training
-        np.random.shuffle(f_nodes)
-    for start_idx in range(0, len(f_nodes) - batchsize + 1, batchsize):
-        # take a batch of nodes of the given size               
-        excerpt = f_nodes[start_idx:start_idx + batchsize]       
-        speech=[]
-        images=[]
-        for ex in excerpt:
-            # extract and append the vgg16 features
-            images.append(ex.vgg._f_list_nodes()[0][:])
-            # get the number of speech files for this image to do random sampling
-            n = np.shape(ex.fbanks._f_list_nodes())[0]
-            # extract and append randomly one of the speech file features (transpose if the #frames is not yet the last dimension)
-            speech.append(ex.fbanks._f_list_nodes()[np.random.randint(0,n)][:].transpose())
-        # reshape the features into appropriate shape and recast as float32
-        speech_shape = np.shape(speech)
-        # for the speech features the network expects inputs of dim(batch_size, #channels, #fbanks, #frames(1024))
-        speech = np.float64(np.reshape(speech,(speech_shape[0],1,speech_shape[1],speech_shape[2])))
-        images_shape = np.shape(images)
-        # images should be shape (batch_size, 1024). images_shape[1] is collapsed as the original features are of shape (1,1024) 
-        images = np.float64(np.reshape(images,(images_shape[0],images_shape[2])))
-        yield images, speech   

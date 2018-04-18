@@ -8,33 +8,33 @@ Created on Tue Feb 27 14:13:00 2018
 #!/usr/bin/env python
 from __future__ import print_function
 
-import sys
 import time
-import numpy as np
 import tables
 import argparse
 import torch
-import torch.nn as nn
 from torch.autograd import Variable
 
-from minibatchers import iterate_minibatches, iterate_minibatches_resize
+from minibatchers import iterate_minibatches
 from costum_loss import batch_hinge_loss
 from evaluate import speech2image
 from encoders import img_encoder, Harwath_audio_encoder, RHN_audio_encoder, GRU_audio_encoder
+from data_split import split_data
 
 ## implementation of an CNN for af recognition. made for use with mel filterbank features
 parser = argparse.ArgumentParser(description='Create and run an articulatory feature classification DNN')
 
 parser.add_argument('-data_loc', type = str, default = '/prep_data/flickr_features.h5',
                     help = 'location of the feature file, default: /data/processed/fbanks.h5')
-parser.add_argument('-batch_size', type = int, default = 256, help = 'batch size, default: 128')
+parser.add_argument('-batch_size', type = int, default = 64, help = 'batch size, default: 128')
 
 parser.add_argument('-lr', type = float, default = 0.00005, help = 'learning rate, default:0.00005')
-parser.add_argument('-n_epochs', type = int, default = 50, help = 'number of training epochs, default: 5')
-parser.add_argument('-loss', type = list, default = [True, False], help = 'determines which embeddings are normalised by the loss function')
+parser.add_argument('-n_epochs', type = int, default = 50, help = 'number of training epochs, default: 50')
+parser.add_argument('-loss', type = list, default = [False, True], help = 'determines which embeddings are normalised by the loss function')
 parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, default: True')
 parser.add_argument('-data_base', type = str, default = 'flickr', help = 'database to train on, options: places, flickr')
 parser.add_argument('-data_split', type = list, default = [.9, .05, .05], help = 'split of the dataset into train, val and test respectively. Make sure it adds up to 1')
+parser.add_argument('-visual', type = str, default = 'vgg', help = 'name of the node containing the visual features')
+parser.add_argument('-audio', type = str, default = 'fbanks', help = 'name of the node containing the audio features')
 
 args = parser.parse_args()
 
@@ -63,7 +63,7 @@ def iterate_flickr(h5_file):
         yield x
         
 # define the batcher type to use.
-batcher = iterate_minibatches_resize
+batcher = iterate_minibatches
 
 if args.data_base == 'places':
     f_nodes = [node for node in iterate_places(data_file)]
@@ -77,27 +77,27 @@ else:
 n_nodes= len(f_nodes)
 
 # shuffle before dividing into train test and validation sets
-np.random.shuffle(f_nodes)
 
+#np.random.shuffle(f_nodes)
+#args.data_split = [int(np.floor(x * n_nodes)) for x in args.data_split]
+#train = f_nodes[0 : args.data_split[0]]
+#val = f_nodes[args.data_split[0] : args.data_split[0] + args.data_split[1]]
+#test = f_nodes[args.data_split[0] + args.data_split[1] : args.data_split[0] + args.data_split[1] + args.data_split[2]]
 
-args.data_split = [int(np.floor(x * n_nodes)) for x in args.data_split]
-
-train = f_nodes[0 : args.data_split[0]]
-val = f_nodes[args.data_split[0] : args.data_split[0] + args.data_split[1]]
-test = f_nodes[args.data_split[0] + args.data_split[1] : args.data_split[0] + args.data_split[1] + args.data_split[2]]
+train, test, val = split_data(f_nodes)
 
 #####################################################
 
 # network modules
 img_net = img_encoder()
-audio_net = RHN_audio_encoder()
+audio_net = Harwath_audio_encoder()
 # move graph to gpu if cuda is availlable
 if cuda:
     img_net.cuda()
     audio_net.cuda()
 
 # optimiser
-optimizer = torch.optim.SGD(list(img_net.parameters())+list(audio_net.parameters()), lr= 0.00005, momentum=0.9)
+optimizer = torch.optim.SGD(list(img_net.parameters())+list(audio_net.parameters()), args.lr, momentum=0.9)
 
 # this sets the learning rate for the model to a learning rate adapted for the number of
 # epochs.
@@ -115,7 +115,7 @@ def train_epoch(epoch, img_net, audio_net, optimizer, f_nodes, batch_size):
     # for keeping track of the average loss over all batches
     train_loss = 0
     num_batches =0
-    for batch in batcher(f_nodes, batch_size, shuffle = True):
+    for batch in batcher(f_nodes, batch_size, args.visual, args.audio, shuffle = True):
         img, audio = batch
         num_batches +=1
         # convert data to pytorch variables
@@ -141,7 +141,7 @@ def test_epoch(img_net, audio_net, f_nodes, batch_size):
     # for keeping track of the average loss
     test_batches = 0
     test_loss = 0
-    for batch in batcher(f_nodes, batch_size, shuffle = False):
+    for batch in batcher(f_nodes, batch_size, args.visual, args.audio, shuffle = False):
         img, audio = batch 
         test_batches += 1
         # convert data to pytorch variables
@@ -167,7 +167,7 @@ while epoch <= args.n_epochs:
     
     # calculate the recall@n
     # create a minibatcher over the validation set
-    iterator = batcher(val, args.batch_size, shuffle = False)
+    iterator = batcher(val, args.batch_size, args.visual, args.audio, shuffle = False)
     # calc recal, pass it the iterator, the embedding functions and n
     # returns the measures columnise (speech2image retrieval) and rowwise(image2speech retrieval)
     recall, avg_rank = speech2image(iterator, audio_net, img_net, [1, 5, 10], dtype)
@@ -186,7 +186,7 @@ while epoch <= args.n_epochs:
 test_loss = test_epoch(img_net, audio_net, test, args.batch_size)
 # calculate the recall@n
 # create a minibatcher over the test set
-iterator = batcher(test, args.batch_size, shuffle = False)
+iterator = batcher(test, args.batch_size, args.visual, args.audio, shuffle = False)
 # calc recal, pass it the iterator, the embedding functions and n
 # returns the measures columnise (speech2image retrieval) and rowwise(image2speech retrieval)
 recall, avg_rank = speech2image(iterator, audio_net, img_net, [1, 5, 10], dtype)

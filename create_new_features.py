@@ -16,8 +16,8 @@ import argparse
 
 parser = argparse.ArgumentParser(description='derive new features from an existing feature in the datafile e.g. feature normalisation')
 
-parser.add_argument('-data_loc', type = str, default = '/data/Flickr/flickr_features.h5',
-                    help = 'location of the feature file, default: /data/Flickr/flickr_features.h5')
+parser.add_argument('-data_loc', type = str, default = '/prep_data/flickr_features.h5',
+                    help = 'location of the feature file, default: /prep_data/flickr_features.h5')
 
 args = parser.parse_args()
 
@@ -50,6 +50,8 @@ def recursive_iter(h5_file, feature_name):
     for x in node_iter:
         if x._v_parent._v_name == feature_name:
             yield x
+
+iterate_nodes = iterate_flickr
     
 ################################################################################
 ##### Functions for calculating arguments to use in new feature creation #######
@@ -137,7 +139,7 @@ for f in feature_sum(fbanks):
 # take the mean per filterbank     
 f_mean = f_mean / n_frames
 # mean over all data
-# f_mean = np.mean(f_mean)/ n_frames
+#f_mean = np.mean(f_mean)/ n_frames
 
 # calculate the variance
 fbanks = [x for x in iterate_nodes(output_file, 'fbanks')]
@@ -149,13 +151,13 @@ for f in feature_var(fbanks, f_mean):
 # variance per filterbank
 f_var = f_var / n_frames
 # variance over all data
-# f_var = np.mean(f_var) / n_frames
+#f_var = np.mean(f_var) / n_frames
 
 # this creates the fbanks in the same manner as in the Harwath and Glass paper
 # i.e. mean normalised with one mean for the entire database.
-create_feature(output_file, 'fbanks', 'HG_fbanks', f_atom, mean_normalise, f_mean)
+#create_feature(output_file, 'fbanks', 'HG_fbanks', f_atom, mean_normalise, f_mean)
 
 #  mean and variance normalised fbanks
-# create_feature(output_file, 'fbanks', 'meanvar_norm_fbanks', f_atom, mean_var_normalise, [f_mean, f_var])
+create_feature(output_file, 'fbanks', 'meanvar_norm_fbanks', f_atom, mean_var_normalise, [f_mean, f_var])
 
 output_file.close()
