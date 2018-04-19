@@ -14,10 +14,10 @@ import argparse
 import torch
 from torch.autograd import Variable
 
-from minibatchers import iterate_minibatches
+from minibatchers import iterate_minibatches, iterate_minibatches_flickr
 from costum_loss import batch_hinge_loss
 from evaluate import speech2image
-from encoders import img_encoder, Harwath_audio_encoder, RHN_audio_encoder, GRU_audio_encoder
+from encoders import img_encoder, Harwath_audio_encoder, RHN_audio_encoder, GRU_audio_encoder, RCNN_audio_encoder
 from data_split import split_data
 
 ## implementation of an CNN for af recognition. made for use with mel filterbank features
@@ -25,7 +25,7 @@ parser = argparse.ArgumentParser(description='Create and run an articulatory fea
 
 parser.add_argument('-data_loc', type = str, default = '/prep_data/flickr_features.h5',
                     help = 'location of the feature file, default: /data/processed/fbanks.h5')
-parser.add_argument('-batch_size', type = int, default = 64, help = 'batch size, default: 128')
+parser.add_argument('-batch_size', type = int, default = 128, help = 'batch size, default: 128')
 
 parser.add_argument('-lr', type = float, default = 0.00005, help = 'learning rate, default:0.00005')
 parser.add_argument('-n_epochs', type = int, default = 50, help = 'number of training epochs, default: 50')
@@ -34,7 +34,7 @@ parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, defa
 parser.add_argument('-data_base', type = str, default = 'flickr', help = 'database to train on, options: places, flickr')
 parser.add_argument('-data_split', type = list, default = [.9, .05, .05], help = 'split of the dataset into train, val and test respectively. Make sure it adds up to 1')
 parser.add_argument('-visual', type = str, default = 'vgg', help = 'name of the node containing the visual features')
-parser.add_argument('-audio', type = str, default = 'fbanks', help = 'name of the node containing the audio features')
+parser.add_argument('-audio', type = str, default = 'meanvar_norm_fbanks', help = 'name of the node containing the audio features')
 
 args = parser.parse_args()
 
@@ -61,14 +61,15 @@ def iterate_places(h5_file):
 def iterate_flickr(h5_file):
     for x in h5_file.root:
         yield x
-        
-# define the batcher type to use.
-batcher = iterate_minibatches
 
 if args.data_base == 'places':
     f_nodes = [node for node in iterate_places(data_file)]
+    # define the batcher type to use.
+    batcher = iterate_minibatches
 elif args.data_base == 'flickr':
     f_nodes = [node for node in iterate_flickr(data_file)]
+    # define the batcher type to use.
+    batcher = iterate_minibatches_flickr
 else:
     print('incorrect database option')
     exit()  

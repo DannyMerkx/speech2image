@@ -24,6 +24,7 @@ import argparse
 from minibatchers import iterate_minibatches, iterate_minibatches_resize
 from costum_loss import batch_hinge_loss
 from evaluate import speech2image, image2speech
+from data_split import split_data
 
 ## implementation of a DNN structure for speech2im embedding/retrieval in Theano+Lasagne
 parser = argparse.ArgumentParser(description='Create and run an articulatory feature classification DNN')
@@ -31,7 +32,7 @@ parser.add_argument('-data_loc', type = str, default = '/prep_data/flickr_featur
                     help = 'location of the feature file, default: /data/processed/fbanks.h5')
 parser.add_argument('-batch_size', type = int, default = 128, help = 'batch size, default: 128')
 parser.add_argument('-lr', type = float, default = 0.00005, help = 'learning rate, default:0.00005')
-parser.add_argument('-data_base', type = str, default = 'places', help = 'database to train on, options: places, flickr')
+parser.add_argument('-data_base', type = str, default = 'flickr', help = 'database to train on, options: places, flickr')
 parser.add_argument('-loss', type = list, default = [True, False], help = 'determines which embeddings are normalised by the loss function')
 parser.add_argument('-n_epochs', type = int, default = 50, help = 'number of epochs, default: 50')
 parser.add_argument('-data_split', type = list, default = [.9, .05, .05], help = 'split of the dataset into train, val and test respectively. Make sure it adds up to 1')
@@ -67,13 +68,15 @@ else:
 n_nodes= len(f_nodes)
 
 # shuffle before dividing into train test and validation sets
-np.random.shuffle(f_nodes)
+#np.random.shuffle(f_nodes)
 
-args.data_split = [int(np.floor(x * n_nodes)) for x in args.data_split]
+#args.data_split = [int(np.floor(x * n_nodes)) for x in args.data_split]
 
-train = f_nodes[0 : args.data_split[0]]
-val = f_nodes[args.data_split[0] : args.data_split[1] + args.data_split[0]]
-test = f_nodes[args.data_split[1] + args.data_split[0]: args.data_split[2] + args.data_split[1] + args.data_split[0]]
+#train = f_nodes[0 : args.data_split[0]]
+#val = f_nodes[args.data_split[0] : args.data_split[1] + args.data_split[0]]
+#test = f_nodes[args.data_split[1] + args.data_split[0]: args.data_split[2] + args.data_split[1] + args.data_split[0]]
+
+train, test, val = split_data(f_nodes)
 
 # the network for embedding the vgg16 features
 def build_img_net(input_var=None):

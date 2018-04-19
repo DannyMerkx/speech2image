@@ -16,11 +16,11 @@ import numpy as np
 # order in which the iterator yields the appropriate features!
 
 def image2speech(iterator, image_embed_function, speech_embed_function, n, dtype, mode = 'full'):
-    im_embeddings, speech_embeddings = embed_data(iterator, image_embed_function, speech_embed_function, dtype, mode)
+    im_embeddings, speech_embeddings = embed_data(iterator, image_embed_function, speech_embed_function, dtype)
     return recall_at_n(im_embeddings, speech_embeddings, n, mode)
 
 def speech2image(iterator, image_embed_function, speech_embed_function, n, mode = 'full'):
-    im_embeddings, speech_embeddings = embed_data(iterator, image_embed_function, speech_embed_function, mode)
+    im_embeddings, speech_embeddings = embed_data(iterator, image_embed_function, speech_embed_function)
     return recall_at_n(speech_embeddings, im_embeddings, n, mode)  
 
 # embeds the validation or test data using the trained neural network. Takes
