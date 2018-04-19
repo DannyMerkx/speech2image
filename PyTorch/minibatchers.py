@@ -43,3 +43,33 @@ def iterate_minibatches(f_nodes, batchsize, visual, audio, frames = 1024, shuffl
         # images should be shape (batch_size, 1024). images_shape[1] is collapsed as the original features are of shape (1,1024) 
         images = np.float64(np.reshape(images,(images_shape[0],images_shape[2])))
         yield images, speech    
+
+def iterate_minibatches_flickr(f_nodes, batchsize, visual, audio, frames = 1024, shuffle=True):
+    if shuffle:
+        # optionally shuffle the input
+        np.random.shuffle(f_nodes)
+    for i in range(0,5):
+        for start_idx in range(0, len(f_nodes) - batchsize + 1, batchsize):
+            # take a batch of nodes of the given size               
+            excerpt = f_nodes[start_idx:start_idx + batchsize]
+            speech=[]
+            images=[]
+            for ex in excerpt:
+                # extract and append the vgg16 features
+                images.append(eval('ex.' + visual + '._f_list_nodes()[0][:]'))
+
+                sp = eval('ex.' + audio + '._f_list_nodes()[i][:].transpose()')
+                # padd to the given output size
+                n_frames = sp.shape[1]
+                if n_frames < frames:
+                    sp = np.pad(sp, [(0, 0), (0, frames - n_frames )], 'constant')
+                # truncate to the given input size
+                if n_frames > frames:
+                    sp = sp[:,:frames]
+                speech.append(sp)
+            # reshape the features into appropriate shape and recast as float32
+            speech = np.float64(speech)
+            images_shape = np.shape(images)
+            # images should be shape (batch_size, 1024). images_shape[1] is collapsed as the original features are of shape (1,1024) 
+            images = np.float64(np.reshape(images,(images_shape[0],images_shape[2])))
+            yield images, speech
