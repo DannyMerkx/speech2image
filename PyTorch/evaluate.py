@@ -10,6 +10,7 @@ the data and calculating the recall@n to keep your NN training script clean
 """
 import sklearn.metrics.pairwise as sk
 import numpy as np
+import torch
 from torch.autograd import Variable
 
 # small convenience functions for combining everything in this script.
@@ -28,8 +29,6 @@ def speech2image(iterator, image_embed_function, speech_embed_function, n, dtype
 # an iterator (minibatcher) and the embedding functions (i.e. deterministic 
 # output functions for your network). 
 def embed_data(iterator, embed_function_1, embed_function_2, dtype):
-    speech = []
-    image = []
     # set to evaluation mode
     embed_function_1.eval()
     embed_function_2.eval()
@@ -38,11 +37,17 @@ def embed_data(iterator, embed_function_1, embed_function_2, dtype):
         # convert data to pytorch variables
         img, sp = Variable(dtype(img), requires_grad=False), Variable(dtype(sp),requires_grad=False)
         # embed the data
-        sp = embed_function_1(sp)
-        img = embed_function_2(img)
+        img = embed_function_1(img)
+        sp = embed_function_2(sp)
         # retrieve data back from the gpu to the cpu if applicable and convert back to numpy data
-        speech.append((sp.data).cpu().numpy())
-        image.append((img.data).cpu().numpy())
+        try:
+            speech.cat((speech, sp))
+        except:
+            speech = sp
+        try:
+            image.cat((image, img))
+        except:
+            image = img
     return speech, image
 
 ###########################################################################################
@@ -56,37 +61,29 @@ def recall_at_n(embeddings_1, embeddings_2, n, mode):
 # data we want to retrieve the embedding of a related piece of data (e.g. images and captions)
 # recall works in the direction of embeddings_1 to embeddings_2, so if you pass images, and speech
 # respectively you calculate image to speech retrieval scores.
-    
-    # concatenate the embeddings (the embed data function delivers a list of batches)
-    if len(embeddings_1) > 1:
-        embeddings_1 = np.matrix(np.concatenate(embeddings_1))
-    else:
-        embeddings_1 = np.matrix(embeddings_1[0])
-    if len(embeddings_2) > 1:
-        embeddings_2 = np.matrix(np.concatenate(embeddings_2))
-    else:
-        embeddings_2 = np.matrix(embeddings_2[0])
 
     # fastest way to calculate recall, but it creates a full similarity matrix for all the embeddings and 
     # might lead to memory errors in bigger datasets (testing with 6gb of ram showed this was possible
     # for 2^13 or about 8000 embedding pairs)
     if mode == 'full':
         # get the cosine similarity matrix for the embeddings.
-        sim = sk.cosine_similarity(embeddings_1, embeddings_2)
+        sim = torch.matmul(embeddings_1, embeddings_2.t())
         # apply sort two times to get a matrix where the values for each position indicate its rank in the column
-        # similarity is negated because argsort works in ascending order
-        sim_col_sorted = np.argsort(np.argsort(-sim, axis = 1), axis = 1)
-        # the diagonal of the resulting matrix diagonal now holds the rank of the correct embedding pair
+        sorted, indices = sim.sort(dim = 1, descending = True)
+        sorted, indices = indices.sort(dim = 1)
+        # the diagonal of the resulting matrix diagonal now holds the rank of the correct embedding pair (add 1 cause 
+        # sort counts from 0, we want the top rank to be indexed as 1)
+        diag = indices.diag() +1
         if type(n) == int:
-            recall = len([rank for rank in sim_col_sorted.diagonal() if rank < n])/len(sim_col_sorted.diagonal()) 
+            recall = diag.le(n).double().mean()
         elif type(n) == list:
             recall = []
             for x in n:
-                recall.append(len([rank for rank in sim_col_sorted.diagonal() if rank < x])/len(sim_col_sorted.diagonal()))    
+                recall.append(diag.le(n).double().mean())    
         # the average rank of the correct output
-        avg_rank = np.mean(sim_col_sorted.diagonal()+1)
+        median_rank = diag.median()
     
-        return(recall, avg_rank)
+        return(recall, median_rank)
     # slower than full mode, but calculates a similarity array instead of matrix for one embedding vs all 
     # embeddings in embeddings_2 which is less memory intensive
     elif mode == 'array':

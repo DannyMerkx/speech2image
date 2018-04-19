@@ -168,10 +168,10 @@ while epoch <= args.n_epochs:
     
     # calculate the recall@n
     # create a minibatcher over the validation set
-    iterator = batcher(val, args.batch_size, args.visual, args.audio, shuffle = False)
+    iterator = iterate_minibatches(val, args.batch_size, args.visual, args.audio, shuffle = False)
     # calc recal, pass it the iterator, the embedding functions and n
     # returns the measures columnise (speech2image retrieval) and rowwise(image2speech retrieval)
-    recall, avg_rank = speech2image(iterator, audio_net, img_net, [1, 5, 10], dtype)
+    recall, avg_rank = speech2image(iterator, img_net, audio_net, [1, 5, 10], dtype)
 
     # print some info about this epoch
     print("Epoch {} of {} took {:.3f}s".format(
@@ -187,10 +187,10 @@ while epoch <= args.n_epochs:
 test_loss = test_epoch(img_net, audio_net, test, args.batch_size)
 # calculate the recall@n
 # create a minibatcher over the test set
-iterator = batcher(test, args.batch_size, args.visual, args.audio, shuffle = False)
+iterator = iterate_minibatches(test, args.batch_size, args.visual, args.audio, shuffle = False)
 # calc recal, pass it the iterator, the embedding functions and n
 # returns the measures columnise (speech2image retrieval) and rowwise(image2speech retrieval)
-recall, avg_rank = speech2image(iterator, audio_net, img_net, [1, 5, 10], dtype)
+recall, avg_rank = speech2image(iterator, img_net, audio_net, [1, 5, 10], dtype)
 
 print("test loss:\t\t{:.6f}".format(test_loss.cpu()[0]))
 print('test recall@1 = ' + str(recall[0]*100) + '%')
