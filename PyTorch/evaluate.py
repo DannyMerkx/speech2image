@@ -75,13 +75,13 @@ def recall_at_n(embeddings_1, embeddings_2, n, mode):
         # sort counts from 0, we want the top rank to be indexed as 1)
         diag = indices.diag() +1
         if type(n) == int:
-            recall = diag.le(n).double().mean()
+            recall = diag.le(n).double().mean().data.numpy()
         elif type(n) == list:
             recall = []
             for x in n:
-                recall.append(diag.le(n).double().mean())    
+                recall.append(diag.le(x).double().mean().data.numpy())    
         # the average rank of the correct output
-        median_rank = diag.median()
+        median_rank = diag.median().data.numpy()
     
         return(recall, median_rank)
     # slower than full mode, but calculates a similarity array instead of matrix for one embedding vs all 
