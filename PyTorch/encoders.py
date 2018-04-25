@@ -20,13 +20,10 @@ class img_encoder(nn.Module):
     
     def forward(self, input):
         x = self.linear_transform(input)
-<<<<<<< HEAD
         #return nn.functional.normalize(x, p=2, dim=1)
         return x  
-=======
-        return nn.functional.normalize(x, p=2, dim=1)
+        #return nn.functional.normalize(x, p=2, dim=1)
     
->>>>>>> 4a9103b37fbb0b858302f961dda36a3bae957bb2
 # audio encoder as described by Harwath and Glass(2016)
 class Harwath_audio_encoder(nn.Module):
     def __init__(self):
@@ -110,11 +107,6 @@ class GRU_audio_encoder(nn.Module):
         x = self.Conv1d(input)
         x = x.permute(0, 2, 1)
         x, hx = self.GRU(x)
-<<<<<<< HEAD
-=======
-        print(x.size())
-        print(hx.size())
->>>>>>> 4a9103b37fbb0b858302f961dda36a3bae957bb2
         x = nn.functional.normalize(self.att(x), p=2, dim=1)
         return x
 

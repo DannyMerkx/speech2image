@@ -57,15 +57,12 @@ def iterate_minibatches_flickr(f_nodes, batchsize, visual, audio, frames = 1024,
             images=[]
             for ex in excerpt:
                 # extract and append the vgg16 features
-<<<<<<< HEAD
                 images.append(eval('ex.' + visual + '._f_list_nodes()[0].read()'))
                 # extract the audio features
                 sp = eval('ex.' + audio + '._f_list_nodes()[i].read().transpose()')
-=======
-                images.append(eval('ex.' + visual + '._f_list_nodes()[0][:]'))
+                images.append(eval('ex.' + visual + '._f_list_nodes()[0].read()'))
                 # extract the audio features
                 sp = eval('ex.' + audio + '._f_list_nodes()[i][:].transpose()')
->>>>>>> 4a9103b37fbb0b858302f961dda36a3bae957bb2
                 # padd to the given output size
                 n_frames = sp.shape[1]
                 if n_frames < frames:
@@ -81,7 +78,7 @@ def iterate_minibatches_flickr(f_nodes, batchsize, visual, audio, frames = 1024,
             images = np.float64(np.reshape(images,(images_shape[0],images_shape[2])))
             yield images, speech
 
-def iter_text_flickr(f_nodes, batchsize, visual, text, chars = 200, shuffle=True):
+def iter_text_flickr(f_nodes, batchsize, visual, text, shuffle=True):
     if shuffle:
         # optionally shuffle the input
         np.random.shuffle(f_nodes)
@@ -95,19 +92,17 @@ def iter_text_flickr(f_nodes, batchsize, visual, text, chars = 200, shuffle=True
                 # extract and append the vgg16 features
                 images.append(eval('ex.' + visual + '._f_list_nodes()[0].read()'))
                 # extract the audio features
-                cap = eval('ex.' + text + '._f_list_nodes()[i].read().transpose()')
+                cap = eval('ex.' + text + '._f_list_nodes()[i].read()')
                 cap = cap.decode('utf-8')
-                # padd to the given output size
-                n_chars = len(cap)
-                if n_frames < frames:
-                    sp = np.pad(sp, [(0, 0), (0, frames - n_frames )], 'constant')
-                # truncate to the given input size
-                if n_frames > frames:
-                    sp = sp[:,:frames]
-                speech.append(sp)
-            # reshape the features and recast as float64
-            speech = np.float64(speech)
+#                # padd to the given output size
+#                n_chars = len(cap)
+#                if n_frames < frames:
+#                    sp = np.pad(sp, [(0, 0), (0, frames - n_frames )], 'constant')
+#                # truncate to the given input size
+#                if n_frames > frames:
+#                    sp = sp[:,:frames]
+                caption.append(cap)
             images_shape = np.shape(images)
             # images should be shape (batch_size, 1024). images_shape[1] is collapsed as the original features are of shape (1,1024) 
             images = np.float64(np.reshape(images,(images_shape[0],images_shape[2])))
-            yield images, speech
+            yield images, caption
