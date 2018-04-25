@@ -137,9 +137,9 @@ for f in feature_sum(fbanks):
     n_frames += f[1]
     f_mean += f[0] 
 # take the mean per filterbank     
-f_mean = f_mean / n_frames
+#f_mean = f_mean / n_frames
 # mean over all data
-#f_mean = np.mean(f_mean)/ n_frames
+f_mean = np.mean(f_mean)/ n_frames
 
 # calculate the variance
 fbanks = [x for x in iterate_nodes(output_file, 'fbanks')]
@@ -149,15 +149,15 @@ for f in feature_var(fbanks, f_mean):
     n_frames += f[1]
     f_var += f[0]   
 # variance per filterbank
-f_var = f_var / n_frames
+#f_var = f_var / n_frames
 # variance over all data
-#f_var = np.mean(f_var) / n_frames
+f_var = np.mean(f_var) / n_frames
 
 # this creates the fbanks in the same manner as in the Harwath and Glass paper
 # i.e. mean normalised with one mean for the entire database.
 #create_feature(output_file, 'fbanks', 'HG_fbanks', f_atom, mean_normalise, f_mean)
 
 #  mean and variance normalised fbanks
-create_feature(output_file, 'fbanks', 'meanvar_norm_fbanks', f_atom, mean_var_normalise, [f_mean, f_var])
+create_feature(output_file, 'fbanks', 'hw_norm_fbanks', f_atom, mean_var_normalise, [f_mean, f_var])
 
 output_file.close()

@@ -41,13 +41,13 @@ def embed_data(iterator, embed_function_1, embed_function_2, dtype):
         sp = embed_function_2(sp)
         # retrieve data back from the gpu to the cpu if applicable and convert back to numpy data
         try:
-            speech.cat((speech, sp))
+            speech = torch.cat((speech, sp.data))
         except:
-            speech = sp
+            speech = sp.data
         try:
-            image.cat((image, img))
+            image = torch.cat((image, img.data))
         except:
-            image = img
+            image = img.data
     return speech, image
 
 ###########################################################################################
@@ -66,6 +66,7 @@ def recall_at_n(embeddings_1, embeddings_2, n, mode):
     # might lead to memory errors in bigger datasets (testing with 6gb of ram showed this was possible
     # for 2^13 or about 8000 embedding pairs)
     if mode == 'full':
+        print(embeddings_1.size())
         # get the cosine similarity matrix for the embeddings.
         sim = torch.matmul(embeddings_1, embeddings_2.t())
         # apply sort two times to get a matrix where the values for each position indicate its rank in the column
@@ -75,13 +76,13 @@ def recall_at_n(embeddings_1, embeddings_2, n, mode):
         # sort counts from 0, we want the top rank to be indexed as 1)
         diag = indices.diag() +1
         if type(n) == int:
-            recall = diag.le(n).double().mean().data.numpy()
+            recall = diag.le(n).double().mean()
         elif type(n) == list:
             recall = []
             for x in n:
-                recall.append(diag.le(x).double().mean().data.numpy())    
+                recall.append(diag.le(x).double().mean())    
         # the average rank of the correct output
-        median_rank = diag.median().data.numpy()
+        median_rank = diag.median()
     
         return(recall, median_rank)
     # slower than full mode, but calculates a similarity array instead of matrix for one embedding vs all 

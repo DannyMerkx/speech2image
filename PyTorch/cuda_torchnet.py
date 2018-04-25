@@ -25,16 +25,16 @@ parser = argparse.ArgumentParser(description='Create and run an articulatory fea
 
 parser.add_argument('-data_loc', type = str, default = '/prep_data/flickr_features.h5',
                     help = 'location of the feature file, default: /data/processed/fbanks.h5')
-parser.add_argument('-batch_size', type = int, default = 128, help = 'batch size, default: 128')
+parser.add_argument('-batch_size', type = int, default = 32, help = 'batch size, default: 128')
 
-parser.add_argument('-lr', type = float, default = 0.00005, help = 'learning rate, default:0.00005')
-parser.add_argument('-n_epochs', type = int, default = 50, help = 'number of training epochs, default: 50')
+parser.add_argument('-lr', type = float, default = 0.0002, help = 'learning rate, default:0.00005')
+parser.add_argument('-n_epochs', type = int, default = 25, help = 'number of training epochs, default: 50')
 parser.add_argument('-loss', type = list, default = [False, True], help = 'determines which embeddings are normalised by the loss function')
 parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, default: True')
 parser.add_argument('-data_base', type = str, default = 'flickr', help = 'database to train on, options: places, flickr')
 parser.add_argument('-data_split', type = list, default = [.9, .05, .05], help = 'split of the dataset into train, val and test respectively. Make sure it adds up to 1')
 parser.add_argument('-visual', type = str, default = 'vgg', help = 'name of the node containing the visual features')
-parser.add_argument('-audio', type = str, default = 'meanvar_norm_fbanks', help = 'name of the node containing the audio features')
+parser.add_argument('-audio', type = str, default = 'hw_norm_fbanks', help = 'name of the node containing the audio features')
 
 args = parser.parse_args()
 
@@ -86,7 +86,6 @@ n_nodes= len(f_nodes)
 #test = f_nodes[args.data_split[0] + args.data_split[1] : args.data_split[0] + args.data_split[1] + args.data_split[2]]
 
 train, test, val = split_data(f_nodes)
-
 #####################################################
 
 # network modules
@@ -98,7 +97,7 @@ if cuda:
     audio_net.cuda()
 
 # optimiser
-optimizer = torch.optim.SGD(list(img_net.parameters())+list(audio_net.parameters()), args.lr, momentum=0.9)
+optimizer = torch.optim.Adam(list(img_net.parameters())+list(audio_net.parameters()), args.lr)
 
 # this sets the learning rate for the model to a learning rate adapted for the number of
 # epochs.
@@ -133,6 +132,7 @@ def train_epoch(epoch, img_net, audio_net, optimizer, f_nodes, batch_size):
         optimizer.step()
         # add loss to average
         train_loss += loss.data
+        print(train_loss.cpu()[0]/num_batches)
     return train_loss/num_batches
 
 def test_epoch(img_net, audio_net, f_nodes, batch_size):

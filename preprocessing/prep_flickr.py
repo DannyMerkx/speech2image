@@ -13,12 +13,14 @@ import os
 
 from vgg16 import vgg
 from audio_features import audio_features
-
+from text_features import text_features
 # path to the flickr audio and image files
 audio_path = os.path.join('/data/flickr/flickr_audio/wavs')
 #audio_path = os.path.join('C:\\','Users', 'Beheerder','Documents','PhD','Flickr','flickr_audio', 'wavs')
 
 img_path = os.path.join('/data/flickr/Flickr8k_Dataset/Flicker8k_Dataset')
+
+text_path = os.path.join('/data/speech2image/PyTorch/dataset.json')
 #img_path = os.path.join('C:\\','Users', 'Beheerder','Documents','PhD','Flickr','Flickr8k_Dataset','Flicker8k_Dataset')
 # list the img and audio directories
 audio = os.listdir(audio_path)
@@ -94,7 +96,9 @@ params.append(use_energy)
 
 # create the audio features for all captions
 
-audio_features(params, img_audio, audio_path, append_name, node_list)
+#audio_features(params, img_audio, audio_path, append_name, node_list)
 
+# add text features for all captions
+text_features(text_path, output_file, append_name, node_list )
 # close the output files
 output_file.close()

@@ -34,10 +34,9 @@ def batch_hinge_loss(embeddings_1, embeddings_2, norm):
     I = torch.autograd.Variable(torch.eye(batch_size), requires_grad = True).cuda()
     diag = (error * I).sum(dim=0)
 
-    cost_1 = torch.clamp(1 - error + diag, min = 0)
-    cost_2 = torch.clamp(1 - error + diag.view(-1, 1), min = 0)
+    cost_1 = torch.clamp(.2 - error + diag, min = 0)
+    cost_2 = torch.clamp(.2 - error + diag.view(-1, 1), min = 0)
     cost = cost_1 + cost_2
     I_2 = torch.autograd.Variable(torch.eye(batch_size), requires_grad = True).cuda()
     cost = (1 - I_2) * cost
-
     return cost.mean()
