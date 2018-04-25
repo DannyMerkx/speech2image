@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 using gpu
 training epoch: 1
 0.6843199133872986
@@ -23605,4 +23606,26 @@ test recall@1 = 2.217741935483871%
 test recall@5 = 8.46774193548387%
 test recall@10 = 12.903225806451612%
 test average rank= 115
+=======
+torch.Size([8, 510, 1024])
+torch.Size([8, 8, 512])
+using gpu
+training epoch: 1
+Traceback (most recent call last):
+  File "cuda_torchnet.py", line 165, in <module>
+    train_loss = train_epoch(epoch, img_net, audio_net, optimizer, train, args.batch_size)
+  File "cuda_torchnet.py", line 127, in train_epoch
+    audio_embedding = audio_net(audio)
+  File "/data/anaconda3/envs/torch_env/lib/python3.6/site-packages/torch/nn/modules/module.py", line 357, in __call__
+    result = self.forward(*input, **kwargs)
+  File "/data/speech2image/PyTorch/encoders.py", line 104, in forward
+    x = self.Conv1d(input)
+  File "/data/anaconda3/envs/torch_env/lib/python3.6/site-packages/torch/nn/modules/module.py", line 357, in __call__
+    result = self.forward(*input, **kwargs)
+  File "/data/anaconda3/envs/torch_env/lib/python3.6/site-packages/torch/nn/modules/conv.py", line 168, in forward
+    self.padding, self.dilation, self.groups)
+  File "/data/anaconda3/envs/torch_env/lib/python3.6/site-packages/torch/nn/functional.py", line 54, in conv1d
+    return f(input, weight, bias)
+RuntimeError: Given groups=1, weight[64, 39, 6], so expected input[32, 40, 1024] to have 39 channels, but got 40 channels instead
+>>>>>>> 4a9103b37fbb0b858302f961dda36a3bae957bb2
 Closing remaining open files:/prep_data/flickr_features.h5...done

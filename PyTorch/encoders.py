@@ -20,8 +20,13 @@ class img_encoder(nn.Module):
     
     def forward(self, input):
         x = self.linear_transform(input)
+<<<<<<< HEAD
         #return nn.functional.normalize(x, p=2, dim=1)
         return x  
+=======
+        return nn.functional.normalize(x, p=2, dim=1)
+    
+>>>>>>> 4a9103b37fbb0b858302f961dda36a3bae957bb2
 # audio encoder as described by Harwath and Glass(2016)
 class Harwath_audio_encoder(nn.Module):
     def __init__(self):
@@ -96,7 +101,7 @@ class RHN_audio_encoder(nn.Module):
 class GRU_audio_encoder(nn.Module):
     def __init__(self):
         super(GRU_audio_encoder, self).__init__()
-        self.Conv1d = nn.Conv1d(in_channels = 40, out_channels = 64, kernel_size = 6,
+        self.Conv1d = nn.Conv1d(in_channels = 39, out_channels = 64, kernel_size = 6,
                                  stride = 2, padding = 0, groups = 1, bias = False)
         nn.init.xavier_uniform(self.Conv1d.weight.data)
         self.GRU = nn.GRU(64, 512, num_layers = 4, batch_first = True, bidirectional = True)
@@ -105,14 +110,19 @@ class GRU_audio_encoder(nn.Module):
         x = self.Conv1d(input)
         x = x.permute(0, 2, 1)
         x, hx = self.GRU(x)
+<<<<<<< HEAD
+=======
+        print(x.size())
+        print(hx.size())
+>>>>>>> 4a9103b37fbb0b858302f961dda36a3bae957bb2
         x = nn.functional.normalize(self.att(x), p=2, dim=1)
         return x
 
 
 #start_time = time.time()
-#gru = RCNN_audio_encoder()
-#input = torch.autograd.Variable(torch.rand(8, 40, 1024))
-#output = gru(input)
+gru = GRU_audio_encoder()
+input = torch.autograd.Variable(torch.rand(8, 39, 1024))
+output = gru(input)
 
 #time = time.time() - start_time
 #print(time)

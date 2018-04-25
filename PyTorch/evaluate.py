@@ -17,13 +17,13 @@ from torch.autograd import Variable
 # N.B. make sure the order in which you pass the embedding functions is the 
 # order in which the iterator yields the appropriate features!
 
-def image2speech(iterator, image_embed_function, speech_embed_function, n, dtype, mode ='full'):
+def image2speech(iterator, image_embed_function, speech_embed_function, n, dtype):
     im_embeddings, speech_embeddings = embed_data(iterator, image_embed_function, speech_embed_function, dtype)
-    return recall_at_n(im_embeddings, speech_embeddings, n, mode)
+    return recall_at_n(im_embeddings, speech_embeddings, n)
 
-def speech2image(iterator, image_embed_function, speech_embed_function, n, dtype, mode = 'full'):
+def speech2image(iterator, image_embed_function, speech_embed_function, n, dtype):
     im_embeddings, speech_embeddings = embed_data(iterator, image_embed_function, speech_embed_function, dtype)
-    return recall_at_n(speech_embeddings, im_embeddings, n, mode)  
+    return recall_at_n(speech_embeddings, im_embeddings, n)  
 
 # embeds the validation or test data using the trained neural network. Takes
 # an iterator (minibatcher) and the embedding functions (i.e. deterministic 
@@ -39,7 +39,7 @@ def embed_data(iterator, embed_function_1, embed_function_2, dtype):
         # embed the data
         img = embed_function_1(img)
         sp = embed_function_2(sp)
-        # retrieve data back from the gpu to the cpu if applicable and convert back to numpy data
+        # concat to existing tensor or create one if non-existent yet
         try:
             speech = torch.cat((speech, sp.data))
         except:
@@ -51,17 +51,14 @@ def embed_data(iterator, embed_function_1, embed_function_2, dtype):
     return speech, image
 
 ###########################################################################################
-# returns the recall@n over your test or validation set. Takes the embeddings 
-# returned by embed_data and n. n can be a scalar or a array so you can calculate
-# recall for multiple n's , mode indicates one of several modes, the default full
-# mode is fast but calculates an n by m similarity matrix which might become to big 
-# for memory in larger datasets
-def recall_at_n(embeddings_1, embeddings_2, n, mode):
+
+def recall_at_n(embeddings_1, embeddings_2, n):
 # calculate the recall at n for a retrieval task where given an embedding of some
 # data we want to retrieve the embedding of a related piece of data (e.g. images and captions)
 # recall works in the direction of embeddings_1 to embeddings_2, so if you pass images, and speech
 # respectively you calculate image to speech retrieval scores.
 
+<<<<<<< HEAD
     # fastest way to calculate recall, but it creates a full similarity matrix for all the embeddings and 
     # might lead to memory errors in bigger datasets (testing with 6gb of ram showed this was possible
     # for 2^13 or about 8000 embedding pairs)
@@ -153,4 +150,23 @@ def recall_at_n(embeddings_1, embeddings_2, n, mode):
     # As an alternative to the slower modes for big datasets, implement an 
     # approximation where recall is based on a feasibly sized subsample of the dataset. 
 
+=======
+    # get the cosine similarity matrix for the embeddings.
+    sim = torch.matmul(embeddings_1, embeddings_2.t())
+    # apply sort two times to get a matrix where the values for each position indicate its rank in the column
+    sorted, indices = sim.sort(dim = 1, descending = True)
+    sorted, indices = indices.sort(dim = 1)
+    # the diagonal of the resulting matrix diagonal now holds the rank of the correct embedding pair (add 1 cause 
+    # sort counts from 0, we want the top rank to be indexed as 1)
+    diag = indices.diag() +1
+    if type(n) == int:
+        recall = diag.le(n).double().mean()
+    elif type(n) == list:
+        recall = []
+        for x in n:
+            recall.append(diag.le(x).double().mean())    
+    # the average rank of the correct output
+    median_rank = diag.median()
+>>>>>>> 4a9103b37fbb0b858302f961dda36a3bae957bb2
     
+    return(recall, median_rank)
