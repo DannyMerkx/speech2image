@@ -60,7 +60,6 @@ def iterate_minibatches_flickr(f_nodes, batchsize, visual, audio, frames = 1024,
                 images.append(eval('ex.' + visual + '._f_list_nodes()[0].read()'))
                 # extract the audio features
                 sp = eval('ex.' + audio + '._f_list_nodes()[i].read().transpose()')
-                images.append(eval('ex.' + visual + '._f_list_nodes()[0].read()'))
                 # extract the audio features
                 sp = eval('ex.' + audio + '._f_list_nodes()[i][:].transpose()')
                 # padd to the given output size

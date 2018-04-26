@@ -25,8 +25,9 @@ from torch.autograd import Variable
 from minibatchers import iterate_minibatches, iterate_minibatches_flickr, iter_text_flickr
 from costum_loss import batch_hinge_loss
 from evaluate import speech2image
-from encoders import img_encoder, Harwath_audio_encoder, RHN_audio_encoder, GRU_audio_encoder, RCNN_audio_encoder
+from encoders import img_encoder, Harwath_audio_encoder, RHN_audio_encoder, GRU_audio_encoder, RCNN_audio_encoder, char_gru_encoder
 from data_split import split_data
+from prep_text import text_2_1hot, text_2_index
 
 ## implementation of an CNN for af recognition. made for use with mel filterbank features
 parser = argparse.ArgumentParser(description='Create and run an articulatory feature classification DNN')
@@ -78,7 +79,7 @@ if args.data_base == 'places':
 elif args.data_base == 'flickr':
     f_nodes = [node for node in iterate_flickr(data_file)]
     # define the batcher type to use.
-    batcher = iterate_minibatches_flickr
+    batcher = iter_text_flickr
 else:
     print('incorrect database option')
     exit()  
@@ -89,14 +90,14 @@ train, test, val = split_data(f_nodes)
 
 # network modules
 img_net = img_encoder()
-audio_net = GRU_audio_encoder()
+text_net = char_gru_encoder()
 # move graph to gpu if cuda is availlable
 if cuda:
     img_net.cuda()
-    audio_net.cuda()
+    text_net.cuda()
 
 # optimiser
-optimizer = torch.optim.Adam(list(img_net.parameters())+list(audio_net.parameters()), args.lr)
+optimizer = torch.optim.Adam(list(img_net.parameters())+list(text_net.parameters()), args.lr)
 
 # this sets the learning rate for the model to a learning rate adapted for the number of
 # epochs.
@@ -106,26 +107,27 @@ def lr_decay(optimizer, epoch):
         groups['lr'] = lr
 
 # training routine 
-def train_epoch(epoch, img_net, audio_net, optimizer, f_nodes, batch_size):
+def train_epoch(epoch, img_net, text_net, optimizer, f_nodes, batch_size):
     img_net.train()
-    audio_net.train()
+    text_net.train()
     # perform learning rate decay
     lr_decay(optimizer, epoch)
     # for keeping track of the average loss over all batches
     train_loss = 0
     num_batches =0
     for batch in batcher(f_nodes, batch_size, args.visual, args.audio, shuffle = True):
-        img, audio = batch
+        img, text = batch
         num_batches +=1
+        text = text_2_index(text, args.batch_size, 200)
         # convert data to pytorch variables
-        img, audio = Variable(dtype(img)), Variable(dtype(audio))
+        img, text = Variable(dtype(img)), Variable(dtype(text))
         # reset the gradients of the optimiser
         optimizer.zero_grad()
         # embed the images and audio using the networks
         img_embedding = img_net(img)
-        audio_embedding = audio_net(audio)
+        text_embedding = text_net(text)
         # calculate the loss
-        loss = batch_hinge_loss(img_embedding, audio_embedding, args.loss, cuda)
+        loss = batch_hinge_loss(img_embedding, text_embedding, args.loss, cuda)
         # calculate the gradients and perform the backprop step
         loss.backward()
         optimizer.step()
@@ -133,4 +135,69 @@ def train_epoch(epoch, img_net, audio_net, optimizer, f_nodes, batch_size):
         train_loss += loss.data
         print(train_loss.cpu()[0]/num_batches)
     return train_loss/num_batches
+
+def test_epoch(img_net, text_net, f_nodes, batch_size):
+    # set to evaluation mode
+    img_net.eval()
+    text_net.eval()
+    # for keeping track of the average loss
+    test_batches = 0
+    test_loss = 0
+    for batch in batcher(f_nodes, batch_size, args.visual, args.audio, shuffle = False):
+        img, text = batch 
+        test_batches += 1
+        text = text_2_index(text, args.batch_size, 200)
+        # convert data to pytorch variables
+        img, text = Variable(dtype(img)), Variable(dtype(text))
+        # embed the images and audio using the networks
+        img_embedding = img_net(img)
+        text_embedding = text_net(text)
+        loss = batch_hinge_loss(img_embedding, text_embedding, args.loss, cuda)
+        # add loss to average
+        test_loss += loss.data 
+    return test_loss/test_batches 
+epoch = 1
+# run the training loop for the indicated amount of epochs 
+while epoch <= args.n_epochs:
+    # keep track of runtime
+    start_time = time.time()
+
+    print('training epoch: ' + str(epoch))
+    # Train on the train set
+    train_loss = train_epoch(epoch, img_net, text_net, optimizer, train, args.batch_size)
+    # evaluate on the validation set
+    val_loss = test_epoch(img_net, text_net, val, args.batch_size)
+    
+    # calculate the recall@n
+    # create a minibatcher over the validation set
+    iterator = iterate_minibatches(val, args.batch_size, args.visual, args.audio, shuffle = False)
+    # calc recal, pass it the iterator, the embedding functions and n
+    # returns the measures columnise (speech2image retrieval) and rowwise(image2speech retrieval)
+    recall, avg_rank = speech2image(iterator, img_net, text_net, [1, 5, 10], dtype)
+
+    # print some info about this epoch
+    print("Epoch {} of {} took {:.3f}s".format(
+            epoch, args.n_epochs, time.time() - start_time))
+    print("training loss:\t\t{:.6f}".format(train_loss.cpu()[0]))
+    print("validation loss:\t\t{:.6f}".format(val_loss.cpu()[0]))
+    epoch += 1
+    print('recall@1 = ' + str(recall[0]*100) + '%')
+    print('recall@5 = ' + str(recall[1]*100) + '%')
+    print('recall@10 = ' + str(recall[2]*100) + '%')
+    print('average rank= ' + str(avg_rank))
+
+test_loss = test_epoch(img_net, text_net, test, args.batch_size)
+# calculate the recall@n
+# create a minibatcher over the test set
+iterator = iterate_minibatches(test, args.batch_size, args.visual, args.audio, shuffle = False)
+# calc recal, pass it the iterator, the embedding functions and n
+# returns the measures columnise (speech2image retrieval) and rowwise(image2speech retrieval)
+recall, avg_rank = speech2image(iterator, img_net, text_net, [1, 5, 10], dtype)
+
+print("test loss:\t\t{:.6f}".format(test_loss.cpu()[0]))
+print('test recall@1 = ' + str(recall[0]*100) + '%')
+print('test recall@5 = ' + str(recall[1]*100) + '%')
+print('test recall@10 = ' + str(recall[2]*100) + '%')
+print('test average rank= ' + str(avg_rank))
+
 

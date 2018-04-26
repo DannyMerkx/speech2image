@@ -110,6 +110,18 @@ class GRU_audio_encoder(nn.Module):
         x = nn.functional.normalize(self.att(x), p=2, dim=1)
         return x
 
+class char_gru_encoder(nn.Module):
+    def __init__(self):
+        super(GRU_audio_encoder, self).__init__()
+        self.embed = nn.Embedding(100, 20)
+        self.GRU = nn.GRU(20, 512, num_layers = 4, batch_first = True, bidirectional = True)
+        self.att = attention(1024, 128)
+    def forward(self, input):
+        x = self.embed(input)
+        x, hx = self.GRU(x)
+        x = nn.functional.normalize(self.att(x), p=2, dim=1)
+        return x
+
 
 #start_time = time.time()
 gru = GRU_audio_encoder()

@@ -33,7 +33,7 @@ def batch_hinge_loss(embeddings_1, embeddings_2, norm, cuda = True):
     # get the similarity of the correct image-caption pairs (the diagonal of the similarity matrix)
     I = torch.autograd.Variable(torch.eye(batch_size), requires_grad = True)
     if cuda:
-        I.cuda()
+        I = I.cuda()
     diag = (error * I).sum(dim=0)
 
     cost_1 = torch.clamp(.2 - error + diag, min = 0)
@@ -42,7 +42,7 @@ def batch_hinge_loss(embeddings_1, embeddings_2, norm, cuda = True):
     
     I_2 = torch.autograd.Variable(torch.eye(batch_size), requires_grad = True)
     if cuda:
-        I_2.cuda()
+        I_2 = I_2.cuda()
     
     cost = (1 - I_2) * cost
     return cost.mean()
