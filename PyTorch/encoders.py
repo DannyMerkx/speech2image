@@ -112,21 +112,21 @@ class GRU_audio_encoder(nn.Module):
 
 class char_gru_encoder(nn.Module):
     def __init__(self):
-        super(GRU_audio_encoder, self).__init__()
+        super(char_gru_encoder, self).__init__()
         self.embed = nn.Embedding(100, 20)
         self.GRU = nn.GRU(20, 512, num_layers = 4, batch_first = True, bidirectional = True)
         self.att = attention(1024, 128)
     def forward(self, input):
-        x = self.embed(input)
+        x = self.embed(input.long())
         x, hx = self.GRU(x)
         x = nn.functional.normalize(self.att(x), p=2, dim=1)
         return x
 
 
 #start_time = time.time()
-gru = GRU_audio_encoder()
-input = torch.autograd.Variable(torch.rand(8, 39, 1024))
-output = gru(input)
+#gru = GRU_audio_encoder()
+#input = torch.autograd.Variable(torch.rand(8, 39, 1024))
+#output = gru(input)
 
 #time = time.time() - start_time
 #print(time)

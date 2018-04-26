@@ -1,14 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed Apr 25 16:34:08 2018
-
-@author: danny
-"""
-
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
 Created on Tue Feb 27 14:13:00 2018
 
 @author: danny
@@ -27,7 +19,7 @@ from costum_loss import batch_hinge_loss
 from evaluate import speech2image
 from encoders import img_encoder, Harwath_audio_encoder, RHN_audio_encoder, GRU_audio_encoder, RCNN_audio_encoder, char_gru_encoder
 from data_split import split_data
-from prep_text import text_2_1hot, text_2_index
+
 
 ## implementation of an CNN for af recognition. made for use with mel filterbank features
 parser = argparse.ArgumentParser(description='Create and run an articulatory feature classification DNN')
@@ -43,7 +35,7 @@ parser.add_argument('-loss', type = list, default = [False, True], help = 'deter
 parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, default: True')
 parser.add_argument('-data_base', type = str, default = 'flickr', help = 'database to train on, options: places, flickr')
 parser.add_argument('-visual', type = str, default = 'vgg', help = 'name of the node containing the visual features')
-parser.add_argument('-audio', type = str, default = 'hw_norm_fbanks', help = 'name of the node containing the audio features')
+parser.add_argument('-audio', type = str, default = 'raw_text', help = 'name of the node containing the audio features')
 
 
 args = parser.parse_args()
@@ -118,7 +110,6 @@ def train_epoch(epoch, img_net, text_net, optimizer, f_nodes, batch_size):
     for batch in batcher(f_nodes, batch_size, args.visual, args.audio, shuffle = True):
         img, text = batch
         num_batches +=1
-        text = text_2_index(text, args.batch_size, 200)
         # convert data to pytorch variables
         img, text = Variable(dtype(img)), Variable(dtype(text))
         # reset the gradients of the optimiser
