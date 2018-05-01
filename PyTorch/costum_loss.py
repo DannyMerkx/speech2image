@@ -46,3 +46,63 @@ def batch_hinge_loss(embeddings_1, embeddings_2, norm, cuda = True):
     
     cost = (1 - I_2) * cost
     return cost.mean()
+
+def ordered_loss(embeddings_1, embeddings_2, norm, cuda = True):
+    # batch size
+    batch_size = embeddings_1.size(0)   
+    # calculate the norms of the embeddings and normalise the embeddings
+    if norm[0]:
+        embeddings_1 = embeddings_1 / embeddings_1.norm(2, dim = 1, keepdim = True)
+    if norm[1]:
+        embeddings_2 = embeddings_2 / embeddings_2.norm(2, dim = 1, keepdim = True)
+    
+    # calculate the similarity score
+    err = - (torch.clamp(embeddings_1 - embeddings_2[0], min = 0).norm(1, dim = 1, keepdim = True)**2)
+    for x in range(1, embeddings_2.size(0)):
+        e =  - (torch.clamp(embeddings_1 - embeddings_2[x], min = 0).norm(1, dim = 1, keepdim = True)**2)
+        err = torch.cat((err, e), 1)
+        
+    I = torch.autograd.Variable(torch.eye(batch_size), requires_grad = True)
+    if cuda:
+        I = I.cuda()
+    diag_1 = (err * I).sum(dim=0)
+    
+    cost_1 = torch.clamp(.2 - diag_1 + err, min = 0)
+    cost_2 = torch.clamp(.2 - diag_1.view(-1, 1) + err, min = 0)
+    
+    cost = cost_1 + cost_2
+    
+    I_2 = torch.autograd.Variable(torch.eye(batch_size), requires_grad = True)
+    if cuda:
+        I_2 = I_2.cuda()
+    
+    cost = (1 - I_2) * cost
+    
+#    print(cost.mean())
+#    
+#    cost_1 = -(torch.nn.functional.relu((embeddings_1 - embeddings_2.expand(batch_size, embeddings_2.size(0), embeddings_2.size(1)).permute(1,0,2))).norm(1, dim = 2, keepdim = True).squeeze()**2)
+#    I_1 = torch.autograd.Variable(torch.eye(batch_size), requires_grad = True)
+#    if cuda:
+#        I_1 = I_1.cuda()
+#    diag_1 = (cost_1 * I_1).sum(dim=0)
+#    
+#    cost_1 = torch.clamp(.2 - cost_1 + diag_1, min = 0)
+#    
+#    cost_2 = -(torch.nn.functional.relu((embeddings_2 - embeddings_1.expand(batch_size, embeddings_1.size(0), embeddings_1.size(1)).permute(1,0,2))).norm(1, dim = 2, keepdim = True).squeeze()**2)
+#    # get the similarity of the correct image-caption pairs (the diagonal of the similarity matrix)
+#    I_2 = torch.autograd.Variable(torch.eye(batch_size), requires_grad = True)
+#    if cuda:
+#        I_2 = I_2.cuda()
+#    diag_2 = (cost_2 * I_2).sum(dim=0)
+#
+#    cost_2 = torch.clamp(.2 - cost_2 + diag_2.view(-1, 1), min = 0)
+#    
+#    cost = cost_1 + cost_2
+#    
+#    I_3 = torch.autograd.Variable(torch.eye(batch_size), requires_grad = True)
+#    if cuda:
+#        I_3 = I_3.cuda()
+#    
+#    cost = (1 - I_3) * cost
+#    print(cost.mean())
+    return cost.mean()

@@ -59,7 +59,12 @@ def recall_at_n(embeddings_1, embeddings_2, n):
 # respectively you calculate image to speech retrieval scores.
     
     # get the cosine similarity matrix for the embeddings.
-    sim = torch.matmul(embeddings_1, embeddings_2.t())
+    #sim = torch.matmul(embeddings_1, embeddings_2.t())
+    sim = torch.clamp(embeddings_1 - embeddings_2[0], min = 0).norm(1, dim = 1, keepdim = True)**2
+    for x in range(1, embeddings_2.size(0)):
+        s = torch.clamp(embeddings_1 - embeddings_2[x], min = 0).norm(1, dim = 1, keepdim = True)**2
+        sim = torch.cat((sim, s), 1)
+    sim = - sim   
     # apply sort two times to get a matrix where the values for each position indicate its rank in the column
     sorted, indices = sim.sort(dim = 1, descending = True)
     sorted, indices = indices.sort(dim = 1)

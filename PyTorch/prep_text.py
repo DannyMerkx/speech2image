@@ -6,7 +6,6 @@ Created on Thu Apr 26 13:56:15 2018
 @author: danny
 """
 import string
-import torch 
 import numpy as np
 
 def find_index(char, valid_chars):  
