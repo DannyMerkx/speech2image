@@ -40,6 +40,7 @@ parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, defa
 parser.add_argument('-data_base', type = str, default = 'flickr', help = 'database to train on, options: places, flickr')
 parser.add_argument('-visual', type = str, default = 'vgg', help = 'name of the node containing the visual features')
 parser.add_argument('-audio', type = str, default = 'raw_text', help = 'name of the node containing the audio features')
+parser.add_argument('-gradient_clipping', type = bool, default = True, help ='use gradient clipping, default: True')
 
 args = parser.parse_args()
 
@@ -111,8 +112,7 @@ if cuda:
     text_net.cuda()
 # function to save parameters in a results folder
 def save_params(model, file_name, epoch):
-    model.save_state_dict(args.results_loc + file_name + str(epoch) +'pt')
-
+    torch.save(model.state_dict(), args.results_loc + file_name + '.' +str(epoch))
 
 # optimiser
 optimizer = torch.optim.Adam(list(img_net.parameters())+list(text_net.parameters()), args.lr)
@@ -193,8 +193,8 @@ while epoch <= args.n_epochs:
     val_loss = test_epoch(img_net, text_net, val, args.batch_size)
     
     # save network parameters
-    save_params(img_net, 'img', epoch)
-    save_params(text_net, 'text', epoch)
+    save_params(img_net, 'img_model', epoch)
+    save_params(text_net, 'text_model', epoch)
 
     # calculate the recall@n
     # create a minibatcher over the validation set
