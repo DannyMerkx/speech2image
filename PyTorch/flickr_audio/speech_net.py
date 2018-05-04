@@ -29,7 +29,7 @@ parser.add_argument('-data_loc', type = str, default = '/prep_data/flickr_featur
                     help = 'location of the feature file, default: /prep_data/flickr_features.h5')
 parser.add_argument('-split_loc', type = str, default = '/data/speech2image/PyTorch/flickr_audio/dataset.json', 
                     help = 'location of the json file containing the data split information')
-parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/flickr_audio/results',
+parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/flickr_audio/results/',
                     help = 'location of the json file containing the data split information')
 # args concerning training settings
 parser.add_argument('-batch_size', type = int, default = 32, help = 'batch size, default: 32')
@@ -228,5 +228,5 @@ print('test recall@10 = ' + str(recall[2]*100) + '%')
 print('test average rank= ' + str(avg_rank))
 
 if args.gradient_clipping:
-    audio_clipper.save_grads(args.results_loc, 'textgrads')
+    audio_clipper.save_grads(args.results_loc, 'audiograds')
     img_clipper.save_grads(args.results_loc, 'imgrads')

@@ -17,7 +17,7 @@ class gradient_clipping():
     # this appends the gradient norm at each backward call. x is a dud because 
     # the backward hook passes the model's self.
     def track_grads(self, x, grad_input, grad_output):
-        self.epoch_grads.append(grad_input[0].norm())
+        self.epoch_grads.append(grad_input[0].norm().cpu().data.numpy())
     # register a backward hook to the encoder            
     def register_hook(self, encoder):
         encoder.register_backward_hook(self.track_grads)
