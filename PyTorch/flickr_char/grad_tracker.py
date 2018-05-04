@@ -24,6 +24,8 @@ class gradient_clipping():
     # return the gradient norm mean over the epoch
     def gradient_mean(self):
         return np.mean(self.epoch_grads)
+    def gradient_std(self):
+        return np.std(self.epoch_grads)
     # reset the epoch gradients
     def reset_gradients(self):
         self.total_grads.append(self.epoch_grads)        
@@ -33,7 +35,7 @@ class gradient_clipping():
         np.save(loc + name, self.total_grads)
     # update the clipping value based on the running gradient mean for this epoch
     def update_clip_value(self):       
-        self.clip = self.gradient_mean()
+        self.clip = self.gradient_mean() + self.gradient_std()
     # update the clipping value based on the running gradient mean for the entire
     # training session
     def update_clip_value_total(self):
