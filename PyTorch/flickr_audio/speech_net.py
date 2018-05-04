@@ -39,13 +39,14 @@ parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, defa
 # args concerning the database and which features to load
 parser.add_argument('-data_base', type = str, default = 'flickr', help = 'database to train on, options: places, flickr')
 parser.add_argument('-visual', type = str, default = 'vgg', help = 'name of the node containing the visual features')
-parser.add_argument('-audio', type = str, default = 'fbanks', help = 'name of the node containing the audio features')
+parser.add_argument('-audio', type = str, default = 'mfcc', help = 'name of the node containing the audio features')
+parser.add_argument('-gradient_clipping', type = bool, default = True, help ='use gradient clipping, default: True')
 
 args = parser.parse_args()
 
 # create config dictionaries with all the parameters for your encoders
 
-audio_config = {'conv':{'in_channels': 40, 'out_channels': 64, 'kernel_size': 6, 'stride': 2,
+audio_config = {'conv':{'in_channels': 39, 'out_channels': 64, 'kernel_size': 6, 'stride': 2,
                'padding': 0, 'bias': False}, 'gru':{'input_size': 64, 'hidden_size': 512, 
                'num_layers': 4, 'batch_first': True, 'bidirectional': True, 'dropout': 0}, 
                'att':{'in_size': 1024, 'hidden_size': 128}}
