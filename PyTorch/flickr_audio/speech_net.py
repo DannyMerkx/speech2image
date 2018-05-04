@@ -19,6 +19,7 @@ from costum_loss import batch_hinge_loss
 from evaluate import speech2image
 from encoders import img_encoder, audio_gru_encoder
 from data_split import split_data
+from grad_tracker import gradient_clipping
 ##################################### parameter settings ##############################################
 
 parser = argparse.ArgumentParser(description='Create and run an articulatory feature classification DNN')
@@ -28,7 +29,7 @@ parser.add_argument('-data_loc', type = str, default = '/prep_data/flickr_featur
                     help = 'location of the feature file, default: /prep_data/flickr_features.h5')
 parser.add_argument('-split_loc', type = str, default = '/data/speech2image/PyTorch/flickr_audio/dataset.json', 
                     help = 'location of the json file containing the data split information')
-parser.add_argument('-results_loc', type = str, default = '/data/speech2image/Pytorch/flickr_audio/results',
+parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/flickr_audio/results',
                     help = 'location of the json file containing the data split information')
 # args concerning training settings
 parser.add_argument('-batch_size', type = int, default = 32, help = 'batch size, default: 32')
@@ -93,31 +94,25 @@ else:
 train, test, val = split_data(f_nodes, args.split_loc)
 #####################################################
 
-global im_grads
-im_grads = []
-global text_grads
-audio_grads = []
-
-def track_image_grads(self, grad_input, grad_output):
-    im_grads.append(grad_input[0].norm())
-    
-def track_audio_grads(self, grad_input, grad_output):
-    audio_grads.append(grad_input[0].norm())
-
 # network modules
 img_net = img_encoder(image_config)
 audio_net = audio_gru_encoder(audio_config)
 
-img_net.register_backward_hook(track_image_grads)
-audio_net.register_backward_hook(track_audio_grads)
-
+if args.gradient_clipping:
+    img_clipper = gradient_clipping(clip_value = 0.0015)
+    audio_clipper = gradient_clipping(clip_value = 0.015)
+    
+    img_clipper.register_hook(img_net)
+    audio_clipper.register_hook(audio_net)
+    
 # move graph to gpu if cuda is availlable
 if cuda:
     img_net.cuda()
     audio_net.cuda()
 # function to save parameters in a results folder
 def save_params(model, file_name, epoch):
-    model.save_state_dict(args.results_loc + file_name + str(epoch) +'pt')
+    torch.save(model.state_dict(), args.results_loc + file_name + '.' +str(epoch))
+
 # optimiser
 optimizer = torch.optim.Adam(list(img_net.parameters())+list(audio_net.parameters()), args.lr)
 
@@ -151,8 +146,9 @@ def train_epoch(epoch, img_net, audio_net, optimizer, f_nodes, batch_size):
         loss = batch_hinge_loss(img_embedding, audio_embedding, cuda)
         # calculate the gradients and perform the backprop step
         loss.backward()
-        torch.nn.utils.clip_grad_norm(img_net.parameters(), 0.005)
-        torch.nn.utils.clip_grad_norm(text_net.parameters(), 0.025)
+        if args.gradient_clipping:
+            torch.nn.utils.clip_grad_norm(img_net.parameters(), img_clipper.clip)
+            torch.nn.utils.clip_grad_norm(audio_net.parameters(), audio_clipper.clip)
         optimizer.step()
         # add loss to average
         train_loss += loss.data
@@ -190,8 +186,8 @@ while epoch <= args.n_epochs:
     # evaluate on the validation set
     val_loss = test_epoch(img_net, audio_net, val, args.batch_size)
     # save network parameters
-    save_params(img_net, 'img', epoch)
-    save_params(text_net, 'text', epoch)
+    save_params(img_net, 'img_model', epoch)
+    save_params(audio_net, 'audio_model', epoch)
 
     # calculate the recall@n
     # create a minibatcher over the validation set
@@ -210,6 +206,12 @@ while epoch <= args.n_epochs:
     print('recall@10 = ' + str(recall[2]*100) + '%')
     print('average rank= ' + str(avg_rank))
     epoch += 1
+    if args.gradient_clipping:
+        audio_clipper.update_clip_value()
+        audio_clipper.reset_gradients()
+        img_clipper.update_clip_value()
+        img_clipper.reset_gradients()
+        
 test_loss = test_epoch(img_net, audio_net, test, args.batch_size)
 # calculate the recall@n
 # create a minibatcher over the test set
@@ -224,3 +226,6 @@ print('test recall@5 = ' + str(recall[1]*100) + '%')
 print('test recall@10 = ' + str(recall[2]*100) + '%')
 print('test average rank= ' + str(avg_rank))
 
+if args.gradient_clipping:
+    audio_clipper.save_grads(args.results_loc, 'textgrads')
+    img_clipper.save_grads(args.results_loc, 'imgrads')
