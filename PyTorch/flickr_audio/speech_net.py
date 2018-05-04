@@ -93,9 +93,24 @@ else:
 train, test, val = split_data(f_nodes, args.split_loc)
 #####################################################
 
+global im_grads
+im_grads = []
+global text_grads
+audio_grads = []
+
+def track_image_grads(self, grad_input, grad_output):
+    im_grads.append(grad_input[0].norm())
+    
+def track_audio_grads(self, grad_input, grad_output):
+    audio_grads.append(grad_input[0].norm())
+
 # network modules
 img_net = img_encoder(image_config)
 audio_net = audio_gru_encoder(audio_config)
+
+img_net.register_backward_hook(track_image_grads)
+audio_net.register_backward_hook(track_audio_grads)
+
 # move graph to gpu if cuda is availlable
 if cuda:
     img_net.cuda()
@@ -103,8 +118,6 @@ if cuda:
 # function to save parameters in a results folder
 def save_params(model, file_name, epoch):
     model.save_state_dict(args.results_loc + file_name + str(epoch) +'pt')
-
-
 # optimiser
 optimizer = torch.optim.Adam(list(img_net.parameters())+list(audio_net.parameters()), args.lr)
 
@@ -138,6 +151,8 @@ def train_epoch(epoch, img_net, audio_net, optimizer, f_nodes, batch_size):
         loss = batch_hinge_loss(img_embedding, audio_embedding, cuda)
         # calculate the gradients and perform the backprop step
         loss.backward()
+        torch.nn.utils.clip_grad_norm(img_net.parameters(), 0.005)
+        torch.nn.utils.clip_grad_norm(text_net.parameters(), 0.025)
         optimizer.step()
         # add loss to average
         train_loss += loss.data

@@ -19,6 +19,7 @@ from costum_loss import batch_hinge_loss, ordered_loss
 from evaluate import speech2image
 from encoders import img_encoder, char_gru_encoder
 from data_split import split_data
+from grad_tracker import gradient_clipping
 ##################################### parameter settings ##############################################
 
 parser = argparse.ArgumentParser(description='Create and run an articulatory feature classification DNN')
@@ -28,7 +29,7 @@ parser.add_argument('-data_loc', type = str, default = '/prep_data/flickr_featur
                     help = 'location of the feature file, default: /prep_data/flickr_features.h5')
 parser.add_argument('-split_loc', type = str, default = '/data/speech2image/PyTorch/flickr_char/dataset.json', 
                     help = 'location of the json file containing the data split information')
-parser.add_argument('-results_loc', type = str, default = '/data/speech2image/Pytorch/flickr_char/results',
+parser.add_argument('-results_loc', type = str, default = '/data/speech2image/Pytorch/flickr_char/results/',
                     help = 'location to save the results and network parameters')
 # args concerning training settings
 parser.add_argument('-batch_size', type = int, default = 32, help = 'batch size, default: 32')
@@ -96,6 +97,14 @@ train, test, val = split_data(f_nodes, args.split_loc)
 img_net = img_encoder(image_config)
 text_net = char_gru_encoder(char_config)
 
+if args.gradient_clipping:
+    img_clipper = gradient_clipping(clip_value = 0.0015)
+    text_clipper = gradient_clipping(clip_value = 0.015)
+    
+    img_clipper.register_hook(img_net)
+    text_clipper.register_hook(text_net)
+    
+    
 # move graph to gpu if cuda is availlable
 if cuda:
     img_net.cuda()
@@ -138,8 +147,11 @@ def train_epoch(epoch, img_net, text_net, optimizer, f_nodes, batch_size):
         loss = batch_hinge_loss(img_embedding, text_embedding, cuda)
         # calculate the gradients and perform the backprop step
         loss.backward()
-        torch.nn.utils.clip_grad_norm(img_net.parameters(), 0.005)
-        torch.nn.utils.clip_grad_norm(text_net.parameters(), 0.025)
+        # clip the gradients if required
+        if args.gradient_clipping:
+            torch.nn.utils.clip_grad_norm(img_net.parameters(), img_clipper.clip)
+            torch.nn.utils.clip_grad_norm(text_net.parameters(), text_clipper.clip)
+        
         optimizer.step()
         # add loss to average
         train_loss += loss.data
@@ -196,12 +208,18 @@ while epoch <= args.n_epochs:
             epoch, args.n_epochs, time.time() - start_time))
     print("training loss:\t\t{:.6f}".format(train_loss.cpu()[0]))
     print("validation loss:\t\t{:.6f}".format(val_loss.cpu()[0]))
-    epoch += 1
+    
     print('recall@1 = ' + str(recall[0]*100) + '%')
     print('recall@5 = ' + str(recall[1]*100) + '%')
     print('recall@10 = ' + str(recall[2]*100) + '%')
     print('average rank= ' + str(avg_rank))
-
+    epoch += 1
+    if args.gradient_clipping:
+        text_clipper.update_clip_value()
+        text_clipper.reset_gradients()
+        img_clipper.update_clip_value()
+        img_clipper.reset_gradients()
+    
 test_loss = test_epoch(img_net, text_net, test, args.batch_size)
 # calculate the recall@n
 # create a minibatcher over the test set
@@ -216,4 +234,6 @@ print('test recall@5 = ' + str(recall[1]*100) + '%')
 print('test recall@10 = ' + str(recall[2]*100) + '%')
 print('test average rank= ' + str(avg_rank))
 
-
+if args.gradient_clipping:
+    text_clipper.save_grads(args.results_loc, 'textgrads')
+    img_clipper.save_grads(args.results_loc, 'imgrads')
