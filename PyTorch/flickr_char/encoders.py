@@ -85,11 +85,7 @@ class img_encoder(nn.Module):
         linear = config['linear']
         self.norm = config['norm']
         self.linear_transform = nn.Linear(in_features = linear['in_size'], out_features = linear['out_size'])
-<<<<<<< HEAD
         #nn.init.xavier_uniform(self.linear_transform.weight.data)
-=======
-        nn.init.xavier_uniform(self.linear_transform.weight.data)
->>>>>>> 9ed6340bbfd703bf0a13889b7f6a5b9f30b05aca
     def forward(self, input):
         x = self.linear_transform(input)
         if self.norm:

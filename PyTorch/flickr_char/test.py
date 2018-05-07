@@ -20,7 +20,7 @@ from torch.autograd import Variable
 from minibatchers import iterate_audio_flickr, iterate_minibatches
 from costum_loss import batch_hinge_loss
 from evaluate import speech2image, image2speech
-from encoders import img_encoder, audio_gru_encoder
+from encoders import img_encoder, char_gru_encoder
 from data_split import split_data
 ##################################### parameter settings ##############################################
 
@@ -31,7 +31,7 @@ parser.add_argument('-data_loc', type = str, default = '/prep_data/flickr_featur
                     help = 'location of the feature file, default: /prep_data/flickr_features.h5')
 parser.add_argument('-split_loc', type = str, default = '/data/speech2image/PyTorch/flickr_audio/dataset.json', 
                     help = 'location of the json file containing the data split information')
-parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/flickr_audio/results/',
+parser.add_argument('-results_loc', type = str, default = '/prep_data/char_results/',
                     help = 'location of the json file containing the data split information')
 # args concerning training settings
 parser.add_argument('-batch_size', type = int, default = 32, help = 'batch size, default: 32')
@@ -46,10 +46,9 @@ args = parser.parse_args()
 
 # create config dictionaries with all the parameters for your encoders
 
-audio_config = {'conv':{'in_channels': 39, 'out_channels': 64, 'kernel_size': 6, 'stride': 2,
-               'padding': 0, 'bias': False}, 'gru':{'input_size': 64, 'hidden_size': 512, 
-               'num_layers': 4, 'batch_first': True, 'bidirectional': True, 'dropout': 0}, 
-               'att':{'in_size': 1024, 'hidden_size': 128}}
+char_config = {'embed':{'num_chars': 100, 'embedding_dim': 20, 'sparse': False, 'padding_idx': 0},
+               'gru':{'input_size': 20, 'hidden_size': 512, 'num_layers': 4, 'batch_first': True,
+               'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 1024, 'hidden_size': 128}}
 
 image_config = {'linear':{'in_size': 4096, 'out_size': 1024}, 'norm': True}
 
@@ -97,16 +96,16 @@ train, test, val = split_data(f_nodes, args.split_loc)
 
 # network modules
 img_net = img_encoder(image_config)
-audio_net = audio_gru_encoder(audio_config)
+text_net = char_gru_encoder(char_config)
 
 # move graph to gpu if cuda is availlable
 if cuda:
     img_net.cuda()
-    audio_net.cuda()
+    text_net.cuda()
 
 # list all the trained model parameters
 models = os.listdir(args.results_loc)
-caption_models = [x for x in models if 'audio' in x]
+caption_models = [x for x in models if 'text' in x]
 img_models = [x for x in models if 'img' in x]
 
 # run the training loop for the indicated amount of epochs 
@@ -118,13 +117,13 @@ for img, cap in zip(img_models, caption_models) :
     caption_state = torch.load(args.results_loc + cap)
     
     img_net.load_state_dict(img_state)
-    audio_net.load_state_dict(caption_state)
+    text_net.load_state_dict(caption_state)
     # calculate the recall@n
     # create a minibatcher over the validation set
     iterator = batcher(val, args.batch_size, args.visual, args.audio, shuffle = False)
     # calc recal, pass it the iterator, the embedding functions and n
     # returns the measures columnise (speech2image retrieval) and rowwise(image2speech retrieval)
-    recall, median_rank = speech2image(iterator, img_net, audio_net, [1, 5, 10], dtype)
+    recall, median_rank = speech2image(iterator, img_net, text_net, [1, 5, 10], dtype)
     
     # print some info about this epoch
     print("Epoch " + img.split('.')[1])
@@ -135,7 +134,7 @@ for img, cap in zip(img_models, caption_models) :
     print('validation median rank= ' + str(median_rank))
 
     iterator = batcher(val, args.batch_size, args.visual, args.audio, shuffle = False)
-    recall, median_rank = image2speech(iterator, img_net, audio_net, [1, 5, 10], dtype)
+    recall, median_rank = image2speech(iterator, img_net, text_net, [1, 5, 10], dtype)
     print('image2speech:')
     print('validation recall@1 = ' + str(recall[0]*100) + '%')
     print('validation recall@5 = ' + str(recall[1]*100) + '%')
@@ -147,7 +146,7 @@ for img, cap in zip(img_models, caption_models) :
     iterator = batcher(test, args.batch_size, args.visual, args.audio, shuffle = False)
     # calc recal, pass it the iterator, the embedding functions and n
     # returns the measures columnise (speech2image retrieval) and rowwise(image2speech retrieval)
-    recall, avg_rank = speech2image(iterator, img_net, audio_net, [1, 5, 10], dtype)
+    recall, avg_rank = speech2image(iterator, img_net, text_net, [1, 5, 10], dtype)
     print('speech2image:')
     print('test recall@1 = ' + str(recall[0]*100) + '%')
     print('test recall@5 = ' + str(recall[1]*100) + '%')
@@ -155,7 +154,7 @@ for img, cap in zip(img_models, caption_models) :
     print('test median rank= ' + str(median_rank))
     
     iterator = batcher(test, args.batch_size, args.visual, args.audio, shuffle = False)
-    recall, median_rank = image2speech(iterator, img_net, audio_net, [1, 5, 10], dtype)
+    recall, median_rank = image2speech(iterator, img_net, text_net, [1, 5, 10], dtype)
     print('image2speech:')
     print('test recall@1 = ' + str(recall[0]*100) + '%')
     print('test recall@5 = ' + str(recall[1]*100) + '%')

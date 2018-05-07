@@ -47,10 +47,10 @@ args = parser.parse_args()
 # create config dictionaries with all the parameters for your encoders
 
 char_config = {'embed':{'num_chars': 100, 'embedding_dim': 20, 'sparse': False, 'padding_idx': 0}, 
-               'gru':{'input_size': 20, 'hidden_size': 512, 'num_layers': 4, 'batch_first': True,
-               'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 1024, 'hidden_size': 128}}
+               'gru':{'input_size': 20, 'hidden_size': 1024, 'num_layers': 4, 'batch_first': True,
+               'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 2048, 'hidden_size': 128}}
 
-image_config = {'linear':{'in_size': 4096, 'out_size': 1024}, 'norm': True}
+image_config = {'linear':{'in_size': 4096, 'out_size': 2048}, 'norm': True}
 
 # open the data file
 data_file = tables.open_file(args.data_loc, mode='r+') 

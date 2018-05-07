@@ -100,14 +100,9 @@ img_net = img_encoder(image_config)
 audio_net = audio_gru_encoder(audio_config)
 
 if args.gradient_clipping:
-<<<<<<< HEAD
     img_clipper = gradient_clipping(clip_value = 0.0025)
     audio_clipper = gradient_clipping(clip_value = 0.05)
-=======
-    img_clipper = gradient_clipping(clip_value = 0.0015)
-    audio_clipper = gradient_clipping(clip_value = 0.015)
->>>>>>> 9ed6340bbfd703bf0a13889b7f6a5b9f30b05aca
-    
+   
     img_clipper.register_hook(img_net)
     audio_clipper.register_hook(audio_net)
     

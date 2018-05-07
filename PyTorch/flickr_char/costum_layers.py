@@ -73,21 +73,13 @@ class attention(nn.Module):
     def __init__(self, in_size, hidden_size):
         super(attention, self).__init__()
         self.hidden = nn.Linear(in_size, hidden_size)
-<<<<<<< HEAD
         #nn.init.orthogonal(self.hidden.weight.data)
         self.out = nn.Linear(hidden_size, 1)
         #nn.init.orthogonal(self.hidden.weight.data)
-=======
-        nn.init.orthogonal(self.hidden.weight.data)
-        self.out = nn.Linear(hidden_size, 1)
-        nn.init.orthogonal(self.hidden.weight.data)
->>>>>>> 9ed6340bbfd703bf0a13889b7f6a5b9f30b05aca
         self.softmax = nn.Softmax(dim = 1)
     def forward(self, input):
         # calculate the attention weights
         alpha = self.softmax(self.out(nn.functional.tanh(self.hidden(input))))
         # apply the weights to the input and sum over all timesteps
         x = torch.sum(alpha.expand_as(input) * input, 1)
-        return x
-           
-        
+        return x        
