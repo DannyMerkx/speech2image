@@ -114,9 +114,9 @@ def vgg(img_path, output_file, append_name, img_audio, node_list):
         im[:,:,2] -= 123.68
         crops = crop_10(im, 224)
         crops = crops.transpose((0,3,1,2))
-        im = np.expand_dims(im, axis=0)
         # get the activations of the penultimate layer, 0 indicates the network is used in test mode (no dropout applied)
-        activations = (get_activations(im, 0)) 
+        activations = (get_activations(crops, 0))
+        activations = np.mean(activations,0)
         # get the shape of the image features for the output file
         feature_shape= numpy.shape(activations)[1]
         vgg_node = output_file.create_group(node, 'vgg')
