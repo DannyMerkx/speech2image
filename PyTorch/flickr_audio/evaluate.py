@@ -17,11 +17,11 @@ from torch.autograd import Variable
 # N.B. make sure the order in which you pass the embedding functions is the 
 # order in which the iterator yields the appropriate features!
 
-def image2speech(iterator, image_embed_function, speech_embed_function, n, dtype):
+def speech2image(iterator, image_embed_function, speech_embed_function, n, dtype):
     im_embeddings, speech_embeddings = embed_data(iterator, image_embed_function, speech_embed_function, dtype)
     return recall_at_n(im_embeddings, speech_embeddings, n)
 
-def speech2image(iterator, image_embed_function, speech_embed_function, n, dtype):
+def image2speech(iterator, image_embed_function, speech_embed_function, n, dtype):
     im_embeddings, speech_embeddings = embed_data(iterator, image_embed_function, speech_embed_function, dtype)
     return recall_at_n(speech_embeddings, im_embeddings, n)  
 
@@ -52,16 +52,12 @@ def embed_data(iterator, embed_function_1, embed_function_2, dtype):
 
 ###########################################################################################
 
-<<<<<<< HEAD:PyTorch/flickr_audio/evaluate.py
 def recall_at_n(emb_1, emb_2, n, cosine = True):
-=======
-def recall_at_n(embeddings_1, embeddings_2, n, cosine = True):
->>>>>>> 9ed6340bbfd703bf0a13889b7f6a5b9f30b05aca:PyTorch/flickr_audio/evaluate.py
+
 # calculate the recall at n for a retrieval task where given an embedding of some
 # data we want to retrieve the embedding of a related piece of data (e.g. images and captions)
 # recall works in the direction of embeddings_1 to embeddings_2, so if you pass images, and speech
 # respectively you calculate image to speech retrieval scores.
-<<<<<<< HEAD:PyTorch/flickr_audio/evaluate.py
     # total number of the embeddings
     n_emb = emb_1.size()[0]
     recall = np.zeros(np.shape(n))
@@ -97,31 +93,4 @@ def recall_at_n(embeddings_1, embeddings_2, n, cosine = True):
         median_rank += diag.median()
         recall += r        
     return(recall/5, median_rank/5)
-=======
-    
-    # get the cosine similarity matrix for the embeddings by default. pass cosine = False to use the
-    # ordered distance measure proposed by vendrov et al. 
-    if cosine:
-        sim = torch.matmul(embeddings_1, embeddings_2.t())
-    else:
-        sim = torch.clamp(embeddings_1 - embeddings_2[0], min = 0).norm(1, dim = 1, keepdim = True)**2
-        for x in range(1, embeddings_2.size(0)):
-            s = torch.clamp(embeddings_1 - embeddings_2[x], min = 0).norm(1, dim = 1, keepdim = True)**2
-            sim = torch.cat((sim, s), 1)
-        sim = - sim   
-    # apply sort two times to get a matrix where the values for each position indicate its rank in the column
-    sorted, indices = sim.sort(dim = 1, descending = True)
-    sorted, indices = indices.sort(dim = 1)
-    # the diagonal of the resulting matrix diagonal now holds the rank of the correct embedding pair (add 1 cause 
-    # sort counts from 0, we want the top rank to be indexed as 1)
-    diag = indices.diag() +1
-    if type(n) == int:
-        recall = diag.le(n).double().mean()
-    elif type(n) == list:
-        recall = []
-        for x in n:
-            recall.append(diag.le(x).double().mean())    
-    # the average rank of the correct output
-    median_rank = diag.median()
-    return(recall, median_rank)
->>>>>>> 9ed6340bbfd703bf0a13889b7f6a5b9f30b05aca:PyTorch/flickr_audio/evaluate.py
+

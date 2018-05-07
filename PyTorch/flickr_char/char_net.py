@@ -38,7 +38,7 @@ parser.add_argument('-n_epochs', type = int, default = 25, help = 'number of tra
 parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, default: True')
 # args concerning the database and which features to load
 parser.add_argument('-data_base', type = str, default = 'flickr', help = 'database to train on, options: places, flickr')
-parser.add_argument('-visual', type = str, default = 'vgg', help = 'name of the node containing the visual features')
+parser.add_argument('-visual', type = str, default = 'vgg_10crop', help = 'name of the node containing the visual features')
 parser.add_argument('-audio', type = str, default = 'raw_text', help = 'name of the node containing the audio features')
 parser.add_argument('-gradient_clipping', type = bool, default = True, help ='use gradient clipping, default: True')
 
@@ -46,11 +46,7 @@ args = parser.parse_args()
 
 # create config dictionaries with all the parameters for your encoders
 
-<<<<<<< HEAD
 char_config = {'embed':{'num_chars': 100, 'embedding_dim': 20, 'sparse': False, 'padding_idx': 0}, 
-=======
-char_config = {'embed':{'num_chars': 30, 'embedding_dim': 20, 'sparse': False, 'padding_idx': 0}, 
->>>>>>> 9ed6340bbfd703bf0a13889b7f6a5b9f30b05aca
                'gru':{'input_size': 20, 'hidden_size': 512, 'num_layers': 4, 'batch_first': True,
                'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 1024, 'hidden_size': 128}}
 
@@ -103,14 +99,9 @@ img_net = img_encoder(image_config)
 text_net = char_gru_encoder(char_config)
 
 if args.gradient_clipping:
-<<<<<<< HEAD
     img_clipper = gradient_clipping(clip_value = 0.0025)
     text_clipper = gradient_clipping(clip_value = 0.05)
-=======
-    img_clipper = gradient_clipping(clip_value = 0.0015)
-    text_clipper = gradient_clipping(clip_value = 0.015)
->>>>>>> 9ed6340bbfd703bf0a13889b7f6a5b9f30b05aca
-    
+  
     img_clipper.register_hook(img_net)
     text_clipper.register_hook(text_net)
     
@@ -207,17 +198,10 @@ while epoch <= args.n_epochs:
 
     # calculate the recall@n
     # create a minibatcher over the validation set
-<<<<<<< HEAD
     iterator = batcher(val, args.batch_size, args.visual, args.audio, shuffle = False)
     # calc recal, pass it the iterator, the embedding functions and n
     # returns the measures columnise (speech2image retrieval) and rowwise(image2speech retrieval)
     recall, median_rank = speech2image(iterator, img_net, text_net, [1, 5, 10], dtype)
-=======
-    iterator = batcher(val, args.batch_size, args.visual, args.audio, shuffle = False, test = True)
-    # calc recal, pass it the iterator, the embedding functions and n
-    # returns the measures columnise (speech2image retrieval) and rowwise(image2speech retrieval)
-    recall, avg_rank = speech2image(iterator, img_net, text_net, [1, 5, 10], dtype)
->>>>>>> 9ed6340bbfd703bf0a13889b7f6a5b9f30b05aca
 
     # print some info about this epoch
     print("Epoch {} of {} took {:.3f}s".format(
@@ -228,11 +212,7 @@ while epoch <= args.n_epochs:
     print('recall@1 = ' + str(recall[0]*100) + '%')
     print('recall@5 = ' + str(recall[1]*100) + '%')
     print('recall@10 = ' + str(recall[2]*100) + '%')
-<<<<<<< HEAD
     print('median rank= ' + str(median_rank))
-=======
-    print('average rank= ' + str(avg_rank))
->>>>>>> 9ed6340bbfd703bf0a13889b7f6a5b9f30b05aca
     epoch += 1
     if args.gradient_clipping:
         text_clipper.update_clip_value()
@@ -243,27 +223,15 @@ while epoch <= args.n_epochs:
 test_loss = test_epoch(img_net, text_net, test, args.batch_size)
 # calculate the recall@n
 # create a minibatcher over the test set
-<<<<<<< HEAD
 iterator = batcher(test, args.batch_size, args.visual, args.audio, shuffle = False,)
 # calc recal, pass it the iterator, the embedding functions and n
 # returns the measures columnise (speech2image retrieval) and rowwise(image2speech retrieval)
 recall, median_rank = speech2image(iterator, img_net, text_net, [1, 5, 10], dtype)
-=======
-iterator = batcher(test, args.batch_size, args.visual, args.audio, shuffle = False, test = True)
-# calc recal, pass it the iterator, the embedding functions and n
-# returns the measures columnise (speech2image retrieval) and rowwise(image2speech retrieval)
-recall, avg_rank = speech2image(iterator, img_net, text_net, [1, 5, 10], dtype)
->>>>>>> 9ed6340bbfd703bf0a13889b7f6a5b9f30b05aca
-
 print("test loss:\t\t{:.6f}".format(test_loss.cpu()[0]))
 print('test recall@1 = ' + str(recall[0]*100) + '%')
 print('test recall@5 = ' + str(recall[1]*100) + '%')
 print('test recall@10 = ' + str(recall[2]*100) + '%')
-<<<<<<< HEAD
 print('test median rank= ' + str(median_rank))
-=======
-print('test average rank= ' + str(avg_rank))
->>>>>>> 9ed6340bbfd703bf0a13889b7f6a5b9f30b05aca
 
 if args.gradient_clipping:
     text_clipper.save_grads(args.results_loc, 'textgrads')

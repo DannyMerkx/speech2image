@@ -11,7 +11,7 @@ import tables
 import os
 
 
-from vgg16 import vgg
+from vgg_crop10 import vgg
 from audio_features import audio_features
 from text_features import text_features
 # path to the flickr audio and image files
@@ -58,19 +58,19 @@ output_file = tables.open_file('/prep_data/flickr_features.h5', mode='a')
 append_name = 'flickr_'
 
 # create the h5 file to hold all image and audio features
-#for x in img_audio:
+for x in img_audio:
     # one group for each image file which will contain its vgg16 features and audio captions 
-#    output_file.create_group("/", append_name + x.split('.')[0])    
+    output_file.create_group("/", append_name + x.split('.')[0])    
 
 node_list = output_file.root._f_list_nodes()
     
 # create the vgg16 features for all images  
-#vgg(img_path, output_file, append_name, img_audio, node_list) 
+vgg(img_path, output_file, append_name, img_audio, node_list) 
 
 ######### parameter settings for the audio preprocessing ###############
 
 # option for which audio feature to create
-feat = 'mfcc'
+feat = 'fbanks'
 params = []
 # set alpha for the preemphasis
 alpha = 0.97
@@ -80,9 +80,9 @@ nfilters = 40
 t_window = .025
 t_shift = .010
 # option to include delta and double delta features
-use_deltas = True
+use_deltas = False
 # option to include frame energy
-use_energy = True
+use_energy = False
 # put paramaters in a list
 params.append(alpha)
 params.append(nfilters) 
@@ -96,7 +96,7 @@ params.append(use_energy)
 
 # create the audio features for all captions
 
-#audio_features(params, img_audio, audio_path, append_name, node_list)
+audio_features(params, img_audio, audio_path, append_name, node_list)
 
 # add text features for all captions
 text_features(text_path, output_file, append_name, node_list )

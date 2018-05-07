@@ -197,17 +197,10 @@ while epoch <= args.n_epochs:
 
     # calculate the recall@n
     # create a minibatcher over the validation set
-<<<<<<< HEAD
     iterator = batcher(val, args.batch_size, args.visual, args.audio, shuffle = False)
     # calc recal, pass it the iterator, the embedding functions and n
     # returns the measures columnise (speech2image retrieval) and rowwise(image2speech retrieval)
     recall, median_rank = speech2image(iterator, img_net, audio_net, [1, 5, 10], dtype)
-=======
-    iterator = batcher(val, args.batch_size, args.visual, args.audio, shuffle = False, test = True)
-    # calc recal, pass it the iterator, the embedding functions and n
-    # returns the measures columnise (speech2image retrieval) and rowwise(image2speech retrieval)
-    recall, avg_rank = speech2image(iterator, img_net, audio_net, [1, 5, 10], dtype)
->>>>>>> 9ed6340bbfd703bf0a13889b7f6a5b9f30b05aca
 
     # print some info about this epoch
     print("Epoch {} of {} took {:.3f}s".format(
@@ -217,47 +210,28 @@ while epoch <= args.n_epochs:
     print('recall@1 = ' + str(recall[0]*100) + '%')
     print('recall@5 = ' + str(recall[1]*100) + '%')
     print('recall@10 = ' + str(recall[2]*100) + '%')
-<<<<<<< HEAD
     print('median rank= ' + str(median_rank))
     epoch += 1
     if args.gradient_clipping:
         #audio_clipper.update_clip_value()
         audio_clipper.reset_gradients()
         #img_clipper.update_clip_value()
-=======
-    print('average rank= ' + str(avg_rank))
-    epoch += 1
-    if args.gradient_clipping:
-        audio_clipper.update_clip_value()
-        audio_clipper.reset_gradients()
-        img_clipper.update_clip_value()
->>>>>>> 9ed6340bbfd703bf0a13889b7f6a5b9f30b05aca
         img_clipper.reset_gradients()
         
 test_loss = test_epoch(img_net, audio_net, test, args.batch_size)
 # calculate the recall@n
 # create a minibatcher over the test set
-<<<<<<< HEAD
+
 iterator = batcher(test, args.batch_size, args.visual, args.audio, shuffle = False)
 # calc recal, pass it the iterator, the embedding functions and n
 # returns the measures columnise (speech2image retrieval) and rowwise(image2speech retrieval)
 recall, median_rank = speech2image(iterator, img_net, audio_net, [1, 5, 10], dtype)
-=======
-iterator = batcher(test, args.batch_size, args.visual, args.audio, shuffle = False, test = True)
-# calc recal, pass it the iterator, the embedding functions and n
-# returns the measures columnise (speech2image retrieval) and rowwise(image2speech retrieval)
-recall, avg_rank = speech2image(iterator, img_net, audio_net, [1, 5, 10], dtype)
->>>>>>> 9ed6340bbfd703bf0a13889b7f6a5b9f30b05aca
 
 print("test loss:\t\t{:.6f}".format(test_loss.cpu()[0]))
 print('test recall@1 = ' + str(recall[0]*100) + '%')
 print('test recall@5 = ' + str(recall[1]*100) + '%')
 print('test recall@10 = ' + str(recall[2]*100) + '%')
-<<<<<<< HEAD
 print('test median rank= ' + str(median_rank))
-=======
-print('test average rank= ' + str(avg_rank))
->>>>>>> 9ed6340bbfd703bf0a13889b7f6a5b9f30b05aca
 
 if args.gradient_clipping:
     audio_clipper.save_grads(args.results_loc, 'audiograds')
