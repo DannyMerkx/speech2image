@@ -17,13 +17,13 @@ from torch.autograd import Variable
 # N.B. make sure the order in which you pass the embedding functions is the 
 # order in which the iterator yields the appropriate features!
 
-def speech2image(iterator, image_embed_function, speech_embed_function, n, dtype):
-    im_embeddings, speech_embeddings = embed_data(iterator, image_embed_function, speech_embed_function, dtype)
-    return recall_at_n(im_embeddings, speech_embeddings, n)
+def caption2image(iterator, image_embed_function, caption_embed_function, n, dtype):
+    im_embeddings, caption_embeddings = embed_data(iterator, image_embed_function, caption_embed_function, dtype)
+    return recall_at_n(im_embeddings, caption_embeddings, n)
 
-def image2speech(iterator, image_embed_function, speech_embed_function, n, dtype):
-    im_embeddings, speech_embeddings = embed_data(iterator, image_embed_function, speech_embed_function, dtype)
-    return recall_at_n(speech_embeddings, im_embeddings, n)  
+def image2caption(iterator, image_embed_function, caption_embed_function, n, dtype):
+    im_embeddings, caption_embeddings = embed_data(iterator, image_embed_function, caption_embed_function, dtype)
+    return recall_at_n(caption_embeddings, im_embeddings, n)  
 
 # embeds the validation or test data using the trained neural network. Takes
 # an iterator (minibatcher) and the embedding functions (i.e. deterministic 
@@ -33,22 +33,27 @@ def embed_data(iterator, embed_function_1, embed_function_2, dtype):
     embed_function_1.eval()
     embed_function_2.eval()
     for batch in iterator:
-        img, sp = batch
+        img, cap, lengths = batch
+        cap = cap[np.argsort(- np.array(lengths))]
+        img = img[np.argsort(- np.array(lengths))]
+        lengths = np.array(lengths)[np.argsort(- np.array(lengths))]
+
         # convert data to pytorch variables
-        img, sp = Variable(dtype(img), requires_grad=False), Variable(dtype(sp),requires_grad=False)
+        img, cap = Variable(dtype(img), requires_grad=False), Variable(dtype(cap),requires_grad=False)
+
         # embed the data
         img = embed_function_1(img)
-        sp = embed_function_2(sp)
+        cap = embed_function_2(cap, lengths)
         # concat to existing tensor or create one if non-existent yet
         try:
-            speech = torch.cat((speech, sp.data))
+            caption = torch.cat((caption, sp.data))
         except:
-            speech = sp.data
+            caption = cap.data
         try:
             image = torch.cat((image, img.data))
         except:
             image = img.data
-    return speech, image
+    return caption, image
 
 ###########################################################################################
 

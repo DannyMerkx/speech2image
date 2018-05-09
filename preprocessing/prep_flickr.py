@@ -11,20 +11,18 @@ import tables
 import os
 
 
-from vgg_crop10 import vgg
+from vgg import vgg
 from audio_features import audio_features
 from text_features import text_features
-# path to the flickr audio and image files
+# path to the flickr audio, caption and image files 
 audio_path = os.path.join('/data/flickr/flickr_audio/wavs')
-#audio_path = os.path.join('C:\\','Users', 'Beheerder','Documents','PhD','Flickr','flickr_audio', 'wavs')
-
 img_path = os.path.join('/data/flickr/Flickr8k_Dataset/Flicker8k_Dataset')
+text_path = os.path.join('/data/speech2image/preprocessing/dataset.json')
 
-text_path = os.path.join('/data/speech2image/PyTorch/dataset.json')
-#img_path = os.path.join('C:\\','Users', 'Beheerder','Documents','PhD','Flickr','Flickr8k_Dataset','Flicker8k_Dataset')
 # list the img and audio directories
 audio = os.listdir(audio_path)
 imgs = os.listdir(img_path)
+
 # strip the files to their basename and remove file extension
 imgs_base = [x.split('.')[0] for x in imgs]
 audio_base = [x.split('.')[0] for x in audio]
@@ -49,19 +47,23 @@ for im in imgs_base:
     else:
         # keep track of images without captions
         no_cap.append(im)
+
 # create h5 output file for preprocessed images and audio
 output_file = tables.open_file('/prep_data/flickr_features.h5', mode='a')
 
-#output_file = tables.open_file(os.path.join('C:\\','Users', 'Beheerder','Documents','PhD','Flickr','features.h5'), mode='a')
 # we need to append something to the flickr files names because pytable group names cannot start
 # with integers.
 append_name = 'flickr_'
 
-# create the h5 file to hold all image and audio features
-for x in img_audio:
-    # one group for each image file which will contain its vgg16 features and audio captions 
-    output_file.create_group("/", append_name + x.split('.')[0])    
-
+# create the h5 file to hold all image and audio features. This will fail if they already excist such
+# as when you run this file to append new features to an excisting feature file
+try:
+    for x in img_audio:
+        # one group for each image file which will contain its vgg16 features and audio captions 
+        output_file.create_group("/", append_name + x.split('.')[0])    
+else:
+    continue
+#list all the nodes
 node_list = output_file.root._f_list_nodes()
     
 # create the vgg16 features for all images  
@@ -69,8 +71,8 @@ vgg(img_path, output_file, append_name, img_audio, node_list)
 
 ######### parameter settings for the audio preprocessing ###############
 
-# option for which audio feature to create
-feat = 'fbanks'
+# option for which audio feature to create (options are mfcc, fbanks, freq_spectrum and raw)
+feat = 'mfcc'
 params = []
 # set alpha for the preemphasis
 alpha = 0.97
@@ -80,9 +82,9 @@ nfilters = 40
 t_window = .025
 t_shift = .010
 # option to include delta and double delta features
-use_deltas = False
+use_deltas = True
 # option to include frame energy
-use_energy = False
+use_energy = True
 # put paramaters in a list
 params.append(alpha)
 params.append(nfilters) 
@@ -95,7 +97,6 @@ params.append(use_energy)
 #############################################################################
 
 # create the audio features for all captions
-
 audio_features(params, img_audio, audio_path, append_name, node_list)
 
 # add text features for all captions

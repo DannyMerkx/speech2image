@@ -6,6 +6,9 @@ Created on Fri May  4 09:42:05 2018
 """
 import numpy as np
 
+# create a gradient clipping object, so you can set a backward hook on a model,
+# keep track of the gradients for each epoch or the total session and keep a clipping
+# value to use for gradient clipping
 class gradient_clipping():
     def __init__(self, clip_value):
         # keep track of the gradients per epoch

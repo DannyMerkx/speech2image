@@ -27,7 +27,7 @@ parser = argparse.ArgumentParser(description='Create and run an articulatory fea
 # args concerning file location
 parser.add_argument('-data_loc', type = str, default = '/prep_data/flickr_features.h5',
                     help = 'location of the feature file, default: /prep_data/flickr_features.h5')
-parser.add_argument('-split_loc', type = str, default = '/data/speech2image/PyTorch/flickr_audio/dataset.json', 
+parser.add_argument('-split_loc', type = str, default = '/data/speech2image/preprocessing/dataset.json', 
                     help = 'location of the json file containing the data split information')
 parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/flickr_audio/results/',
                     help = 'location of the json file containing the data split information')
@@ -100,9 +100,9 @@ img_net = img_encoder(image_config)
 audio_net = audio_gru_encoder(audio_config)
 
 if args.gradient_clipping:
-    img_clipper = gradient_clipping(clip_value = 0.0025)
-    audio_clipper = gradient_clipping(clip_value = 0.05)
-   
+    img_clipper = gradient_clipping(clip_value = 0.0015)
+    audio_clipper = gradient_clipping(clip_value = 0.015)
+    
     img_clipper.register_hook(img_net)
     audio_clipper.register_hook(audio_net)
     
@@ -192,10 +192,10 @@ while epoch <= args.n_epochs:
 
     # calculate the recall@n
     # create a minibatcher over the validation set
-    iterator = batcher(val, args.batch_size, args.visual, args.audio, shuffle = False)
+    iterator = batcher(val, args.batch_size, args.visual, args.audio, shuffle = False, test = True)
     # calc recal, pass it the iterator, the embedding functions and n
     # returns the measures columnise (speech2image retrieval) and rowwise(image2speech retrieval)
-    recall, median_rank = speech2image(iterator, img_net, audio_net, [1, 5, 10], dtype)
+    recall, avg_rank = speech2image(iterator, img_net, audio_net, [1, 5, 10], dtype)
 
     # print some info about this epoch
     print("Epoch {} of {} took {:.3f}s".format(
@@ -205,28 +205,27 @@ while epoch <= args.n_epochs:
     print('recall@1 = ' + str(recall[0]*100) + '%')
     print('recall@5 = ' + str(recall[1]*100) + '%')
     print('recall@10 = ' + str(recall[2]*100) + '%')
-    print('median rank= ' + str(median_rank))
+    print('average rank= ' + str(avg_rank))
     epoch += 1
     if args.gradient_clipping:
-        #audio_clipper.update_clip_value()
+        audio_clipper.update_clip_value()
         audio_clipper.reset_gradients()
-        #img_clipper.update_clip_value()
+        img_clipper.update_clip_value()
         img_clipper.reset_gradients()
         
 test_loss = test_epoch(img_net, audio_net, test, args.batch_size)
 # calculate the recall@n
 # create a minibatcher over the test set
-
-iterator = batcher(test, args.batch_size, args.visual, args.audio, shuffle = False)
+iterator = batcher(test, args.batch_size, args.visual, args.audio, shuffle = False, test = True)
 # calc recal, pass it the iterator, the embedding functions and n
 # returns the measures columnise (speech2image retrieval) and rowwise(image2speech retrieval)
-recall, median_rank = speech2image(iterator, img_net, audio_net, [1, 5, 10], dtype)
+recall, avg_rank = speech2image(iterator, img_net, audio_net, [1, 5, 10], dtype)
 
 print("test loss:\t\t{:.6f}".format(test_loss.cpu()[0]))
 print('test recall@1 = ' + str(recall[0]*100) + '%')
 print('test recall@5 = ' + str(recall[1]*100) + '%')
 print('test recall@10 = ' + str(recall[2]*100) + '%')
-print('test median rank= ' + str(median_rank))
+print('test average rank= ' + str(avg_rank))
 
 if args.gradient_clipping:
     audio_clipper.save_grads(args.results_loc, 'audiograds')

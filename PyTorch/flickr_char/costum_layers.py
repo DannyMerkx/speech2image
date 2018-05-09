@@ -73,9 +73,9 @@ class attention(nn.Module):
     def __init__(self, in_size, hidden_size):
         super(attention, self).__init__()
         self.hidden = nn.Linear(in_size, hidden_size)
-        #nn.init.orthogonal(self.hidden.weight.data)
+        nn.init.orthogonal(self.hidden.weight.data)
         self.out = nn.Linear(hidden_size, 1)
-        #nn.init.orthogonal(self.hidden.weight.data)
+        nn.init.orthogonal(self.hidden.weight.data)
         self.softmax = nn.Softmax(dim = 1)
     def forward(self, input):
         # calculate the attention weights

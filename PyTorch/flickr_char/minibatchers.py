@@ -74,7 +74,8 @@ def iterate_audio_flickr(f_nodes, batchsize, visual, audio, frames = 1024, shuff
             images = np.float64(np.reshape(images,(images_shape[0],images_shape[2])))
             yield images, speech
 
-# iterate over text input. the value for chars indicates the max sentence lenght in characters
+# iterate over text input. the value for chars indicates the max sentence lenght in characters. Keeps track 
+# of the unpadded senctence lengths to use with pytorch's pack_padded_sequence.
 def iter_text_flickr(f_nodes, batchsize, visual, text, chars = 200, shuffle=True):
     if shuffle:
         # optionally shuffle the input
@@ -95,8 +96,8 @@ def iter_text_flickr(f_nodes, batchsize, visual, text, chars = 200, shuffle=True
                 # convert the sentence to lower case.
                 caption.append(cap)
             # converts the sentence to character ids. 
-            caption = char_2_index(caption, batchsize, chars)
+            caption, lengths = char_2_index(caption, batchsize, chars)
             images_shape = np.shape(images)
             # images should be shape (batch_size, 1024). images_shape[1] is collapsed as the original features are of shape (1,1024) 
             images = np.float64(np.reshape(images,(images_shape[0],images_shape[2])))
-            yield images, caption
+            yield images, caption, lengths
