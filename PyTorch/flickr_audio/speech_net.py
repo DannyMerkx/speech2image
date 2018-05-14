@@ -140,7 +140,7 @@ def train_epoch(epoch, img_net, cap_net, optimizer, f_nodes, batch_size):
     # for keeping track of the average loss over all batches
     train_loss = 0
     num_batches =0
-    for batch in batcher(f_nodes, batch_size, args.visual, args.audio, shuffle = True):
+    for batch in batcher(f_nodes, batch_size, args.visual, args.cap, shuffle = True):
         img, cap = batch
         num_batches +=1
         # convert data to pytorch variables
@@ -170,7 +170,7 @@ def test_epoch(img_net, cap_net, f_nodes, batch_size):
     # for keeping track of the average loss
     test_batches = 0
     test_loss = 0
-    for batch in batcher(f_nodes, batch_size, args.visual, args.audio, shuffle = False):
+    for batch in batcher(f_nodes, batch_size, args.visual, args.cap, shuffle = False):
         img, audio = batch 
         test_batches += 1
         # convert data to pytorch variables
