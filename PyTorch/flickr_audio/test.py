@@ -10,15 +10,12 @@ Loads pretrained moels and calculates the validation and test scores.
 #!/usr/bin/env python
 from __future__ import print_function
 
-import time
 import os
 import tables
 import argparse
 import torch
-from torch.autograd import Variable
 
 from minibatchers import iterate_audio_flickr, iterate_minibatches
-from costum_loss import batch_hinge_loss
 from evaluate import caption2image, image2caption
 from encoders import img_encoder, audio_gru_encoder
 from data_split import split_data
@@ -39,7 +36,7 @@ parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, defa
 # args concerning the database and which features to load
 parser.add_argument('-data_base', type = str, default = 'flickr', help = 'database to train on, options: places, flickr')
 parser.add_argument('-visual', type = str, default = 'vgg_10crop', help = 'name of the node containing the visual features')
-parser.add_argument('-audio', type = str, default = 'mfcc', help = 'name of the node containing the audio features')
+parser.add_argument('-cap', type = str, default = 'mfcc', help = 'name of the node containing the audio features')
 parser.add_argument('-gradient_clipping', type = bool, default = True, help ='use gradient clipping, default: True')
 
 args = parser.parse_args()
@@ -97,12 +94,12 @@ train, test, val = split_data(f_nodes, args.split_loc)
 
 # network modules
 img_net = img_encoder(image_config)
-audio_net = audio_gru_encoder(audio_config)
+cap_net = audio_gru_encoder(audio_config)
 
 # move graph to gpu if cuda is availlable
 if cuda:
     img_net.cuda()
-    audio_net.cuda()
+    cap_net.cuda()
 
 # list all the trained model parameters
 models = os.listdir(args.results_loc)
@@ -118,13 +115,13 @@ for img, cap in zip(img_models, caption_models) :
     caption_state = torch.load(args.results_loc + cap)
     
     img_net.load_state_dict(img_state)
-    audio_net.load_state_dict(caption_state)
+    cap_net.load_state_dict(caption_state)
     # calculate the recall@n
     # create a minibatcher over the validation set
-    iterator = batcher(val, args.batch_size, args.visual, args.audio, shuffle = False)
+    iterator = batcher(val, args.batch_size, args.visual, args.cap, shuffle = False)
     # calc recal, pass it the iterator, the embedding functions and n
     # returns the measures columnise (speech2image retrieval) and rowwise(image2speech retrieval)
-    recall, median_rank = caption2image(iterator, img_net, audio_net, [1, 5, 10], dtype)
+    recall, median_rank = caption2image(iterator, img_net, cap_net, [1, 5, 10], dtype)
     
     # print some info about this epoch
     print("Epoch " + img.split('.')[1])
@@ -134,8 +131,8 @@ for img, cap in zip(img_models, caption_models) :
     print('validation recall@10 = ' + str(recall[2]*100) + '%')
     print('validation median rank= ' + str(median_rank))
 
-    iterator = batcher(val, args.batch_size, args.visual, args.audio, shuffle = False)
-    recall, median_rank = image2caption(iterator, img_net, audio_net, [1, 5, 10], dtype)
+    iterator = batcher(val, args.batch_size, args.visual, args.cap, shuffle = False)
+    recall, median_rank = image2caption(iterator, img_net, cap_net, [1, 5, 10], dtype)
     print('image2speech:')
     print('validation recall@1 = ' + str(recall[0]*100) + '%')
     print('validation recall@5 = ' + str(recall[1]*100) + '%')
@@ -144,18 +141,18 @@ for img, cap in zip(img_models, caption_models) :
     
     # calculate the recall@n
     # create a minibatcher over the test set
-    iterator = batcher(test, args.batch_size, args.visual, args.audio, shuffle = False)
+    iterator = batcher(test, args.batch_size, args.visual, args.cap, shuffle = False)
     # calc recal, pass it the iterator, the embedding functions and n
     # returns the measures columnise (speech2image retrieval) and rowwise(image2speech retrieval)
-    recall, avg_rank = caption2image(iterator, img_net, audio_net, [1, 5, 10], dtype)
+    recall, avg_rank = caption2image(iterator, img_net, cap_net, [1, 5, 10], dtype)
     print('speech2image:')
     print('test recall@1 = ' + str(recall[0]*100) + '%')
     print('test recall@5 = ' + str(recall[1]*100) + '%')
     print('test recall@10 = ' + str(recall[2]*100) + '%')
     print('test median rank= ' + str(median_rank))
     
-    iterator = batcher(test, args.batch_size, args.visual, args.audio, shuffle = False)
-    recall, median_rank = image2caption(iterator, img_net, audio_net, [1, 5, 10], dtype)
+    iterator = batcher(test, args.batch_size, args.visual, args.cap, shuffle = False)
+    recall, median_rank = image2caption(iterator, img_net, cap_net, [1, 5, 10], dtype)
     print('image2speech:')
     print('test recall@1 = ' + str(recall[0]*100) + '%')
     print('test recall@5 = ' + str(recall[1]*100) + '%')

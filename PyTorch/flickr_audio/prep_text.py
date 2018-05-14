@@ -11,34 +11,28 @@ import string
 import numpy as np
 
 def find_index(char):
-    # define the set of valid characters. use only lower case + 0, 0 will 
-    # be a special character used as padding for which the embedding will remain
-    # set to 0
-    valid_chars = '0^!?,.:' + string.ascii_lowercase
-    index = valid_chars.find(char)
-    if index < 0:
-        # map all whitespace and punctuation to a single index
-        if string.digits.find(char) >= 0:
-            return len(valid_chars)
-        if string.punctuation.find(char) >= 0:
-            return len(valid_chars) + 1
-        if string.whitespace.find(char) >= 0:
-            return len(valid_chars) + 2
-    
+    # define the set of valid characters.
+    valid_chars = string.printable
     return valid_chars.find(char)
 
-def char_2_1hot(raw_text, batch_size, valid_chars = string.printable):
-    n_letters = len(valid_chars)
-    text_batch = np.zeros([batch_size, len(raw_text), n_letters])
-    for i, text in enumerate(raw_text):        
+def char_2_1hot(raw_text, batch_size, max_sent_len):
+    n_letters = len(string.printable)
+    text_batch = np.zeros([batch_size, max_sent_len, n_letters])
+    # keep track of the origin sentence length to use in pack_padded_sequence
+    lengths = []
+    for i, text in enumerate(raw_text):
+        lengths.append(len(text))        
         for j, char in enumerate(text):
-            text_batch[i][j][find_index(char, valid_chars)] = 1
-    return text_batch
+            text_batch[i][j][find_index(char)] = 1
+    return text_batch, lengths
 
 
 def char_2_index(raw_text, batch_size, max_sent_len):
     text_batch = np.zeros([batch_size, max_sent_len])
-    for i, text in enumerate(raw_text):        
+    # keep track of the origin sentence length to use in pack_padded_sequence
+    lengths = []
+    for i, text in enumerate(raw_text):
+        lengths.append(len(text))        
         for j, char in enumerate(text):
             text_batch[i][j] = find_index(char)
-    return text_batch
+    return text_batch, lengths

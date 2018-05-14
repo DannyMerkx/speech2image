@@ -8,7 +8,6 @@ Created on Tue Feb 13 10:36:08 2018
 evaluation functions. contains only recall@n now. convenience functions for embedding
 the data and calculating the recall@n to keep your NN training script clean
 """
-import sklearn.metrics.pairwise as sk
 import numpy as np
 import torch
 from torch.autograd import Variable

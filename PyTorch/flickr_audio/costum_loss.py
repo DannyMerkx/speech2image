@@ -46,12 +46,7 @@ def batch_hinge_loss(embeddings_1, embeddings_2, cuda = True):
 def ordered_loss(embeddings_1, embeddings_2, cuda = True):
     # batch size
     batch_size = embeddings_1.size(0)   
-    # calculate the norms of the embeddings and normalise the embeddings
-    if norm[0]:
-        embeddings_1 = embeddings_1 / embeddings_1.norm(2, dim = 1, keepdim = True)
-    if norm[1]:
-        embeddings_2 = embeddings_2 / embeddings_2.norm(2, dim = 1, keepdim = True)
-    
+
     # calculate the similarity score as described by vendrov et al. the partial order is image < caption, 
     # i.e. the captions are abstractions of the images (the wrong order results in worse results). 
     err = - (torch.clamp(embeddings_1 - embeddings_2[0], min = 0).norm(1, dim = 1, keepdim = True)**2)

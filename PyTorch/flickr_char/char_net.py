@@ -120,29 +120,24 @@ def save_params(model, file_name, epoch):
 # Adam optimiser. I found SGD to work terribly and could not find appropriate parameter settings for it.
 optimizer = torch.optim.Adam(list(img_net.parameters())+list(cap_net.parameters()), args.lr)
 
-# this sets the learning rate for the model to a learning rate adapted for the number of
-# epochs.
-global old_loss
-global new_loss
-old_loss = 1
-new_loss = .9
-
-def lr_decay_(optimizer, epoch):
+# epoch based lr decay
+def lr_decay_epoch(optimizer, epoch):
     lr = args.lr * (0.5 ** (epoch // 5))
     for groups in optimizer.param_groups:
         groups['lr'] = lr
-def lr_decay(optimizer, new_loss, loss):
-    if new_loss >= loss:
+        
+# lr decay based on stagnating loss. decays the lr if the loss for the new epoch is higher 
+# than the previous epoch
+def lr_decay(optimizer, cur_epoch, prev_epoch):
+    if cur_epoch >= prev_epoch:
         args.lr = args.lr * 0.1 
         for groups in optimizer.param_groups:
             groups['lr'] = args.lr   
 
 # training routine 
-def train_epoch(epoch, img_net, cap_net, optimizer, f_nodes, batch_size, old_loss, new_loss):
+def train_epoch(epoch, img_net, cap_net, optimizer, f_nodes, batch_size):
     img_net.train()
     cap_net.train()
-    # perform learning rate decay
-    lr_decay(optimizer, new_loss, old_loss)
     # for keeping track of the average loss over all batches
     train_loss = 0
     num_batches =0
@@ -202,10 +197,12 @@ def test_epoch(img_net, cap_net, f_nodes, batch_size):
         # add loss to average
         test_loss += loss.data 
     return test_loss/test_batches 
-epoch = 1
+
 
 ################################# training/test loop #####################################
-test_loss = 1
+epoch = 1
+# sets a starting value for the loss to use in the lr decay
+prev_epoch = 1
 # run the training loop for the indicated amount of epochs 
 while epoch <= args.n_epochs:
     # keep track of runtime
@@ -213,12 +210,10 @@ while epoch <= args.n_epochs:
 
     print('training epoch: ' + str(epoch))
     # Train on the train set
-    train_loss = train_epoch(epoch, img_net, cap_net, optimizer, train, args.batch_size, old_loss, new_loss)
-    # evaluate on the validation set
-
+    train_loss = train_epoch(epoch, img_net, cap_net, optimizer, train, args.batch_size)
+    
+    #evaluate on the validation set
     val_loss = test_epoch(img_net, cap_net, val, args.batch_size)
-    old_loss = new_loss
-    new_loss = val_loss.cpu().numpy()    
     # save network parameters
     save_params(img_net, 'image_model', epoch)
     save_params(cap_net, 'caption_model', epoch)
@@ -240,7 +235,9 @@ while epoch <= args.n_epochs:
     print('recall@10 = ' + str(recall[2]*100) + '%')
     print('median rank= ' + str(median_rank))
     epoch += 1
-    
+    # perform learning rate decay for the next epoch and set the loss for the previous epoch to the training loss
+    lr_decay(optimizer, val_loss.cpu().numpy(), prev_epoch)
+    prev_epoch = val_loss.cpu().numpy()
     # this part is usefull only if you want to update the value for gradient clipping at each epoch
     # I found it didn't work well 
     #if args.gradient_clipping:
@@ -252,7 +249,7 @@ while epoch <= args.n_epochs:
 test_loss = test_epoch(img_net, cap_net, test, args.batch_size)
 # calculate the recall@n
 # create a minibatcher over the test set
-iterator = batcher(test, args.batch_size, args.visual, args.cap, shuffle = False,)
+iterator = batcher(test, args.batch_size, args.visual, args.cap, shuffle = False)
 # calc recal, pass it the iterator, the embedding functions and n
 # returns the measures columnise (speech2image retrieval) and rowwise(image2speech retrieval)
 recall, median_rank = caption2image(iterator, img_net, cap_net, [1, 5, 10], dtype)
