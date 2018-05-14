@@ -54,6 +54,8 @@ def iterate_audio_flickr(f_nodes, batchsize, visual, audio, frames = 1024, shuff
             excerpt = f_nodes[start_idx:start_idx + batchsize]
             speech=[]
             images=[]
+            #keep track of caption lengths to use in pack_padded_sequence
+            lengths = []
             for ex in excerpt:
                 # extract and append the vgg16 features
                 images.append(eval('ex.' + visual + '._f_list_nodes()[0].read()'))
@@ -62,17 +64,19 @@ def iterate_audio_flickr(f_nodes, batchsize, visual, audio, frames = 1024, shuff
                 # padd to the given output size
                 n_frames = sp.shape[1]
                 if n_frames < frames:
+                    lengths.append(n_frames)
                     sp = np.pad(sp, [(0, 0), (0, frames - n_frames )], 'constant')
                 # truncate to the given input size
                 if n_frames > frames:
                     sp = sp[:,:frames]
+                    lengths.append(frames)
                 speech.append(sp)
             # reshape the features and recast as float64
             speech = np.float64(speech)
             images_shape = np.shape(images)
             # images should be shape (batch_size, 1024). images_shape[1] is collapsed as the original features are of shape (1,1024) 
             images = np.float64(np.reshape(images,(images_shape[0],images_shape[2])))
-            yield images, speech
+            yield images, speech, lengths
 
 # iterate over text input. the value for chars indicates the max sentence lenght in characters
 def iter_text_flickr(f_nodes, batchsize, visual, text, chars = 200, shuffle=True):

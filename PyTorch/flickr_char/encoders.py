@@ -53,7 +53,7 @@ class char_gru_encoder(nn.Module):
         # embedding layers expect Long tensors
         x = self.embed(input.long())
         # create a packed_sequence object. The padding will be excluded from the update step
-        # thereby training on the origin sequence length only
+        # thereby training on the original sequence length only
         x = torch.nn.utils.rnn.pack_padded_sequence(x, l, batch_first=True)
         x, hx = self.GRU(x)
         # unpack again as at the moment only rnn layers except packed_sequence objects

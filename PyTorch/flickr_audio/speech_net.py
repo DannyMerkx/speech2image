@@ -52,7 +52,7 @@ audio_config = {'conv':{'in_channels': 39, 'out_channels': 64, 'kernel_size': 6,
                'num_layers': 4, 'batch_first': True, 'bidirectional': True, 'dropout': 0}, 
                'att':{'in_size': 1024, 'hidden_size': 128}}
 
-image_config = {'linear':{'in_size': 4096, 'out_size': 1024}, 'norm': True}
+image_config = {'linear':{'in_size': 2048, 'out_size': 1024}, 'norm': True}
 
 
 # open the data file
@@ -141,17 +141,23 @@ def train_epoch(epoch, img_net, cap_net, optimizer, f_nodes, batch_size):
     train_loss = 0
     num_batches =0
     for batch in batcher(f_nodes, batch_size, args.visual, args.cap, shuffle = True):
-        img, cap = batch
+        img, cap, lengths = batch
         num_batches +=1
+        # sort the tensors based on the unpadded caption length so they can be used
+        # with the pack_padded_sequence function
+        cap = cap[np.argsort(- np.array(lengths))]
+        img = img[np.argsort(- np.array(lengths))]
+        lengths = np.array(lengths)[np.argsort(- np.array(lengths))]
+        
         # convert data to pytorch variables
         img, cap = Variable(dtype(img)), Variable(dtype(cap))
         # reset the gradients of the optimiser
         optimizer.zero_grad()
         # embed the images and audio using the networks
         img_embedding = img_net(img)
-        audio_embedding = cap_net(cap)
+        cap_embedding = cap_net(cap, lengths)
         # calculate the loss
-        loss = batch_hinge_loss(img_embedding, audio_embedding, cuda)
+        loss = batch_hinge_loss(img_embedding, cap_embedding, cuda)
         # calculate the gradients and perform the backprop step
         loss.backward()
         if args.gradient_clipping:
@@ -171,14 +177,20 @@ def test_epoch(img_net, cap_net, f_nodes, batch_size):
     test_batches = 0
     test_loss = 0
     for batch in batcher(f_nodes, batch_size, args.visual, args.cap, shuffle = False):
-        img, audio = batch 
+        img, cap, lengths = batch 
         test_batches += 1
+        # sort the tensors based on the unpadded caption length so they can be used
+        # with the pack_padded_sequence function
+        cap = cap[np.argsort(- np.array(lengths))]
+        img = img[np.argsort(- np.array(lengths))]
+        lengths = np.array(lengths)[np.argsort(- np.array(lengths))]
+        
         # convert data to pytorch variables
-        img, audio = Variable(dtype(img)), Variable(dtype(audio))
+        img, cap = Variable(dtype(img)), Variable(dtype(cap))
         # embed the images and audio using the networks
         img_embedding = img_net(img)
-        audio_embedding = cap_net(audio)
-        loss = batch_hinge_loss(img_embedding, audio_embedding, cuda)
+        cap_embedding = cap_net(cap, lengths)
+        loss = batch_hinge_loss(img_embedding, cap_embedding, cuda)
         # add loss to average
         test_loss += loss.data 
     return test_loss/test_batches 
