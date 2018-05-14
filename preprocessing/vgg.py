@@ -16,7 +16,7 @@ extract vgg16 features using pretrained network and add them to an h5 file.
 to-do: vgg16 weight location is hard coded, add option to pass it through prep_features.py
 
 """
-import cv2, numpy as np
+import numpy
 import os
 import numpy
 import tables

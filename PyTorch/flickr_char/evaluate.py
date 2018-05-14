@@ -46,7 +46,7 @@ def embed_data(iterator, embed_function_1, embed_function_2, dtype):
         cap = embed_function_2(cap, lengths)
         # concat to existing tensor or create one if non-existent yet
         try:
-            caption = torch.cat((caption, sp.data))
+            caption = torch.cat((caption, cap.data))
         except:
             caption = cap.data
         try:

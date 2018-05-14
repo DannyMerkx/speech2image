@@ -39,7 +39,7 @@ parser.add_argument('-n_epochs', type = int, default = 25, help = 'number of tra
 parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, default: True')
 # args concerning the database and which features to load
 parser.add_argument('-data_base', type = str, default = 'flickr', help = 'database to train on, options: places, flickr')
-parser.add_argument('-visual', type = str, default = 'vgg19', help = 'name of the node containing the visual features')
+parser.add_argument('-visual', type = str, default = 'vgg_resnet', help = 'name of the node containing the visual features')
 parser.add_argument('-cap', type = str, default = 'raw_text', help = 'name of the node containing the caption features')
 parser.add_argument('-gradient_clipping', type = bool, default = True, help ='use gradient clipping, default: True')
 
@@ -50,7 +50,7 @@ char_config = {'embed':{'num_chars': 100, 'embedding_dim': 20, 'sparse': False, 
                'gru':{'input_size': 20, 'hidden_size': 1024, 'num_layers': 4, 'batch_first': True,
                'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 2048, 'hidden_size': 128}}
 
-image_config = {'linear':{'in_size': 4096, 'out_size': 2048}, 'norm': True}
+image_config = {'linear':{'in_size': 2048, 'out_size': 2048}, 'norm': True}
 
 # open the data file
 data_file = tables.open_file(args.data_loc, mode='r+') 
@@ -122,17 +122,27 @@ optimizer = torch.optim.Adam(list(img_net.parameters())+list(cap_net.parameters(
 
 # this sets the learning rate for the model to a learning rate adapted for the number of
 # epochs.
-def lr_decay(optimizer, epoch):
+global old_loss
+global new_loss
+old_loss = 1
+new_loss = .9
+
+def lr_decay_(optimizer, epoch):
     lr = args.lr * (0.5 ** (epoch // 5))
     for groups in optimizer.param_groups:
         groups['lr'] = lr
+def lr_decay(optimizer, new_loss, loss):
+    if new_loss >= loss:
+        args.lr = args.lr * 0.1 
+        for groups in optimizer.param_groups:
+            groups['lr'] = args.lr   
 
 # training routine 
-def train_epoch(epoch, img_net, cap_net, optimizer, f_nodes, batch_size):
+def train_epoch(epoch, img_net, cap_net, optimizer, f_nodes, batch_size, old_loss, new_loss):
     img_net.train()
     cap_net.train()
     # perform learning rate decay
-    lr_decay(optimizer, epoch)
+    lr_decay(optimizer, new_loss, old_loss)
     # for keeping track of the average loss over all batches
     train_loss = 0
     num_batches =0
@@ -195,7 +205,7 @@ def test_epoch(img_net, cap_net, f_nodes, batch_size):
 epoch = 1
 
 ################################# training/test loop #####################################
-
+test_loss = 1
 # run the training loop for the indicated amount of epochs 
 while epoch <= args.n_epochs:
     # keep track of runtime
@@ -203,10 +213,12 @@ while epoch <= args.n_epochs:
 
     print('training epoch: ' + str(epoch))
     # Train on the train set
-    train_loss = train_epoch(epoch, img_net, cap_net, optimizer, train, args.batch_size)
+    train_loss = train_epoch(epoch, img_net, cap_net, optimizer, train, args.batch_size, old_loss, new_loss)
     # evaluate on the validation set
+
     val_loss = test_epoch(img_net, cap_net, val, args.batch_size)
-    
+    old_loss = new_loss
+    new_loss = val_loss.cpu().numpy()    
     # save network parameters
     save_params(img_net, 'image_model', epoch)
     save_params(cap_net, 'caption_model', epoch)
