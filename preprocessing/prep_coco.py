@@ -27,8 +27,8 @@ def batcher(batch_size, dictionary):
             yield excerpt
 
 # path to the flickr audio, caption and image files 
-train_img_path = os.path.join('/data/mscoco/train2014')
-val_img_path = os.path.join('/data/mscoco/val2014')
+train_img_path = os.path.join('/data/mscoco/train2017')
+val_img_path = os.path.join('/data/mscoco/val2017')
 text_path = os.path.join('/data/mscoco/annotations')
 
 # list the image and annotations directory

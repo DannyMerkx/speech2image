@@ -40,10 +40,10 @@ def vgg19():
     model.classifier = new_classifier
     return model
 
-def resnet()
+def resnet():
     # initialise a pretrained model, see torch docs for the availlable pretrained models. Torch will download
     # the weights automatically
-    model = models.vgg19_bn(pretrained = True)
+    model = models.resnet152(pretrained = True)
 
     # remove the final layer from the classifier. This may need to be adapted somewhat for different models
     # because of the module names
@@ -94,7 +94,7 @@ def vis_feats(img_path, output_file, append_name, img_audio, node_list, net):
         if not im.size()[1] == 3:
             im = im.expand(im.size()[0], 3, im.size()[2], im.size()[3])
         # get the activations of the penultimate layer and take the mean over the 10 crops
-        activations = model(im).mean(0)
+        activations = model(im).mean(0).squeeze()
         # get the shape of the image features for the output file
         feature_shape= activations.shape[0]
         # create a new node 
