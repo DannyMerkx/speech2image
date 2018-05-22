@@ -17,7 +17,7 @@ import argparse
 import torch
 from torch.autograd import Variable
 
-from minibatchers import iter_text_5fold, iterate_text
+from minibatchers import iterate_text_5fold, iterate_text
 from costum_loss import batch_hinge_loss, ordered_loss
 from evaluate import caption2image, image2caption
 from encoders import img_encoder, char_gru_encoder
