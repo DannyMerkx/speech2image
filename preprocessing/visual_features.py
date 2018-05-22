@@ -16,9 +16,7 @@ extract vgg16 features using pretrained network and add them to an h5 file.
 to-do: vgg16 weight location is hard coded, add option to pass it through prep_features.py
 
 """
-import numpy
 import os
-import numpy
 import tables
 import torch
 import torchvision.models as models
@@ -31,7 +29,7 @@ import PIL.Image
 
 # pretrained vgg_16 model
 
-def vgg(img_path, output_file, append_name, img_audio, node_list):
+def vgg19():
     # initialise a pretrained model, see torch docs for the availlable pretrained models. Torch will download
     # the weights automatically
     model = models.vgg19_bn(pretrained = True)
@@ -40,6 +38,24 @@ def vgg(img_path, output_file, append_name, img_audio, node_list):
     # because of the module names
     new_classifier = nn.Sequential(*list(model.classifier.children())[:-1])
     model.classifier = new_classifier
+    return model
+
+def resnet()
+    # initialise a pretrained model, see torch docs for the availlable pretrained models. Torch will download
+    # the weights automatically
+    model = models.vgg19_bn(pretrained = True)
+
+    # remove the final layer from the classifier. This may need to be adapted somewhat for different models
+    # because of the module names
+    model = nn.Sequential(*list(model.children())[:-1])
+    return model
+
+def vis_feats(img_path, output_file, append_name, img_audio, node_list, net):
+    # prepare the pretrained model
+    if net == 'vgg19'
+        model = vgg19()
+    if net == 'resnet'
+        model = resnet()
 
     # set the model to use cuda and to evaluation mode
     model = model.cuda()
@@ -70,16 +86,19 @@ def vgg(img_path, output_file, append_name, img_audio, node_list):
                 node_name = node_name.split('/')[-1]
 
         # read the image and apply the necessary transformations and crops
-        im = tencrop(resize(PIL.Image.open(os.path.join(img_path, img_file)),256))
+        im = tencrop(resize(PIL.Image.open(os.path.join(img_path, img_file))))
         im = torch.cat([normalise(tens(x)).unsqueeze(0) for x in im])
         im = torch.autograd.Variable(im).cuda()
-        
+        # there are some grayscale images in mscoco that the vgg and resnet networks
+        # wont take
+        if not im.size()[1] == 3:
+            im = im.expand(im.size()[0], 3, im.size()[2], im.size()[3])
         # get the activations of the penultimate layer and take the mean over the 10 crops
         activations = model(im).mean(0)
         # get the shape of the image features for the output file
         feature_shape= activations.shape[0]
         # create a new node 
-        vgg_node = output_file.create_group(node, 'vgg19')
+        vgg_node = output_file.create_group(node, net)
         # create a pytable array at the current image node. Remove file extension from filename as dots arent allowed in pytable names
         vgg_array = output_file.create_earray(vgg_node, append_name + node_name, img_atom, (0,feature_shape), expectedrows=1)
         # append the vgg features to the array

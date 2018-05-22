@@ -11,13 +11,18 @@ import tables
 import os
 
 
-from vgg import vgg
+from visual_features import vis_feats
 from audio_features import audio_features
-from text_features import text_features
+from text_features import text_features_flickr
 # path to the flickr audio, caption and image files 
 audio_path = os.path.join('/data/flickr/flickr_audio/wavs')
 img_path = os.path.join('/data/flickr/Flickr8k_Dataset/Flicker8k_Dataset')
 text_path = os.path.join('/data/speech2image/preprocessing/dataset.json')
+
+# some bools in case only some new features needs to be added
+vis = True
+audio = True
+text = True
 
 # list the img and audio directories
 audio = os.listdir(audio_path)
@@ -57,17 +62,18 @@ append_name = 'flickr_'
 
 # create the h5 file to hold all image and audio features. This will fail if they already excist such
 # as when you run this file to append new features to an excisting feature file
-try:
-    for x in img_audio:
+for x in img_audio:
+    try:        
         # one group for each image file which will contain its vgg16 features and audio captions 
         output_file.create_group("/", append_name + x.split('.')[0])    
-else:
-    continue
+    except:
+        continue
 #list all the nodes
 node_list = output_file.root._f_list_nodes()
     
-# create the vgg16 features for all images  
-vgg(img_path, output_file, append_name, img_audio, node_list) 
+# create the visual features for all images 
+if vis: 
+    vis_feats(img_path, output_file, append_name, img_audio, node_list, 'resnet') 
 
 ######### parameter settings for the audio preprocessing ###############
 
@@ -97,9 +103,11 @@ params.append(use_energy)
 #############################################################################
 
 # create the audio features for all captions
-audio_features(params, img_audio, audio_path, append_name, node_list)
+if audio:
+    audio_features(params, img_audio, audio_path, append_name, node_list)
 
 # add text features for all captions
-text_features(text_path, output_file, append_name, node_list )
+if audio:
+    text_features_flickr(text_path, output_file, append_name, node_list)
 # close the output files
 output_file.close()

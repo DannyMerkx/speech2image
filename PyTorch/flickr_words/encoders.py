@@ -61,6 +61,30 @@ class char_gru_encoder(nn.Module):
         x = nn.functional.normalize(self.att(x), p=2, dim=1)
         return x
 
+# the convolutional character encoder described by Wehrmann et al. 
+class conv_encoder(nn.Module):
+    def __init__(self):
+        super(conv_encoder, self).__init__()
+        self.Conv1d_1 = nn.Conv1d(in_channels = 20, out_channels = 512, kernel_size = 7,
+                                 stride = 1, padding = 3, groups = 1)
+        self.Conv1d_2 = nn.Conv1d(in_channels = 512, out_channels = 512, kernel_size = 5,
+                                 stride = 1, padding = 2, groups = 1)
+        self.Conv1d_3 = nn.Conv1d(in_channels = 512, out_channels = 512, kernel_size = 3,
+                                 stride = 1, padding = 1, groups = 1)
+        self.relu = nn.ReLU()
+        self.embed = nn.Embedding(num_embeddings = 100, embedding_dim = 20,
+                                  sparse = False, padding_idx = 0)
+        self.Pool = nn.AdaptiveMaxPool1d(output_size = 1, return_indices=False)
+        self.linear = nn.Linear(in_features = 512, out_features = 512)
+    def forward(self, input, l):
+        x = self.embed(input.long()).permute(0,2,1)
+        x = self.relu(self.Conv1d_1(x))
+        x = self.relu(self.Conv1d_2(x))
+        x = self.relu(self.Conv1d_3(x))
+        x = self.linear(self.Pool(x).squeeze())
+        return nn.functional.normalize(x, p = 2, dim = 1)
+
+
 # gru encoder for audio
 class audio_gru_encoder(nn.Module):
     def __init__(self, config):
@@ -84,7 +108,7 @@ class audio_gru_encoder(nn.Module):
         x = nn.functional.normalize(self.att(x), p=2, dim=1)
         return x
 
-# the network for embedding the vgg16 features
+# the network for embedding the visual features
 class img_encoder(nn.Module):
     def __init__(self, config):
         super(img_encoder, self).__init__()
@@ -99,7 +123,7 @@ class img_encoder(nn.Module):
         else:
             return x
 
-# experimental combination of a convolutional network topped by a GRU for audio
+# combination of a convolutional network topped by a GRU for audio
 class RCNN_audio_encoder(nn.Module):
     def __init__(self):
         super(RCNN_audio_encoder, self).__init__()

@@ -5,7 +5,7 @@ Created on Mon May  7 10:24:35 2018
 
 @author: danny
 
-Loads pretrained moels and calculates the validation and test scores. 
+Loads pretrained models and calculates the validation and test scores for both annotation and image retrieval. 
 """
 #!/usr/bin/env python
 from __future__ import print_function
@@ -15,7 +15,7 @@ import tables
 import argparse
 import torch
 
-from minibatchers import iterate_audio_flickr, iterate_minibatches
+from minibatchers import iterate_audio_5fold, iterate_audio
 from evaluate import caption2image, image2caption
 from encoders import img_encoder, audio_gru_encoder
 from data_split import split_data
@@ -28,15 +28,15 @@ parser.add_argument('-data_loc', type = str, default = '/prep_data/flickr_featur
                     help = 'location of the feature file, default: /prep_data/flickr_features.h5')
 parser.add_argument('-split_loc', type = str, default = '/data/speech2image/preprocessing/dataset.json', 
                     help = 'location of the json file containing the data split information')
-parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/flickr_audio/bigru_results/',
+parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/flickr_audio/results/',
                     help = 'location of the json file containing the data split information')
 # args concerning training settings
 parser.add_argument('-batch_size', type = int, default = 32, help = 'batch size, default: 32')
 parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, default: True')
 # args concerning the database and which features to load
-parser.add_argument('-data_base', type = str, default = 'flickr', help = 'database to train on, options: places, flickr')
-parser.add_argument('-visual', type = str, default = 'vgg_10crop', help = 'name of the node containing the visual features')
-parser.add_argument('-cap', type = str, default = 'mfcc', help = 'name of the node containing the audio features')
+parser.add_argument('-data_base', type = str, default = 'flickr', help = 'database to train on, default: flickr')
+parser.add_argument('-visual', type = str, default = 'resnet', help = 'name of the node containing the visual features, default: resnet')
+parser.add_argument('-cap', type = str, default = 'mfcc', help = 'name of the node containing the audio features, default: mfcc')
 parser.add_argument('-gradient_clipping', type = bool, default = True, help ='use gradient clipping, default: True')
 
 args = parser.parse_args()
@@ -44,11 +44,11 @@ args = parser.parse_args()
 # create config dictionaries with all the parameters for your encoders
 
 audio_config = {'conv':{'in_channels': 39, 'out_channels': 64, 'kernel_size': 6, 'stride': 2,
-               'padding': 0, 'bias': False}, 'gru':{'input_size': 64, 'hidden_size': 512, 
+               'padding': 0, 'bias': False}, 'gru':{'input_size': 64, 'hidden_size': 1024, 
                'num_layers': 4, 'batch_first': True, 'bidirectional': True, 'dropout': 0}, 
-               'att':{'in_size': 1024, 'hidden_size': 128}}
+               'att':{'in_size': 2048, 'hidden_size': 128}}
 
-image_config = {'linear':{'in_size': 4096, 'out_size': 1024}, 'norm': True}
+image_config = {'linear':{'in_size': 2048, 'out_size': 2048}, 'norm': True}
 
 
 # open the data file
@@ -64,25 +64,28 @@ else:
     print('using cpu')
     dtype = torch.FloatTensor
 
-#get a list of all the nodes in the file. The places database was so big 
-# it needs to be split into subgroups at the root node so the iterator needs
-# to look one node deeper in the tree.
-def iterate_places(h5_file):
+# get a list of all the nodes in the file. h5 format takes at most 10000 leaves per node, so big
+# datasets are split into subgroups at the root node 
+def iterate_large_dataset(h5_file):
     for x in h5_file.root:
         for y in x:
             yield y
+# flickr doesnt need to be split at the root node
 def iterate_flickr(h5_file):
     for x in h5_file.root:
         yield x
 
-if args.data_base == 'places':
-    f_nodes = [node for node in iterate_places(data_file)]
+if args.data_base == 'coco':
+    f_nodes = [node for node in iterate_large_dataset(data_file)]
     # define the batcher type to use.
-    batcher = iterate_minibatches
+    batcher = iterate_audio_5fold    
 elif args.data_base == 'flickr':
     f_nodes = [node for node in iterate_flickr(data_file)]
     # define the batcher type to use.
-    batcher = iterate_audio_flickr
+    batcher = iterate_audio_5fold
+elif args.data_base == 'places'
+    f_nodes = [node for node in iterate_large_dataset(data_file)]
+    batcher = iterate_audio
 else:
     print('incorrect database option')
     exit()  
@@ -103,8 +106,8 @@ if cuda:
 
 # list all the trained model parameters
 models = os.listdir(args.results_loc)
-caption_models = [x for x in models if 'audio' in x]
-img_models = [x for x in models if 'img' in x]
+caption_models = [x for x in models if 'caption' in x]
+img_models = [x for x in models if 'image' in x]
 
 # run the training loop for the indicated amount of epochs 
 img_models.sort()

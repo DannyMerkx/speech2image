@@ -19,35 +19,35 @@ from minibatchers import iter_text_5fold, iterate_text
 from costum_loss import batch_hinge_loss, ordered_loss
 from evaluate import caption2image
 from encoders import img_encoder, char_gru_encoder
-from data_split import split_data
+from data_split import split_data_coco
 from grad_tracker import gradient_clipping
 ##################################### parameter settings ##############################################
 
 parser = argparse.ArgumentParser(description='Create and run an articulatory feature classification DNN')
 
 # args concerning file location
-parser.add_argument('-data_loc', type = str, default = '/prep_data/flickr_features.h5',
-                    help = 'location of the feature file, default: /prep_data/flickr_features.h5')
+parser.add_argument('-data_loc', type = str, default = '/prep_data/coco_features.h5',
+                    help = 'location of the feature file, default: /prep_data/coco_features.h5')
 parser.add_argument('-split_loc', type = str, default = '/data/speech2image/preprocessing/dataset.json', 
                     help = 'location of the json file containing the data split information')
-parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/flickr_char/results/',
+parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/coco_char/results/',
                     help = 'location to save the results and network parameters')
 # args concerning training settings
 parser.add_argument('-batch_size', type = int, default = 32, help = 'batch size, default: 32')
-parser.add_argument('-lr', type = float, default = 0.001, help = 'learning rate, default:0.001')
+parser.add_argument('-lr', type = float, default = 0.001, help = 'learning rate, default:0.002')
 parser.add_argument('-n_epochs', type = int, default = 25, help = 'number of training epochs, default: 25')
 parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, default: True')
 # args concerning the database and which features to load
-parser.add_argument('-data_base', type = str, default = 'flickr', help = 'database to train on, default: flickr')
+parser.add_argument('-data_base', type = str, default = 'coco', help = 'database to train on, default: coco')
 parser.add_argument('-visual', type = str, default = 'resnet', help = 'name of the node containing the visual features, default: resnet')
-parser.add_argument('-cap', type = str, default = 'tokens', help = 'name of the node containing the caption features, default: tokens')
+parser.add_argument('-cap', type = str, default = 'raw_text', help = 'name of the node containing the caption features, default: raw:text')
 parser.add_argument('-gradient_clipping', type = bool, default = True, help ='use gradient clipping, default: True')
 
 args = parser.parse_args()
 
 # create config dictionaries with all the parameters for your encoders
-char_config = {'embed':{'num_chars': 8384, 'embedding_dim': 300, 'sparse': False, 'padding_idx': 0}, 
-               'gru':{'input_size': 300, 'hidden_size': 1024, 'num_layers': 1, 'batch_first': True,
+char_config = {'embed':{'num_chars': 100, 'embedding_dim': 20, 'sparse': False, 'padding_idx': 0}, 
+               'gru':{'input_size': 20, 'hidden_size': 1024, 'num_layers': 1, 'batch_first': True,
                'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 2048, 'hidden_size': 128}}
 
 image_config = {'linear':{'in_size': 2048, 'out_size': 2048}, 'norm': True}
@@ -92,8 +92,10 @@ else:
 
 # split the database into train test and validation sets. default settings uses the json file
 # with the karpathy split
-train, test, val = split_data(f_nodes, args.split_loc)
-
+train, val = split_data_coco(f_nodes)
+# set aside 5000 images as test set
+test = train[-5000:]
+train = train[:-5000]
 ############################### Neural network setup #################################################
 
 # network modules
@@ -124,7 +126,7 @@ optimizer = torch.optim.Adam(list(img_net.parameters())+list(cap_net.parameters(
 
 # epoch based lr decay
 def lr_decay_epoch(optimizer, epoch):
-    lr = args.lr * (0.5 ** (epoch // 5))
+    lr = args.lr * (0.5 ** (epoch // 1))
     for groups in optimizer.param_groups:
         groups['lr'] = lr
         
@@ -236,9 +238,22 @@ while epoch <= args.n_epochs:
     print('recall@5 = ' + str(recall[1]*100) + '%')
     print('recall@10 = ' + str(recall[2]*100) + '%')
     print('median rank= ' + str(median_rank))
+    
+    # it is common practice to calculate recall over the full validation set and a subset of 1000 images 
+    # for comparison to sets like flickr8k.
+    # create a minibatcher over the validation set
+    iterator = batcher(val[:1000], args.batch_size, args.visual, args.cap, shuffle = False)
+    # calc recall, pass it the iterator, the embedding functions and n
+    recall, median_rank = caption2image(iterator, img_net, cap_net, [1, 5, 10], dtype)
+    print('1k recall@1 = ' + str(recall[0]*100) + '%')
+    print('1k recall@5 = ' + str(recall[1]*100) + '%')
+    print('1k recall@10 = ' + str(recall[2]*100) + '%')
+    print('1k median rank= ' + str(median_rank))
+
     epoch += 1
     # perform learning rate decay for the next epoch and set the loss for the previous epoch to the training loss
-    lr_decay(optimizer, val_loss.cpu().numpy(), prev_epoch)
+    #lr_decay(optimizer, val_loss.cpu().numpy(), prev_epoch)
+    lr_decay_epoch(optimizer, epoch)
     prev_epoch = val_loss.cpu().numpy()
     # this part is usefull only if you want to update the value for gradient clipping at each epoch
     # I found it didn't work well 
@@ -260,6 +275,16 @@ print('test recall@1 = ' + str(recall[0]*100) + '%')
 print('test recall@5 = ' + str(recall[1]*100) + '%')
 print('test recall@10 = ' + str(recall[2]*100) + '%')
 print('test median rank= ' + str(median_rank))
+
+iterator = batcher(test[:1000], args.batch_size, args.visual, args.cap, shuffle = False)
+# calc recal, pass it the iterator, the embedding functions and n
+# returns the measures columnise (speech2image retrieval) and rowwise(image2speech retrieval)
+recall, median_rank = caption2image(iterator, img_net, cap_net, [1, 5, 10], dtype)
+print("1k test loss:\t\t{:.6f}".format(test_loss.cpu()[0]))
+print('1k test recall@1 = ' + str(recall[0]*100) + '%')
+print('1k test recall@5 = ' + str(recall[1]*100) + '%')
+print('1k test recall@10 = ' + str(recall[2]*100) + '%')
+print('1k test median rank= ' + str(median_rank))
 
 # save the gradients for each epoch, can be usefull to select an initial clipping value.
 #if args.gradient_clipping:

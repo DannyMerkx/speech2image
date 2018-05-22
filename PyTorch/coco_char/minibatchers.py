@@ -100,7 +100,7 @@ def iterate_audio_5fold(f_nodes, batchsize, visual, audio, frames = 1024, shuffl
 
 # iterate over text input. the value for chars indicates the max sentence lenght in characters. Keeps track 
 # of the unpadded senctence lengths to use with pytorch's pack_padded_sequence.
-def iter_text_5fold(f_nodes, batchsize, visual, text, chars = 200, shuffle=True):
+def iter_text_5fold(f_nodes, batchsize, visual, text, chars = 260, shuffle=True):
     if shuffle:
         # optionally shuffle the input
         np.random.shuffle(f_nodes)

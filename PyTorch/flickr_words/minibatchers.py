@@ -13,7 +13,7 @@ from prep_text import word_2_index
 # minibatcher which takes a list of nodes and returns the visual and audio features, possibly resized.
 # visual and audio should contain a string of the names of the visual and audio features nodes in the h5 file.
 #frames is the desired length of the time sequence, the batcher pads or truncates.
-def iterate_minibatches(f_nodes, batchsize, visual, audio, frames = 1024, shuffle=True):  
+def iterate_audio(f_nodes, batchsize, visual, audio, frames = 1024, shuffle=True):  
     if shuffle:
         # optionally shuffle the input
         np.random.shuffle(f_nodes)
@@ -42,9 +42,33 @@ def iterate_minibatches(f_nodes, batchsize, visual, audio, frames = 1024, shuffl
         images = np.float64(np.reshape(images,(images_shape[0],images_shape[2])))
         yield images, speech    
 
-# the flickr minibatcher returns all 5 captions per image during training, for test or validation
-# epochs, set the value for test to false to load just one caption per image. 
-def iterate_audio_flickr(f_nodes, batchsize, visual, audio, frames = 1024, shuffle = True):
+def iterate_text(f_nodes, batchsize, visual, text, chars = 200, shuffle=True):
+    if shuffle:
+        # optionally shuffle the input
+        np.random.shuffle(f_nodes)
+    for start_idx in range(0, len(f_nodes) - batchsize + 1, batchsize):
+        # take a batch of nodes of the given size               
+        excerpt = f_nodes[start_idx:start_idx + batchsize]
+        caption = []
+        images = []
+        for ex in excerpt:
+            # extract and append the vgg16 features
+            images.append(eval('ex.' + visual + '._f_list_nodes()[0].read()'))
+            # extract the audio features
+            cap = eval('ex.' + text + '._f_list_nodes()[i].read()')
+            cap = cap.decode('utf-8')
+            # append an otherwise unused character as a start of sentence character and 
+            # convert the sentence to lower case.
+            caption.append(cap)
+        # converts the sentence to character ids. 
+        caption, lengths = word_2_index(caption, batchsize, chars)
+        images_shape = np.shape(images)
+        # images should be shape (batch_size, 1024). images_shape[1] is collapsed as the original features are of shape (1,1024) 
+        images = np.float64(np.reshape(images,(images_shape[0],images_shape[2])))
+        yield images, caption, lengths
+
+# the 5fold minibatchers are for the datasets with 5 captions per image (mscoco, flickr). It returns all 5 captions per image.
+def iterate_audio_5fold(f_nodes, batchsize, visual, audio, frames = 1024, shuffle = True):
     if shuffle:
         # optionally shuffle the input
         np.random.shuffle(f_nodes)
@@ -75,8 +99,8 @@ def iterate_audio_flickr(f_nodes, batchsize, visual, audio, frames = 1024, shuff
             yield images, speech
 
 # iterate over text input. the value for chars indicates the max sentence lenght in characters. Keeps track 
-# of the unpadded senctence lengths to use with pytorch's pack_padded_sequence.
-def iter_text_flickr(f_nodes, batchsize, visual, text, chars = 200, shuffle=True):
+# of the unpadded senctence lengths to use with pytorch's pack_padded_sequence. (max sent len in flickr = 200, coco = 250)
+def iterate_text_5fold(f_nodes, batchsize, visual, text, chars = 200, shuffle=True):
     if shuffle:
         # optionally shuffle the input
         np.random.shuffle(f_nodes)
