@@ -84,7 +84,7 @@ elif args.data_base == 'flickr':
     f_nodes = [node for node in iterate_flickr(data_file)]
     # define the batcher type to use.
     batcher = iterate_text_5fold
-elif args.data_base == 'places'
+elif args.data_base == 'places':
     print('places has no written captions')
 else:
     print('incorrect database option')

@@ -52,9 +52,9 @@ def resnet()
 
 def vis_feats(img_path, output_file, append_name, img_audio, node_list, net):
     # prepare the pretrained model
-    if net == 'vgg19'
+    if net == 'vgg19':
         model = vgg19()
-    if net == 'resnet'
+    if net == 'resnet':
         model = resnet()
 
     # set the model to use cuda and to evaluation mode

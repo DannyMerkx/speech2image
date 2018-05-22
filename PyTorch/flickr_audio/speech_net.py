@@ -87,7 +87,7 @@ elif args.data_base == 'flickr':
     f_nodes = [node for node in iterate_flickr(data_file)]
     # define the batcher type to use.
     batcher = iterate_audio_5fold
-elif args.data_base == 'places'
+elif args.data_base == 'places':
     f_nodes = [node for node in iterate_large_dataset(data_file)]
     batcher = iterate_audio
 else:
