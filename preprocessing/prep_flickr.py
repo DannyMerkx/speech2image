@@ -9,7 +9,7 @@ Make a dictionary that pairs all the flickr8k images with their 5 captions
 import numpy as np
 import tables
 import os
-
+import json
 
 from visual_features import vis_feats
 from audio_features import audio_features
@@ -106,8 +106,12 @@ params.append(use_energy)
 if audio:
     audio_features(params, img_audio, audio_path, append_name, node_list)
 
+text_dict = {}
+txt = json.load(open(text_path))['images']
+for x in txt:
+    text_dict[x['filename'].split('.')[0]] = x
 # add text features for all captions
 if audio:
-    text_features_flickr(text_path, output_file, append_name, node_list)
+    text_features_flickr(text_dict, output_file, append_name, node_list)
 # close the output files
 output_file.close()
