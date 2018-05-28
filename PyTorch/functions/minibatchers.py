@@ -67,7 +67,7 @@ def iterate_raw_text(f_nodes, batchsize, visual, text, max_chars = 260, shuffle=
             # convert the sentence to lower case.
             caption.append(cap)
         # converts the sentence to character ids. 
-        caption, lengths = char_2_index(caption, batchsize, chars)
+        caption, lengths = char_2_index(caption, batchsize, max_chars)
         images_shape = np.shape(images)
         # images should be shape (batch_size, 1024). images_shape[1] is collapsed as the original features are of shape (1,1024) 
         images = np.float64(np.reshape(images,(images_shape[0],images_shape[2])))
@@ -157,7 +157,7 @@ def iterate_raw_text_5fold(f_nodes, batchsize, visual, text, max_chars = 260, sh
                 # convert the sentence to lower case.
                 caption.append(cap)
             # converts the sentence to character ids. 
-            caption, lengths = char_2_index(caption, batchsize, chars)
+            caption, lengths = char_2_index(caption, batchsize, max_chars)
             images_shape = np.shape(images)
             # images should be shape (batch_size, 1024). images_shape[1] is collapsed as the original features are of shape (1,1024) 
             images = np.float64(np.reshape(images,(images_shape[0],images_shape[2])))
