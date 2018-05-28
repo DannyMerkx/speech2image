@@ -23,7 +23,7 @@ def iterate_audio(f_nodes, batchsize, visual, audio, frames = 2048, shuffle=True
         excerpt = f_nodes[start_idx:start_idx + batchsize]        
         speech = []
         images = []
- 	lengths = []
+        lengths = []
         for ex in excerpt:
             # extract and append the vgg16 features
             images.append(eval('ex.' + visual + '._f_list_nodes()[0].read()'))
@@ -111,7 +111,7 @@ def iterate_audio_5fold(f_nodes, batchsize, visual, audio, frames = 2048, shuffl
             excerpt = f_nodes[start_idx:start_idx + batchsize]
             speech = []
             images = []
-	    lengths = []
+            lengths = []
             for ex in excerpt:
                 # extract and append the vgg16 features
                 images.append(eval('ex.' + visual + '._f_list_nodes()[0].read()'))
