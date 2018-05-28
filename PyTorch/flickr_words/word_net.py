@@ -237,6 +237,7 @@ def recall(data, at_n, c2i, i2c, prepend):
 
 ################################# training/test loop #####################################
 epoch = 1
+iteration = 0
 # run the training loop for the indicated amount of epochs 
 while epoch <= args.n_epochs:
     # keep track of runtime
