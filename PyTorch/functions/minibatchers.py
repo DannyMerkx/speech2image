@@ -74,7 +74,7 @@ def iterate_raw_text(f_nodes, batchsize, visual, text, max_chars = 260, shuffle=
         yield images, caption, lengths
 
 # slightly different from the raw text loader, also takes a dictionary location. Max words default is 60 to accomodate mscoco.
-def iterate_tokens(f_nodes, batchsize, visual, text, dict_loc, words = 60, shuffle=True):
+def iterate_tokens(f_nodes, batchsize, visual, text, dict_loc, max_words = 60, shuffle=True):
     if shuffle:
         # optionally shuffle the input
         np.random.shuffle(f_nodes)
@@ -93,7 +93,7 @@ def iterate_tokens(f_nodes, batchsize, visual, text, dict_loc, words = 60, shuff
             # convert the sentence to lower case.
             caption.append(cap)
         # converts the sentence to character ids. 
-        caption, lengths = word_2_index(caption, batchsize, words, dict_loc)
+        caption, lengths = word_2_index(caption, batchsize, max_words, dict_loc)
         images_shape = np.shape(images)
         # images should be shape (batch_size, 1024). images_shape[1] is collapsed as the original features are of shape (1,1024) 
         images = np.float64(np.reshape(images,(images_shape[0],images_shape[2])))
@@ -166,7 +166,7 @@ def iterate_raw_text_5fold(f_nodes, batchsize, visual, text, max_chars = 260, sh
 # iterate over text input. the value for chars indicates the max sentence lenght in characters. Keeps track 
 # of the unpadded senctence lengths to use with pytorch's pack_padded_sequence. slightly different from the raw text loader
 # as we need a word_2_index function and this also takes a dictionary
-def iterate_tokens_5fold(f_nodes, batchsize, visual, text, dict_loc, words = 60, shuffle=True):
+def iterate_tokens_5fold(f_nodes, batchsize, visual, text, dict_loc, max_words = 60, shuffle=True):
     if shuffle:
         # optionally shuffle the input
         np.random.shuffle(f_nodes)
@@ -186,7 +186,7 @@ def iterate_tokens_5fold(f_nodes, batchsize, visual, text, dict_loc, words = 60,
                 # convert the sentence to lower case.
                 caption.append(cap)
             # converts the sentence to character ids. 
-            caption, lengths = word_2_index(caption, batchsize, words, dict_loc)
+            caption, lengths = word_2_index(caption, batchsize, max_words, dict_loc)
             images_shape = np.shape(images)
             # images should be shape (batch_size, 1024). images_shape[1] is collapsed as the original features are of shape (1,1024) 
             images = np.float64(np.reshape(images,(images_shape[0],images_shape[2])))
