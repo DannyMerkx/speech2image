@@ -9,6 +9,12 @@ Functions to prepare text data, e.g. one hot encoding and embedding indices.
 """
 import string
 import numpy as np
+import pickle
+
+# loader for the dictionary, loads a pickled dictionary.
+def load_obj(loc):
+    with open(loc + '.pkl', 'rb') as f:
+        return pickle.load(f)
 
 def find_index(char):
     # define the set of valid characters.
@@ -36,3 +42,14 @@ def char_2_index(raw_text, batch_size, max_sent_len):
         for j, char in enumerate(text):
             text_batch[i][j] = find_index(char)
     return text_batch, lengths
+
+def word_2_index(word_list, batch_size, max_sent_len, dict_loc):
+    w_dict = load_obj(dict_loc)
+    text_batch = np.zeros([batch_size, max_sent_len])
+    lengths = []
+    for i, words in enumerate(word_list):
+        lengths.append(len(words))
+        for j, word in enumerate(words):
+            text_batch[i][j] = w_dict[word]
+    return text_batch, lengths
+

@@ -5,11 +5,12 @@ Created on Mon May 14 13:24:41 2018
 
 @author: danny
 """
-
+# create a dictionary for the flickr dataset in order to perform word 2 index lookup for the
+# word embedding layer. Run this script once before running the training process.
 import json
 import pickle
 
-caps = json.load(open('/home/danny/Downloads/dataset.json'))['images']
+caps = json.load(open('/data/speech2image/preprocessing/dataset.json'))['images']
 
 caps = [y['tokens'] for x in caps for y in x['sentences']]
 
@@ -32,4 +33,4 @@ def load_obj(loc):
     with open(loc + '.pkl', 'rb') as f:
         return pickle.load(f)
 
-save_obj(word_dict, '/home/danny/Downloads/word_dicts')
+save_obj(word_dict, '/data/speech2image/Pytorch/flickr_words/word_dicts')

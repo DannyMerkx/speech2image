@@ -101,10 +101,15 @@ class audio_gru_encoder(nn.Module):
                           bidirectional = gru['bidirectional'], dropout = gru['dropout'])
         self.att = attention(in_size = att['in_size'], hidden_size = att['hidden_size'])
         
-    def forward(self, input):
+    def forward(self, input, l):
         x = self.Conv1d(input)
         x = x.permute(0, 2, 1)
+        # create a packed_sequence object. The padding will be excluded from the update step
+        # thereby training on the original sequence length only
+        x = torch.nn.utils.rnn.pack_padded_sequence(x, l, batch_first=True)
         x, hx = self.GRU(x)
+        # unpack again as at the moment only rnn layers except packed_sequence objects
+        x, lens = nn.utils.rnn.pad_packed_sequence(x, batch_first = True)
         x = nn.functional.normalize(self.att(x), p=2, dim=1)
         return x
 
