@@ -139,14 +139,14 @@ def create_cyclic_scheduler(max_lr, min_lr, stepsize):
 cyclic_scheduler = create_cyclic_scheduler(max_lr = args.lr, min_lr = 1e-6, stepsize = len(train)*4)
 
 # training routine 
-def train_epoch(epoch, img_net, cap_net, optimizer, f_nodes, max_chars = 200, batch_size):
+def train_epoch(epoch, img_net, cap_net, optimizer, f_nodes, batch_size):
     global iteration
     img_net.train()
     cap_net.train()
     # for keeping track of the average loss over all batches
     train_loss = 0
     num_batches =0
-    for batch in batcher(f_nodes, batch_size, args.visual, args.cap, shuffle = True):
+    for batch in batcher(f_nodes, batch_size, args.visual, args.cap, max_chars = 200, shuffle = True):
         cyclic_scheduler.step()
         iteration +=1
         img, cap, lengths = batch
