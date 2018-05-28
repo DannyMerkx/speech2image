@@ -94,6 +94,26 @@ else:
 # split the database into train test and validation sets. default settings uses the json file
 # with the karpathy split
 train, test, val = split_data(f_nodes, args.split_loc)
+
+def recall(data, at_n, c2i, i2c, prepend):
+    # calculate the recall@n. Arguments are a set of nodes, the @n values, whether to do caption2image, image2caption or both
+    # and a prepend string (e.g. to print validation or test in front of the results)
+    if c2i:
+        # create a minibatcher over the validation set
+        iterator = batcher(data, args.batch_size, args.visual, args.cap, shuffle = False)
+        recall, median_rank = caption2image(iterator, img_net, cap_net, at_n, dtype)
+        # print some info about this epoch
+        for x in range(len(recall)):
+            print(prepend + ' caption2image recall@' + str(at_n[x]) + ' = ' + str(recall[x]*100) + '%')
+        print(prepend + ' caption2image median rank= ' + str(median_rank))
+    if i2c:
+        # create a minibatcher over the validation set
+        iterator = batcher(data, args.batch_size, args.visual, args.cap, shuffle = False)
+        recall, median_rank = image2caption(iterator, img_net, cap_net, at_n, dtype)
+        for x in range(len(recall)):
+            print(prepend + ' image2caption recall@' + str(at_n[x]) + ' = ' + str(recall[x]*100) + '%')
+        print(prepend + ' image2caption median rank= ' + str(median_rank))  
+
 #####################################################
 
 # network modules
@@ -110,7 +130,7 @@ models = os.listdir(args.results_loc)
 caption_models = [x for x in models if 'caption' in x]
 img_models = [x for x in models if 'image' in x]
 
-# run the training loop for the indicated amount of epochs 
+# run the image and caption retrieval
 img_models.sort()
 caption_models.sort()
 for img, cap in zip(img_models, caption_models) :
@@ -122,45 +142,7 @@ for img, cap in zip(img_models, caption_models) :
     cap_net.load_state_dict(caption_state)
     # calculate the recall@n
     # create a minibatcher over the validation set
-    iterator = batcher(val, args.batch_size, args.visual, args.cap, shuffle = False)
-    # calc recal, pass it the iterator, the embedding functions and n
-    # returns the measures columnise (speech2image retrieval) and rowwise(image2speech retrieval)
-    recall, median_rank = speech2image(iterator, img_net, cap_net, [1, 5, 10], dtype)
-    
-    # print some info about this epoch
     print("Epoch " + img.split('.')[1])
-    print('speech2image:')
-    print('validation recall@1 = ' + str(recall[0]*100) + '%')
-    print('validation recall@5 = ' + str(recall[1]*100) + '%')
-    print('validation recall@10 = ' + str(recall[2]*100) + '%')
-    print('validation median rank= ' + str(median_rank))
-
-    iterator = batcher(val, args.batch_size, args.visual, args.cap, shuffle = False)
-    recall, median_rank = image2speech(iterator, img_net, cap_net, [1, 5, 10], dtype)
-    print('image2speech:')
-    print('validation recall@1 = ' + str(recall[0]*100) + '%')
-    print('validation recall@5 = ' + str(recall[1]*100) + '%')
-    print('validation recall@10 = ' + str(recall[2]*100) + '%')
-    print('validation median rank= ' + str(median_rank))
-    
-    # calculate the recall@n
-    # create a minibatcher over the test set
-    iterator = batcher(test, args.batch_size, args.visual, args.cap, shuffle = False)
-    # calc recal, pass it the iterator, the embedding functions and n
-    # returns the measures columnise (speech2image retrieval) and rowwise(image2speech retrieval)
-    recall, avg_rank = speech2image(iterator, img_net, cap_net, [1, 5, 10], dtype)
-    print('speech2image:')
-    print('test recall@1 = ' + str(recall[0]*100) + '%')
-    print('test recall@5 = ' + str(recall[1]*100) + '%')
-    print('test recall@10 = ' + str(recall[2]*100) + '%')
-    print('test median rank= ' + str(median_rank))
-    
-    iterator = batcher(test, args.batch_size, args.visual, args.cap, shuffle = False)
-    recall, median_rank = image2speech(iterator, img_net, cap_net, [1, 5, 10], dtype)
-    print('image2speech:')
-    print('test recall@1 = ' + str(recall[0]*100) + '%')
-    print('test recall@5 = ' + str(recall[1]*100) + '%')
-    print('test recall@10 = ' + str(recall[2]*100) + '%')
-    print('test median rank= ' + str(median_rank))
-
+    recall(val, [1, 5, 10], c2i = True, i2c = True, prepend = 'validation') 
+    recall(test, [1, 5, 10], c2i = True, i2c = True, prepend = 'test') 
 
