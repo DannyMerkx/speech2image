@@ -143,12 +143,15 @@ cyclic_scheduler = create_cyclic_scheduler(max_lr = args.lr, min_lr = 1e-6, step
 
 # training routine 
 def train_epoch(epoch, img_net, cap_net, optimizer, f_nodes, args.dict_loc, max_words = 60, batch_size):
+    global iteration
     img_net.train()
     cap_net.train()
     # for keeping track of the average loss over all batches
     train_loss = 0
     num_batches =0
     for batch in batcher(f_nodes, batch_size, args.visual, args.cap, shuffle = True):
+        cyclic_scheduler.step()
+        iteration +=1
         img, cap, lengths = batch
         num_batches +=1
         # sort the tensors based on the unpadded caption length so they can be used

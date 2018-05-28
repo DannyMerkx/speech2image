@@ -33,7 +33,7 @@ parser.add_argument('-data_loc', type = str, default = '/prep_data/coco_features
                     help = 'location of the feature file, default: /prep_data/coco_features.h5')
 parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/coco_char/results/',
                     help = 'location to save the results and network parameters')
-parser.add_argument('-dict_loc', type = str, default = '/data/speech2image/Pytorch/coco_char/word_dict')
+
 # args concerning training settings
 parser.add_argument('-batch_size', type = int, default = 32, help = 'batch size, default: 32')
 parser.add_argument('-lr', type = float, default = 0.001, help = 'learning rate, default:0.002')
@@ -81,11 +81,11 @@ def iterate_flickr(h5_file):
 if args.data_base == 'coco':
     f_nodes = [node for node in iterate_large_dataset(data_file)]
     # define the batcher type to use.
-    batcher = iterate_text_5fold    
+    batcher = iterate_raw_text_5fold    
 elif args.data_base == 'flickr':
     f_nodes = [node for node in iterate_flickr(data_file)]
     # define the batcher type to use.
-    batcher = iterate_text_5fold
+    batcher = iterate_raw_text_5fold
 elif args.data_base == 'places':
     print('places has no written captions')
 else:
@@ -143,12 +143,15 @@ cyclic_scheduler = create_cyclic_scheduler(max_lr = args.lr, min_lr = 1e-6, step
 
 # training routine 
 def train_epoch(epoch, img_net, cap_net, optimizer, f_nodes, batch_size):
+    global iteration
     img_net.train()
     cap_net.train()
     # for keeping track of the average loss over all batches
     train_loss = 0
     num_batches =0
-    for batch in batcher(f_nodes, batch_size, args.visual, args.cap, args.dict_loc, words = 60, shuffle = True):
+    for batch in batcher(f_nodes, batch_size, args.visual, args.cap, words = 260, shuffle = True):
+        cyclic_scheduler.step()
+        iteration +=1
         img, cap, lengths = batch
         num_batches +=1
         # sort the tensors based on the unpadded caption length so they can be used
@@ -186,7 +189,7 @@ def test_epoch(img_net, cap_net, f_nodes, batch_size):
     # for keeping track of the average loss
     test_batches = 0
     test_loss = 0
-    for batch in batcher(f_nodes, batch_size, args.visual, args.cap, args.dict_loc, words = 60, shuffle = False):
+    for batch in batcher(f_nodes, batch_size, args.visual, args.cap, words = 260, shuffle = False):
         img, cap, lengths = batch
         test_batches += 1
         # sort the tensors based on the unpadded caption length so they can be used
@@ -218,7 +221,7 @@ def recall(data, at_n, c2i, i2c, prepend):
     # and a prepend string (e.g. to print validation or test in front of the results)
     if c2i:
         # create a minibatcher over the validation set
-        iterator = batcher(data, args.batch_size, args.visual, args.cap, args.dict_loc, words = 60, shuffle = False)
+        iterator = batcher(data, args.batch_size, args.visual, args.cap, words = 260, shuffle = False)
         recall, median_rank = caption2image(iterator, img_net, cap_net, at_n, dtype)
         # print some info about this epoch
         for x in range(len(recall)):
@@ -226,7 +229,7 @@ def recall(data, at_n, c2i, i2c, prepend):
         print(prepend + ' caption2image median rank= ' + str(median_rank))
     if i2c:
         # create a minibatcher over the validation set
-        iterator = batcher(data, args.batch_size, args.visual, args.cap, args.dict_loc, words = 60, shuffle = False)
+        iterator = batcher(data, args.batch_size, args.visual, args.cap, words = 260, shuffle = False)
         recall, median_rank = image2caption(iterator, img_net, cap_net, at_n, dtype)
         for x in range(len(recall)):
             print(prepend + ' image2caption recall@' + str(at_n[x]) + ' = ' + str(recall[x]*100) + '%')

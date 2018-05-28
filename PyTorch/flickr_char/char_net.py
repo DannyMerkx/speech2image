@@ -149,8 +149,6 @@ def train_epoch(epoch, img_net, cap_net, optimizer, f_nodes, max_chars = 200, ba
     for batch in batcher(f_nodes, batch_size, args.visual, args.cap, shuffle = True):
         cyclic_scheduler.step()
         iteration +=1
-        for param_group in optimizer.param_groups:
-            print(param_group['lr'])
         img, cap, lengths = batch
         num_batches +=1
         # sort the tensors based on the unpadded caption length so they can be used
