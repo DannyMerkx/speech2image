@@ -10,7 +10,7 @@ The batchers also return the lenghts of the captions in the batch so it can be u
 pack_padded_sequence.
 """
 import numpy as np
-from prep_text import char_2_1hot, char_2_index
+from prep_text import char_2_1hot, char_2_index, word_2_index
 # minibatcher which takes a list of nodes and returns the visual and audio features, possibly resized.
 # visual and audio should contain a string of the names of the visual and audio features nodes in the h5 file.
 #frames is the desired length of the time sequence, the batcher pads or truncates.
