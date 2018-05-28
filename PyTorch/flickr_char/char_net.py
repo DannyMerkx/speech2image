@@ -15,6 +15,8 @@ import torch
 from torch.autograd import Variable
 import numpy as np
 from torch.optim import lr_scheduler
+import sys
+sys.path.append('/data/speech2image')
 
 from minibatchers import iterate_raw_text_5fold, iterate_raw_text
 from costum_loss import batch_hinge_loss, ordered_loss
