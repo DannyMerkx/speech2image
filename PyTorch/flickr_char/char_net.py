@@ -123,7 +123,7 @@ def save_params(model, file_name, epoch):
     torch.save(model.state_dict(), args.results_loc + file_name + '.' +str(epoch))
 
 # Adam optimiser. I found SGD to work terribly and could not find appropriate parameter settings for it.
-optimizer = torch.optim.Adam(list(img_net.parameters())+list(cap_net.parameters()), args.lr)
+optimizer = torch.optim.Adam(list(img_net.parameters())+list(cap_net.parameters()), 1)
 
 #plateau_scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode = 'min', factor = 0.9, patience = 100, 
 #                                                   threshold = 0.0001, min_lr = 1e-8, cooldown = 100)

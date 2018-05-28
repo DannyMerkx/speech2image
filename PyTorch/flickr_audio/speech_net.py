@@ -52,7 +52,7 @@ args = parser.parse_args()
 
 audio_config = {'conv':{'in_channels': 39, 'out_channels': 64, 'kernel_size': 6, 'stride': 2,
                'padding': 0, 'bias': False}, 'gru':{'input_size': 64, 'hidden_size': 1024, 
-               'num_layers': 4, 'batch_first': True, 'bidirectional': True, 'dropout': 0}, 
+               'num_layers': 1, 'batch_first': True, 'bidirectional': True, 'dropout': 0}, 
                'att':{'in_size': 2048, 'hidden_size': 128}}
 
 image_config = {'linear':{'in_size': 2048, 'out_size': 2048}, 'norm': True}
@@ -123,7 +123,7 @@ def save_params(model, file_name, epoch):
     torch.save(model.state_dict(), args.results_loc + file_name + '.' +str(epoch))
 
 # Adam optimiser. I found SGD to work terribly and could not find appropriate parameter settings for it.
-optimizer = torch.optim.Adam(list(img_net.parameters())+list(cap_net.parameters()), args.lr)
+optimizer = torch.optim.Adam(list(img_net.parameters())+list(cap_net.parameters()), 1)
 
 #plateau_scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode = 'min', factor = 0.9, patience = 100, 
 #                                                   threshold = 0.0001, min_lr = 1e-8, cooldown = 100)
@@ -158,7 +158,7 @@ def train_epoch(epoch, img_net, cap_net, optimizer, f_nodes, batch_size):
         cap = cap[np.argsort(- np.array(lengths))]
         img = img[np.argsort(- np.array(lengths))]
         lengths = np.array(lengths)[np.argsort(- np.array(lengths))]
-        
+        print(lengths)
         # convert data to pytorch variables
         img, cap = Variable(dtype(img)), Variable(dtype(cap))
         # reset the gradients of the optimiser

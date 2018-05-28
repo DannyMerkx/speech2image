@@ -54,7 +54,7 @@ class char_gru_encoder(nn.Module):
         x = self.embed(input.long())
         # create a packed_sequence object. The padding will be excluded from the update step
         # thereby training on the original sequence length only
-        x = torch.nn.utils.rnn.pack_padded_sequence(x, l, batch_first=True)
+        x = torch.nn.utils.rnn.pack_padded_sequence(x, (l-4)/2, batch_first=True)
         x, hx = self.GRU(x)
         # unpack again as at the moment only rnn layers except packed_sequence objects
         x, lens = nn.utils.rnn.pad_packed_sequence(x, batch_first = True)
@@ -106,6 +106,7 @@ class audio_gru_encoder(nn.Module):
         x = x.permute(0, 2, 1)
         # create a packed_sequence object. The padding will be excluded from the update step
         # thereby training on the original sequence length only
+        print(x.size())
         x = torch.nn.utils.rnn.pack_padded_sequence(x, l, batch_first=True)
         x, hx = self.GRU(x)
         # unpack again as at the moment only rnn layers except packed_sequence objects
@@ -179,14 +180,15 @@ class RHN_audio_encoder(nn.Module):
 
 # code for simple testing of encoders and timing
 
-#config = {'conv':{'in_channels': 39, 'out_channels': 64, 'kernel_size': 6, 'stride':2, 'padding':0,
-#          'bias': True}, 'gru':{'input_size': 64, 'hidden_size': 512, 'num_layers': 4, 'batch_first': True,
-#          'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 1024, 'hidden_size': 128}}
-#
+#config = {'conv':{'in_channels': 39, 'out_channels': 64, 'kernel_size': 6, 'stride': 2,
+#               'padding': 0, 'bias': False}, 'gru':{'input_size': 64, 'hidden_size': 1024, 
+#               'num_layers': 1, 'batch_first': True, 'bidirectional': True, 'dropout': 0}, 
+#               'att':{'in_size': 2048, 'hidden_size': 128}}
+
 ##start_time = time.time()
 #gru = audio_gru_encoder(config)
-#input = torch.autograd.Variable(torch.rand(8, 39, 1024))
-#output = gru(input)
+#input = torch.autograd.Variable(torch.rand(8, 39, 2048))
+#output = gru(input, l)
 
 #time = time.time() - start_time
 #print(time)
