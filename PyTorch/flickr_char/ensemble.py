@@ -23,7 +23,7 @@ import torch
 import sys
 sys.path.append('/data/speech2image/PyTorch/functions')
 
-from minibatchers import iterate_text_5fold, iterate_text
+from minibatchers import iterate_raw_text_5fold, iterate_raw_text
 from evaluate import caption2image, image2caption, embed_data, recall_at_n
 from encoders import img_encoder, char_gru_encoder
 from data_split import split_data
@@ -85,11 +85,11 @@ def iterate_flickr(h5_file):
 if args.data_base == 'coco':
     f_nodes = [node for node in iterate_large_dataset(data_file)]
     # define the batcher type to use.
-    batcher = iterate_text_5fold    
+    batcher = iterate_raw_text_5fold    
 elif args.data_base == 'flickr':
     f_nodes = [node for node in iterate_flickr(data_file)]
     # define the batcher type to use.
-    batcher = iterate_text_5fold
+    batcher = iterate_raw_text_5fold
 elif args.data_base == 'places':
     print('places has no written captions')
 else:
