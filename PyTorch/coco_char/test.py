@@ -10,37 +10,33 @@ Loads pretrained models in the results folder and calculates the validation and 
 #!/usr/bin/env python
 from __future__ import print_function
 
-import time
 import os
 import tables
 import argparse
 import torch
-from torch.autograd import Variable
+import sys
+sys.path.append('/data/speech2image/PyTorch/functions')
 
-from minibatchers import iterate_text_5fold, iterate_text
-from costum_loss import batch_hinge_loss, ordered_loss
+from minibatchers import iterate_raw_text_5fold, iterate_raw_text
 from evaluate import caption2image, image2caption
 from encoders import img_encoder, char_gru_encoder
-from data_split import split_data
+from data_split import split_data_coco
 ##################################### parameter settings ##############################################
 
 parser = argparse.ArgumentParser(description='Create and run an articulatory feature classification DNN')
 
 # args concerning file location
-parser.add_argument('-data_loc', type = str, default = '/prep_data/flickr_features.h5',
-                    help = 'location of the feature file, default: /prep_data/flickr_features.h5')
-parser.add_argument('-split_loc', type = str, default = '/data/speech2image/PyTorch/flickr_audio/dataset.json', 
-                    help = 'location of the json file containing the data split information')
-parser.add_argument('-results_loc', type = str, default = '/prep_data/char_results/',
-                    help = 'location of the json file containing the data split information')
+parser.add_argument('-data_loc', type = str, default = '/prep_data/coco_features.h5',
+                    help = 'location of the feature file, default: /prep_data/coco_features.h5')
+parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/coco_char/results/',
+                    help = 'location of the encoder parameters')
 # args concerning training settings
-parser.add_argument('-batch_size', type = int, default = 32, help = 'batch size, default: 32')
+parser.add_argument('-batch_size', type = int, default = 100, help = 'batch size, default: 100')
 parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, default: True')
 # args concerning the database and which features to load
-parser.add_argument('-data_base', type = str, default = 'flickr', help = 'database to train on, default: flickr')
+parser.add_argument('-data_base', type = str, default = 'coco', help = 'database to train on, default: flickr')
 parser.add_argument('-visual', type = str, default = 'resnet', help = 'name of the node containing the visual features, default: resnet')
 parser.add_argument('-cap', type = str, default = 'raw_text', help = 'name of the node containing the audio features, default: raw_text')
-parser.add_argument('-gradient_clipping', type = bool, default = True, help ='use gradient clipping, default: True')
 
 args = parser.parse_args()
 
@@ -80,11 +76,11 @@ def iterate_flickr(h5_file):
 if args.data_base == 'coco':
     f_nodes = [node for node in iterate_large_dataset(data_file)]
     # define the batcher type to use.
-    batcher = iterate_text_5fold    
+    batcher = iterate_raw_text_5fold    
 elif args.data_base == 'flickr':
     f_nodes = [node for node in iterate_flickr(data_file)]
     # define the batcher type to use.
-    batcher = iterate_text_5fold
+    batcher = iterate_raw_text_5fold
 elif args.data_base == 'places':
     print('places has no written captions')
 else:
@@ -93,7 +89,10 @@ else:
     
 # split the database into train test and validation sets. default settings uses the json file
 # with the karpathy split
-train, test, val = split_data(f_nodes, args.split_loc)
+train, val = split_data_coco(f_nodes)
+# set aside 5000 images as test set
+test = train[-5000:]
+train = train[:-5000]
 
 def recall(data, at_n, c2i, i2c, prepend):
     # calculate the recall@n. Arguments are a set of nodes, the @n values, whether to do caption2image, image2caption or both
@@ -124,7 +123,7 @@ cap_net = char_gru_encoder(char_config)
 # move graph to gpu if cuda is availlable
 if cuda:
     img_net.cuda()
-    text_net.cuda()
+    cap_net.cuda()
 
 # list all the trained model parameters
 models = os.listdir(args.results_loc)

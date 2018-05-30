@@ -34,11 +34,11 @@ parser.add_argument('-data_loc', type = str, default = '/prep_data/flickr_featur
 parser.add_argument('-split_loc', type = str, default = '/data/speech2image/preprocessing/dataset.json', 
                     help = 'location of the json file containing the data split information')
 parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/flickr_audio/results/',
-                    help = 'location of the json file containing the data split information')
+                    help = 'location to save the trained models')
 # args concerning training settings
 parser.add_argument('-batch_size', type = int, default = 32, help = 'batch size, default: 32')
 parser.add_argument('-lr', type = float, default = 0.0002, help = 'learning rate, default:0.0002')
-parser.add_argument('-n_epochs', type = int, default = 25, help = 'number of training epochs, default: 25')
+parser.add_argument('-n_epochs', type = int, default = 32, help = 'number of training epochs, default: 25')
 parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, default: True')
 # args concerning the database and which features to load
 parser.add_argument('-data_base', type = str, default = 'flickr', help = 'database to train on, default: flickr')
@@ -52,7 +52,7 @@ args = parser.parse_args()
 
 audio_config = {'conv':{'in_channels': 39, 'out_channels': 64, 'kernel_size': 6, 'stride': 2,
                'padding': 0, 'bias': False}, 'gru':{'input_size': 64, 'hidden_size': 1024, 
-               'num_layers': 1, 'batch_first': True, 'bidirectional': True, 'dropout': 0}, 
+               'num_layers': 4, 'batch_first': True, 'bidirectional': True, 'dropout': 0}, 
                'att':{'in_size': 2048, 'hidden_size': 128}}
 
 image_config = {'linear':{'in_size': 2048, 'out_size': 2048}, 'norm': True}

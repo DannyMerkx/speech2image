@@ -54,7 +54,7 @@ class char_gru_encoder(nn.Module):
         x = self.embed(input.long())
         # create a packed_sequence object. The padding will be excluded from the update step
         # thereby training on the original sequence length only
-        x = torch.nn.utils.rnn.pack_padded_sequence(x, (l-4)/2, batch_first=True)
+        x = torch.nn.utils.rnn.pack_padded_sequence(x, l, batch_first=True)
         x, hx = self.GRU(x)
         # unpack again as at the moment only rnn layers except packed_sequence objects
         x, lens = nn.utils.rnn.pad_packed_sequence(x, batch_first = True)
