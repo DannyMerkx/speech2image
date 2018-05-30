@@ -21,6 +21,7 @@ import tables
 import argparse
 import torch
 import sys
+import numpy as np
 sys.path.append('/data/speech2image/PyTorch/functions')
 
 from minibatchers import iterate_raw_text_5fold, iterate_raw_text
@@ -135,8 +136,8 @@ img_models = [x for x in models if 'image' in x]
 # run the image and caption retrieval
 img_models.sort()
 caption_models.sort()
-caps = torch.autograd.Variable(dtype(torch.zeros(5000, 2048))).data
-imgs = torch.autograd.Variable(dtype(torch.zeros(5000, 2048))).data
+caps = torch.autograd.Variable(dtype(np.zeros((5000, 2048)))).data
+imgs = torch.autograd.Variable(dtype(np.zeros((5000, 2048)))).data
 for img, cap in zip(img_models, caption_models) :
     
     img_state = torch.load(args.results_loc + img)
