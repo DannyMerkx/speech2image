@@ -135,8 +135,8 @@ img_models = [x for x in models if 'image' in x]
 # run the image and caption retrieval
 img_models.sort()
 caption_models.sort()
-caps = torch.autograd.Variable(torch.zeros(5000, 2048))
-imgs = torch.autograd.Variable(torch.zeros(5000, 2048))
+caps = torch.autograd.Variable(dtype(torch.zeros(5000, 2048))).data
+imgs = torch.autograd.Variable(dtype(torch.zeros(5000, 2048))).data
 for img, cap in zip(img_models, caption_models) :
     
     img_state = torch.load(args.results_loc + img)
