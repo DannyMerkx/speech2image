@@ -100,7 +100,7 @@ def recall(data, at_n, c2i, i2c, prepend):
     # and a prepend string (e.g. to print validation or test in front of the results)
     if c2i:
         # create a minibatcher over the validation set
-        iterator = batcher(data, args.batch_size, args.visual, args.cap, shuffle = False)
+        iterator = batcher(data, args.batch_size, args.visual, args.cap, max_words = 50, shuffle = False)
         recall, median_rank = caption2image(iterator, img_net, cap_net, at_n, dtype)
         # print some info about this epoch
         for x in range(len(recall)):
@@ -108,7 +108,7 @@ def recall(data, at_n, c2i, i2c, prepend):
         print(prepend + ' caption2image median rank= ' + str(median_rank))
     if i2c:
         # create a minibatcher over the validation set
-        iterator = batcher(data, args.batch_size, args.visual, args.cap, shuffle = False)
+        iterator = batcher(data, args.batch_size, args.visual, args.cap, max_words = 50, shuffle = False)
         recall, median_rank = image2caption(iterator, img_net, cap_net, at_n, dtype)
         for x in range(len(recall)):
             print(prepend + ' image2caption recall@' + str(at_n[x]) + ' = ' + str(recall[x]*100) + '%')

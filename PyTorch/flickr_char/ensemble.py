@@ -25,7 +25,7 @@ import numpy as np
 sys.path.append('/data/speech2image/PyTorch/functions')
 
 from minibatchers import iterate_raw_text_5fold, iterate_raw_text
-from evaluate import caption2image, image2caption, embed_data, recall_at_n
+from evaluate import embed_data, recall_at_n
 from encoders import img_encoder, char_gru_encoder
 from data_split import split_data
 ##################################### parameter settings ##############################################
