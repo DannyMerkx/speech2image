@@ -21,10 +21,11 @@ import tables
 import argparse
 import torch
 import sys
+import numpy as np
 sys.path.append('/data/speech2image/PyTorch/functions')
 
 from minibatchers import iterate_tokens_5fold, iterate_tokens
-from evaluate import caption2image, image2caption, embed_data, recall_at_n
+from evaluate import embed_data, recall_at_n
 from encoders import img_encoder, char_gru_encoder
 from data_split import split_data
 ##################################### parameter settings ##############################################
@@ -131,11 +132,11 @@ models = os.listdir(args.results_loc)
 caption_models = [x for x in models if 'caption' in x]
 img_models = [x for x in models if 'image' in x]
 
-# run the image and caption retrieval
+# run the image and caption retrieval and create an ensemble
 img_models.sort()
 caption_models.sort()
-caps = torch.autograd.Variable(torch.zeros(5000, 2048))
-imgs = torch.autograd.Variable(torch.zeros(5000, 2048))
+caps = torch.autograd.Variable(dtype(np.zeros((5000, 2048)))).data
+imgs = torch.autograd.Variable(dtype(np.zeros((5000, 2048)))).data
 for img, cap in zip(img_models, caption_models) :
     
     img_state = torch.load(args.results_loc + img)
@@ -143,9 +144,12 @@ for img, cap in zip(img_models, caption_models) :
     
     img_net.load_state_dict(img_state)
     cap_net.load_state_dict(caption_state)
-    iterator = batcher(test, args.batch_size, args.visual, args.cap, max_chars= 50, shuffle = False)
+    iterator = batcher(test, args.batch_size, args.visual, args.cap, max_chars= 200, shuffle = False)
     caption, image = embed_data(iterator, img_net, cap_net, dtype)
+    print("Epoch " + img.split('.')[1])
+    #print the per epoch results
+    recall(caption, image, [1, 5, 10], c2i = True, i2c = True, prepend = 'test')
     caps += caption
     imgs += image
-
-recall(caps, imgs, [1,5,10], c2i = True, i2c = True, prepend = 'test')
+# print the results of the ensemble
+recall(caps, imgs, [1,5,10], c2i = True, i2c = True, prepend = 'test ensemble')

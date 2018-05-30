@@ -133,7 +133,7 @@ models = os.listdir(args.results_loc)
 caption_models = [x for x in models if 'caption' in x]
 img_models = [x for x in models if 'image' in x]
 
-# run the image and caption retrieval
+# run the image and caption retrieval and create an ensemble
 img_models.sort()
 caption_models.sort()
 caps = torch.autograd.Variable(dtype(np.zeros((5000, 2048)))).data
@@ -147,7 +147,10 @@ for img, cap in zip(img_models, caption_models) :
     cap_net.load_state_dict(caption_state)
     iterator = batcher(test, args.batch_size, args.visual, args.cap, max_chars= 200, shuffle = False)
     caption, image = embed_data(iterator, img_net, cap_net, dtype)
+    print("Epoch " + img.split('.')[1])
+    #print the per epoch results
+    recall(caption, image, [1, 5, 10], c2i = True, i2c = True, prepend = 'test')
     caps += caption
     imgs += image
-
-recall(caps, imgs, [1,5,10], c2i = True, i2c = True, prepend = 'test')
+# print the results of the ensemble
+recall(caps, imgs, [1,5,10], c2i = True, i2c = True, prepend = 'test ensemble')
