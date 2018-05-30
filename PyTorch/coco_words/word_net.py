@@ -37,7 +37,7 @@ parser.add_argument('-dict_loc', type = str, default = '/data/speech2image/Pytor
 
 # args concerning training settings
 parser.add_argument('-batch_size', type = int, default = 32, help = 'batch size, default: 32')
-parser.add_argument('-lr', type = float, default = 0.001, help = 'learning rate, default:0.001')
+parser.add_argument('-lr', type = float, default = 0.0001, help = 'learning rate, default:0.001')
 parser.add_argument('-n_epochs', type = int, default = 25, help = 'number of training epochs, default: 25')
 parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, default: True')
 # args concerning the database and which features to load
