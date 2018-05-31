@@ -1,5 +1,8 @@
 import string
 import pickle
+import sys
+sys.path.append('/data/speech2image/preprocessing/coco_cleanup')
+
 from text_cleanup import tokenise, correct_spel, remove_low_occurence, remove_stop_words, clean_wordnet, remove_punctuation, remove_numerical
 from nltk.corpus import stopwords
 
@@ -29,8 +32,8 @@ def load_obj(loc):
 def text_features_coco(text_dict, output_file, append_name, node_list): 
     # load the spelling correction dictionary
     stop_words = stopwords.words('english')
-    spell_dict = load_obj('/data/speech2image/preprocessing/spell_dict')   
-    coco_dict = load_obj('/data/speech2image/preprocessing/spell_dict')
+    spell_dict = load_obj('/data/speech2image/preprocessing/coco_cleanup/spell_dict')   
+    coco_dict = load_obj('/data/speech2image/preprocessing/coco_cleanup/coco_dict')
     punct = string.punctuation
     digits = string.digits
     count = 1
@@ -49,11 +52,11 @@ def text_features_coco(text_dict, output_file, append_name, node_list):
         for x in captions:
             # the raw caption is just the original text, tokenised to remove extra spaces etc. and place a dot at the 
             # end of every sentence.            
-            raw = ''.join([' ' + y for y in tokenise(x, lower = False)])[1:]
+            raw = ''.join([' ' + y for y in tokenise(x['caption'], lower = False)])[1:]
             if not raw[-1] == '.':
                 raw = raw +' .'
             # raw tokens are the raw caption with only tokenisation
-            raw_tokens = tokenise(captions[120])
+            raw_tokens = tokenise(x['caption'])
             if not raw_tokens[-1] == '.':
                 raw_tokens[-1] = '.'
             # tokens with simple spelling correction applied. 

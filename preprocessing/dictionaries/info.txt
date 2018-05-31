@@ -1,0 +1,8 @@
+this folder holds scripts to make dictionaries and save the dictionaries in this folder. Several dictionaries are needed for the project for example as a list of all the words that occur in each dataset and their frequency in order to exclude words that do not occur in the training set, set the size dimension for the embedding layers etc. 
+
+make_coco_dict : make a dictionary for mscoco and a dictionary of suggested spelling corrections.
+spell_correct : functions to make a spelling correction dictionary. 
+text_cleanup : functions to remove and replace tokens from the captions e.g. replace digit with <num> tokens and misspelled words with <oov> tokens
+flickr_dict : make a dictionary of all words in the flickr train set.
+contractions : dictionary of common contractions and  their expanded form. 
+
