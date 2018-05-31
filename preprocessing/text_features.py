@@ -36,6 +36,12 @@ def load_obj(loc):
     
 def text_features_coco(text_dict, output_file, append_name, node_list): 
     # load the spelling correction dictionary
+    # this function creates 4 text based features. raw text are untokenised characters
+    # raw tokens are the tokens with just a tokeniser and capital lowering applied
+    # spell tokens are the raw tokens with a basic spelling correction applied
+    # cleaned_tokens are tokens with low occurence words removed, stop words removed,
+    # punctuation removed, digits removed and only containing words occuring in wordnet. 
+
     stop_words = stopwords.words('english')
     spell_dict = load_obj('/data/speech2image/preprocessing/coco_cleanup/spell_dict')   
     coco_dict = load_obj('/data/speech2image/preprocessing/coco_cleanup/coco_dict')
