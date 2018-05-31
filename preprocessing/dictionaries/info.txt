@@ -1,4 +1,4 @@
-this folder holds scripts to make dictionaries and save the dictionaries in this folder. Several dictionaries are needed for the project for example as a list of all the words that occur in each dataset and their frequency in order to exclude words that do not occur in the training set, set the size dimension for the embedding layers etc. 
+this folder holds scripts to make dictionaries and save the dictionaries in this folder. Several dictionaries are needed for the project for example as a list of all the words that occur in each dataset and their frequency in order to exclude words that do not occur in the training set. You also need a dictionary with indices instead of frequency counts for each word for the embedding layers. 
 
 make_coco_dict : make a dictionary for mscoco and a dictionary of suggested spelling corrections.
 spell_correct : functions to make a spelling correction dictionary. 

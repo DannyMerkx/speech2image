@@ -8,12 +8,15 @@ from nltk.corpus import stopwords
 
 def text_features_flickr(text_dict, output_file, append_name, node_list): 
     count = 1
+    flickr_freq = load_obj('/data/speech2image/preprocessing/dictionaries/flickr_frequency')
+    
     for node in node_list:
         print('processing file: ' + str(count))
         count+=1
         # create nodes for the raw text and the tokenised text
         raw_text_node = output_file.create_group(node, 'raw_text')
         token_node = output_file.create_group(node, 'tokens')
+        clean_token_node = output_file.create_group(node, 'clean_tokens')
         # base name of the image caption pair to extract sentences from the dictionary
         base_name = node._v_name.split(append_name)[1]
         
@@ -22,8 +25,10 @@ def text_features_flickr(text_dict, output_file, append_name, node_list):
             
             raw = x['raw']
             tokens = x['tokens']
+            clean_tokens = remove_low_occurence(tokens, flickr_freq)
             output_file.create_array(raw_text_node, append_name + base_name + '_' + str(x['sentid']), bytes(raw, 'utf-8'))
             output_file.create_array(token_node, append_name +  base_name + '_' + str(x['sentid']), tokens) 
+            output_file.create_array(clean_token_node, append_name +  base_name + '_' + str(x['sentid']), clean_tokens)
 
 def load_obj(loc):
     with open(loc + '.pkl', 'rb') as f:

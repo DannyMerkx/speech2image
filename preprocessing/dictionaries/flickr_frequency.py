@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 """
 Created on Thu May 31 15:29:38 2018
-
+Take an existing h5 file and make a dictionary containing the frequency of all the words in the flickr training set. The resulting dictionary 
+could be used to create new token features for flickr where only words occuring n times in the train set are kept.
 @author: danny
 """
 import sys
@@ -48,4 +49,4 @@ for x in captions:
             flickr_dict[y] = 1
 
 
-save_obj(flickr_dict, '/data/speech2image/preprocessing/dictionaries/flickr_dict')
+save_obj(flickr_dict, '/data/speech2image/preprocessing/dictionaries/flickr_frequency')

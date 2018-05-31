@@ -4,7 +4,8 @@
 Created on Wed May 23 14:17:28 2018
 An attemt at spelling correction for mscoco. very conserative I take all words that
 do not occur in either a large dictionary or wordnet and only look at corrections of 1 edit.
-The edit has to be a word that already occurs at least once in the corpus. 
+The edit has to be a word that already occurs at least once in the corpus. also create a dictionary with the frequency of each word
+in mscoco
 @author: danny
 """
 
@@ -34,7 +35,7 @@ def rep_contractions(cap, contract):
 nist = NISTTokenizer()
 
 #path to the annotations file
-text_path = os.path.join('/home/danny/Downloads/annotations')
+text_path = os.path.join('/data/mscoco/annotations')
 
 annotations = [os.path.join(text_path, x) for x in os.listdir(text_path)]
 annotations.sort()
@@ -97,8 +98,8 @@ for x in train_dict.keys():
 
 dictionary = create_spell_check_dict(coco_dict)
 
-save_obj(dictionary, '/home/danny/Downloads/spell_dict')
-save_obj(coco_dict, '/home/danny/Downloads/coco_dict')
+save_obj(dictionary, '/data/speech2image/preproccesing/dictionaries/spell_dict')
+save_obj(coco_dict, '/data/speech2image/preproccesing/dictionaries/coco_dict')
  
     
 #

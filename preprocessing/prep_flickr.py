@@ -21,7 +21,7 @@ text_path = os.path.join('/data/speech2image/preprocessing/dataset.json')
 
 # some bools in case only some new features needs to be added
 vis = True
-audio = True
+speech = True
 text = True
 
 # list the img and audio directories
@@ -103,7 +103,7 @@ params.append(use_energy)
 #############################################################################
 
 # create the audio features for all captions
-if audio:
+if speech:
     audio_features(params, img_audio, audio_path, append_name, node_list)
 
 text_dict = {}

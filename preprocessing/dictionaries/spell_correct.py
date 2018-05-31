@@ -33,7 +33,7 @@ def edits1(word):
 def create_spell_check_dict(coco_dict):
     stop_words = set(stopwords.words('english')) 
         # open a dictionary file
-    with open('/home/danny/Downloads/large.txt') as file:
+    with open('/data/speech2image/preproccesing/dictionaries/large.txt') as file:
         x = file.read()
     
     # split the dictionary add punctuation as valid 'words'
