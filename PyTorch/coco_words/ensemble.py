@@ -28,24 +28,22 @@ sys.path.append('/data/speech2image/PyTorch/functions')
 from minibatchers import iterate_tokens_5fold, iterate_tokens
 from evaluate import embed_data, recall_at_n
 from encoders import img_encoder, char_gru_encoder
-from data_split import split_data
+from data_split import split_data_coco
 ##################################### parameter settings ##############################################
 
 parser = argparse.ArgumentParser(description='Create and run an articulatory feature classification DNN')
 
 # args concerning file location
-parser.add_argument('-data_loc', type = str, default = '/prep_data/flickr_features.h5',
-                    help = 'location of the feature file, default: /prep_data/flickr_features.h5')
-parser.add_argument('-split_loc', type = str, default = '/data/speech2image/preprocessing/dataset.json', 
-                    help = 'location of the json file containing the data split information')
+parser.add_argument('-data_loc', type = str, default = '/prep_data/coco_features.h5',
+                    help = 'location of the feature file, default: /prep_data/coco_features.h5')
 parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/flickr_words/ensemble_results/',
                     help = 'location to save the results and network parameters')
-parser.add_argument('-dict_loc', type = str, default = '/data/speech2image/PyTorch/flickr_words/word_dict')
+parser.add_argument('-dict_loc', type = str, default = '/data/speech2image/PyTorch/coco_words/word_dict')
 # args concerning training settings
 parser.add_argument('-batch_size', type = int, default = 100, help = 'batch size, default: 32')
 parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, default: True')
 # args concerning the database and which features to load
-parser.add_argument('-data_base', type = str, default = 'flickr', help = 'database to train on, default: flickr')
+parser.add_argument('-data_base', type = str, default = 'coco', help = 'database to train on, default: flickr')
 parser.add_argument('-visual', type = str, default = 'resnet', help = 'name of the node containing the visual features, default: resnet')
 parser.add_argument('-cap', type = str, default = 'tokens', help = 'name of the node containing the caption features, default: tokens')
 
@@ -106,8 +104,8 @@ else:
 
 # split the database into train test and validation sets. default settings uses the json file
 # with the karpathy split
-train, test, val = split_data(f_nodes, args.split_loc)
-
+train, val = split_data_coco(f_nodes)
+test = train[-5000:]
 def recall(cap, img, at_n, c2i, i2c, prepend):
     # calculate the recall@n. Arguments are a set of nodes, the @n values, whether to do caption2image, image2caption or both
     # and a prepend string (e.g. to print validation or test in front of the results)
@@ -157,7 +155,9 @@ for img, cap in zip(img_models, caption_models) :
     print("Epoch " + img.split('.')[1])
     #print the per epoch results
     recall(caption, image, [1, 5, 10], c2i = True, i2c = True, prepend = 'test')
+    recall(caption[:5000], image[:5000], [1, 5, 10], c2i = True, i2c = True, prepend = '1k test')
     caps += caption
     imgs += image
 # print the results of the ensemble
 recall(caps, imgs, [1,5,10], c2i = True, i2c = True, prepend = 'test ensemble')
+recall(caps[:5000], imgs[:5000], [1,5,10], c2i = True, i2c = True, prepend = '1k test ensemble')

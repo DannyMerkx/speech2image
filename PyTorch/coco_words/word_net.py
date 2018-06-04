@@ -149,7 +149,7 @@ def create_cyclic_scheduler(max_lr, min_lr, stepsize):
     # min and max lr   
     return(cyclic_scheduler)
 
-cyclic_scheduler = create_cyclic_scheduler(max_lr = args.lr, min_lr = 1e-6, stepsize = len(train)*2)
+cyclic_scheduler = create_cyclic_scheduler(max_lr = args.lr, min_lr = 1e-6, stepsize = (int(len(train)/args.batch_size)*5)*4)
 
 # training routine 
 def train_epoch(epoch, img_net, cap_net, optimizer, f_nodes, batch_size):

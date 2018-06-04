@@ -38,8 +38,11 @@ def correct_spel(caption, spell_dict):
 # remove all words that occur only once in the dataset replace with oov
 def remove_low_occurence(caption, dictionary):
     cleaned_capt = []
+    keys = dictionary.keys()
     for x in caption:
-        if dictionary[x] < 5:
+        if not x in keys:
+            x = '<oov>'
+        elif dictionary[x] < 5:
             x = '<oov>'
         cleaned_capt.append(x)
     return cleaned_capt

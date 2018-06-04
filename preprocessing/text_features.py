@@ -24,6 +24,8 @@ def text_features_flickr(text_dict, output_file, append_name, node_list):
         for x in captions:
             
             raw = x['raw']
+            if not raw[-1] == '.':
+                raw = raw +' .'
             tokens = x['tokens']
             clean_tokens = remove_low_occurence(tokens, flickr_freq)
             output_file.create_array(raw_text_node, append_name + base_name + '_' + str(x['sentid']), bytes(raw, 'utf-8'))

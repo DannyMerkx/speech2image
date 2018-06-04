@@ -111,7 +111,7 @@ txt = json.load(open(text_path))['images']
 for x in txt:
     text_dict[x['filename'].split('.')[0]] = x
 # add text features for all captions
-if audio:
+if text:
     text_features_flickr(text_dict, output_file, append_name, node_list)
 # close the output files
 output_file.close()

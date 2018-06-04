@@ -22,45 +22,35 @@ import argparse
 import torch
 import sys
 import numpy as np
-import pickle
 sys.path.append('/data/speech2image/PyTorch/functions')
 
-from minibatchers import iterate_tokens_5fold, iterate_tokens
+from minibatchers import iterate_raw_text_5fold, iterate_raw_text
 from evaluate import embed_data, recall_at_n
 from encoders import img_encoder, char_gru_encoder
-from data_split import split_data
+from data_split import split_data_coco
 ##################################### parameter settings ##############################################
 
 parser = argparse.ArgumentParser(description='Create and run an articulatory feature classification DNN')
 
 # args concerning file location
-parser.add_argument('-data_loc', type = str, default = '/prep_data/flickr_features.h5',
+parser.add_argument('-data_loc', type = str, default = '/prep_data/coco_features_2.h5',
                     help = 'location of the feature file, default: /prep_data/flickr_features.h5')
-parser.add_argument('-split_loc', type = str, default = '/data/speech2image/preprocessing/dataset.json', 
+parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/coco_char/ensemble_results/',
                     help = 'location of the json file containing the data split information')
-parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/flickr_words/ensemble_results/',
-                    help = 'location to save the results and network parameters')
-parser.add_argument('-dict_loc', type = str, default = '/data/speech2image/PyTorch/flickr_words/word_dict')
 # args concerning training settings
 parser.add_argument('-batch_size', type = int, default = 100, help = 'batch size, default: 32')
 parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, default: True')
 # args concerning the database and which features to load
-parser.add_argument('-data_base', type = str, default = 'flickr', help = 'database to train on, default: flickr')
+parser.add_argument('-data_base', type = str, default = 'coco', help = 'database to train on, default: flickr')
 parser.add_argument('-visual', type = str, default = 'resnet', help = 'name of the node containing the visual features, default: resnet')
-parser.add_argument('-cap', type = str, default = 'tokens', help = 'name of the node containing the caption features, default: tokens')
+parser.add_argument('-cap', type = str, default = 'raw_text', help = 'name of the node containing the audio features, default: raw_text')
 
 args = parser.parse_args()
 
-def load_obj(loc):
-    with open(loc + '.pkl', 'rb') as f:
-        return pickle.load(f)
-# get the size of the dictionary for the embedding layer (pytorch crashes if the embedding layer is not correct for the dictionary size)
-# add 1 for the zero or padding embedding
-dict_size = len(load_obj(args.dict_loc)) + 1
-
 # create config dictionaries with all the parameters for your encoders
-char_config = {'embed':{'num_chars': dict_size, 'embedding_dim': 300, 'sparse': False, 'padding_idx': 0}, 
-               'gru':{'input_size': 300, 'hidden_size': 1024, 'num_layers': 1, 'batch_first': True,
+
+char_config = {'embed':{'num_chars': 100, 'embedding_dim': 20, 'sparse': False, 'padding_idx': 0},
+               'gru':{'input_size': 20, 'hidden_size': 1024, 'num_layers': 1, 'batch_first': True,
                'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 2048, 'hidden_size': 128}}
 
 image_config = {'linear':{'in_size': 2048, 'out_size': 2048}, 'norm': True}
@@ -93,20 +83,21 @@ def iterate_flickr(h5_file):
 if args.data_base == 'coco':
     f_nodes = [node for node in iterate_large_dataset(data_file)]
     # define the batcher type to use.
-    batcher = iterate_tokens_5fold    
+    batcher = iterate_raw_text_5fold    
 elif args.data_base == 'flickr':
     f_nodes = [node for node in iterate_flickr(data_file)]
     # define the batcher type to use.
-    batcher = iterate_tokens_5fold
+    batcher = iterate_raw_text_5fold
 elif args.data_base == 'places':
     print('places has no written captions')
 else:
     print('incorrect database option')
-    exit()  
-
+    exit()   
+    
 # split the database into train test and validation sets. default settings uses the json file
 # with the karpathy split
-train, test, val = split_data(f_nodes, args.split_loc)
+train, val = split_data_coco(f_nodes)
+test = train[-5000:]
 
 def recall(cap, img, at_n, c2i, i2c, prepend):
     # calculate the recall@n. Arguments are a set of nodes, the @n values, whether to do caption2image, image2caption or both
@@ -143,8 +134,8 @@ img_models = [x for x in models if 'image' in x]
 # run the image and caption retrieval and create an ensemble
 img_models.sort()
 caption_models.sort()
-caps = torch.autograd.Variable(dtype(np.zeros((5000, 2048)))).data
-imgs = torch.autograd.Variable(dtype(np.zeros((5000, 2048)))).data
+caps = torch.autograd.Variable(dtype(np.zeros((25000, 2048)))).data
+imgs = torch.autograd.Variable(dtype(np.zeros((25000, 2048)))).data
 for img, cap in zip(img_models, caption_models) :
     
     img_state = torch.load(args.results_loc + img)
@@ -152,12 +143,14 @@ for img, cap in zip(img_models, caption_models) :
     
     img_net.load_state_dict(img_state)
     cap_net.load_state_dict(caption_state)
-    iterator = batcher(test, args.batch_size, args.visual, args.cap, args.dict_loc, max_words= 50, shuffle = False)
+    iterator = batcher(test, args.batch_size, args.visual, args.cap, max_chars= 260, shuffle = False)
     caption, image = embed_data(iterator, img_net, cap_net, dtype)
     print("Epoch " + img.split('.')[1])
     #print the per epoch results
     recall(caption, image, [1, 5, 10], c2i = True, i2c = True, prepend = 'test')
+    recall(caption[:5000], image[:5000], [1, 5, 10], c2i = True, i2c = True, prepend = 'test')
     caps += caption
     imgs += image
 # print the results of the ensemble
 recall(caps, imgs, [1,5,10], c2i = True, i2c = True, prepend = 'test ensemble')
+recall(caps[:5000], imgs[:5000], [1,5,10], c2i = True, i2c = True, prepend = '1k test ensemble')
