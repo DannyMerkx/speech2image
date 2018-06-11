@@ -14,6 +14,7 @@ import os
 import tables
 import argparse
 import torch
+import pickle
 import sys
 sys.path.append('/data/speech2image/PyTorch/functions')
 
@@ -44,9 +45,16 @@ parser.add_argument('-gradient_clipping', type = bool, default = True, help ='us
 
 args = parser.parse_args()
 
+def load_obj(loc):
+    with open(loc + '.pkl', 'rb') as f:
+        return pickle.load(f)
+# get the size of the dictionary for the embedding layer (pytorch crashes if the embedding layer is not correct for the dictionary size)
+# add 1 for the zero or padding embedding
+dict_size = len(load_obj(args.dict_loc)) + 1
+
 # create config dictionaries with all the parameters for your encoders
 
-char_config = {'embed':{'num_chars': 8384, 'embedding_dim': 300, 'sparse': False, 'padding_idx': 0},
+char_config = {'embed':{'num_chars': dict_size, 'embedding_dim': 300, 'sparse': False, 'padding_idx': 0},
                'gru':{'input_size': 300, 'hidden_size': 1024, 'num_layers': 1, 'batch_first': True,
                'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 2047, 'hidden_size': 128}}
 

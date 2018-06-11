@@ -42,7 +42,7 @@ parser.add_argument('-results_loc', type = str, default = '/data/speech2image/Py
                     help = 'location to save the results and network parameters')
 parser.add_argument('-dict_loc', type = str, default = '/data/speech2image/PyTorch/flickr_words/word_dict')
 # args concerning training settings
-parser.add_argument('-batch_size', type = int, default = 100, help = 'batch size, default: 32')
+parser.add_argument('-batch_size', type = int, default = 100, help = 'batch size, default: 100')
 parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, default: True')
 # args concerning the database and which features to load
 parser.add_argument('-data_base', type = str, default = 'flickr', help = 'database to train on, default: flickr')

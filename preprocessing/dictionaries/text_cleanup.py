@@ -9,6 +9,7 @@ from nltk.tokenize.nist import NISTTokenizer
 from contractions import contractions
 from nltk.corpus import wordnet
 
+# replace contractions in the captions with the uncontracted forms in a contraction dictionary
 def rep_contractions(cap, contract):   
     for x in contract.keys():
         cap = cap.replace(x, contract[x])
@@ -23,30 +24,30 @@ def tokenise(caption, lower = True):
     caption = nist.tokenize(caption)
     return caption
 
+# given a spelling dictionary of spelling corrections for the coprus' misspells,
+# replace the misspelled words.
 def correct_spel(caption, spell_dict):
     contract = contractions()
     cleaned_capt = [] 
     for x in caption:
         x = rep_contractions(x, contract)
-        x = x.replace(' ave.', ' avenue').replace(' ave ', ' avenue ').replace('&', 'and').replace('=', '')
-        
+        x = x.replace(' ave.', ' avenue').replace(' ave ', ' avenue ').replace('&', 'and').replace('=', '')       
         if x in spell_dict:
             x = spell_dict[x]
         cleaned_capt.append(x)
     return(cleaned_capt)
     
-# remove all words that occur only once in the dataset replace with oov
-def remove_low_occurence(caption, dictionary):
+# remove all words that have a low occurrence in the dataset replace with oov
+def remove_low_occurence(caption, dictionary, threshold):
     cleaned_capt = []
     keys = dictionary.keys()
     for x in caption:
         if not x in keys:
             x = '<oov>'
-        elif dictionary[x] < 5:
+        elif dictionary[x] < threshold:
             x = '<oov>'
         cleaned_capt.append(x)
     return cleaned_capt
-    
 # remove all stop words and replace with stop word token
 def remove_stop_words(caption, stop_words):
     cleaned_capt = []
@@ -55,7 +56,7 @@ def remove_stop_words(caption, stop_words):
             x = '<stop>'
         cleaned_capt.append(x)
     return cleaned_capt
-
+# remove all tokens with numerical values in them and replaces with a num token
 def remove_numerical(caption, digits):
     cleaned_capt = []
     for x in caption:
@@ -64,7 +65,6 @@ def remove_numerical(caption, digits):
                 x = '<num>'
         cleaned_capt.append(x)
     return cleaned_capt   
-    
 # replace punctuation with a punctuation token
 def remove_punctuation(caption, punct):
     cleaned_capt = []
@@ -73,7 +73,7 @@ def remove_punctuation(caption, punct):
             x = '<punct>'
         cleaned_capt.append(x)
     return cleaned_capt
-# remove all words that are not in wordnet and replace with oov
+# remove all words that are not in wordnet and replace with oov. exceptions for all the other oov tokens
 def clean_wordnet(caption):
     cleaned_capt = []
     for x in caption:

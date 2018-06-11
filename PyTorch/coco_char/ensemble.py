@@ -33,15 +33,15 @@ from data_split import split_data_coco
 parser = argparse.ArgumentParser(description='Create and run an articulatory feature classification DNN')
 
 # args concerning file location
-parser.add_argument('-data_loc', type = str, default = '/prep_data/coco_features_2.h5',
+parser.add_argument('-data_loc', type = str, default = '/prep_data/coco_features.h5',
                     help = 'location of the feature file, default: /prep_data/flickr_features.h5')
 parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/coco_char/ensemble_results/',
                     help = 'location of the json file containing the data split information')
 # args concerning training settings
-parser.add_argument('-batch_size', type = int, default = 100, help = 'batch size, default: 32')
+parser.add_argument('-batch_size', type = int, default = 100, help = 'batch size, default: 100')
 parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, default: True')
 # args concerning the database and which features to load
-parser.add_argument('-data_base', type = str, default = 'coco', help = 'database to train on, default: flickr')
+parser.add_argument('-data_base', type = str, default = 'coco', help = 'database to train on, default: coco')
 parser.add_argument('-visual', type = str, default = 'resnet', help = 'name of the node containing the visual features, default: resnet')
 parser.add_argument('-cap', type = str, default = 'raw_text', help = 'name of the node containing the audio features, default: raw_text')
 
@@ -98,7 +98,8 @@ else:
 # with the karpathy split
 train, val = split_data_coco(f_nodes)
 test = train[-5000:]
-
+# nr of caption in the test set
+test_size = len(test) * 5
 def recall(cap, img, at_n, c2i, i2c, prepend):
     # calculate the recall@n. Arguments are a set of nodes, the @n values, whether to do caption2image, image2caption or both
     # and a prepend string (e.g. to print validation or test in front of the results)
@@ -134,10 +135,10 @@ img_models = [x for x in models if 'image' in x]
 # run the image and caption retrieval and create an ensemble
 img_models.sort()
 caption_models.sort()
-caps = torch.autograd.Variable(dtype(np.zeros((25000, 2048)))).data
-imgs = torch.autograd.Variable(dtype(np.zeros((25000, 2048)))).data
+caps = torch.autograd.Variable(dtype(np.zeros((test_size, 2048)))).data
+imgs = torch.autograd.Variable(dtype(np.zeros((test_size, 2048)))).data
 for img, cap in zip(img_models, caption_models) :
-    
+    # load pretrained model
     img_state = torch.load(args.results_loc + img)
     caption_state = torch.load(args.results_loc + cap)
     
@@ -146,9 +147,9 @@ for img, cap in zip(img_models, caption_models) :
     iterator = batcher(test, args.batch_size, args.visual, args.cap, max_chars= 260, shuffle = False)
     caption, image = embed_data(iterator, img_net, cap_net, dtype)
     print("Epoch " + img.split('.')[1])
-    #print the per epoch results
+    #print the per epoch results for the full test set and 1k test images. 
     recall(caption, image, [1, 5, 10], c2i = True, i2c = True, prepend = 'test')
-    recall(caption[:5000], image[:5000], [1, 5, 10], c2i = True, i2c = True, prepend = 'test')
+    recall(caption[:5000], image[:5000], [1, 5, 10], c2i = True, i2c = True, prepend = '1k test')
     caps += caption
     imgs += image
 # print the results of the ensemble

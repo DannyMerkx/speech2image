@@ -2,16 +2,26 @@
 # -*- coding: utf-8 -*-
 """
 Created on Thu May 17 11:49:51 2018
-
+prepare the mscoco data into h5 file format
 @author: danny
 """
-import numpy as np
 import tables
 import os
 import json
-
+import pickle
 from visual_features import vis_feats
 from text_features import text_features_coco
+from collections import defaultdict
+
+# paths to the coco caption and image files 
+train_img_path = os.path.join('/data/mscoco/train2017')
+val_img_path = os.path.join('/data/mscoco/val2017')
+text_path = os.path.join('/data/mscoco/annotations')
+# save the resulting feature file here
+data_loc = os.path.join('/prep_data/coco_features.h5')
+# path to the word frequency dictionary and the spelling correction dictionary
+spell_dict_loc = os.path.join('/data/speech2image/preprocessing/coco_cleanup/spell_dict')  
+freq_dict_loc = os.path.join('/data/speech2image/preprocessing/coco_cleanup/coco_dict')
 
 def batcher(batch_size, dictionary):
     keys = [x for x in dictionary]
@@ -26,10 +36,12 @@ def batcher(batch_size, dictionary):
                 excerpt[keys[x]] = dictionary[keys[x]]
             yield excerpt
 
-# path to the flickr audio, caption and image files 
-train_img_path = os.path.join('/data/mscoco/train2017')
-val_img_path = os.path.join('/data/mscoco/val2017')
-text_path = os.path.join('/data/mscoco/annotations')
+def load_obj(loc):
+    with open(loc + '.pkl', 'rb') as f:
+        return pickle.load(f)
+# load the dictionaries
+spell_dict = load_obj(spell_dict_loc)
+freq_dict = load_obj(freq_dict_loc)
 
 # list the image and annotations directory
 train_imgs = os.listdir(train_img_path)
@@ -44,24 +56,20 @@ val_cap = val_cap['annotations']
 train_cap = json.load(open(annotations[0]))
 train_cap = train_cap['annotations']
 
-train_dict = {}   
+# prepare dictionaries with all the captions and file ids
+train_dict = defaultdict(list)  
 for x in train_cap:
    key = str(x['image_id'])
    while len(key) < 6:
        key = '0' + key
-   try:
-       train_dict[key] = train_dict[key] + [x]
-   except:
-       train_dict[key] = [x]
-val_dict = {}   
+   train_dict[key] = train_dict[key] + [x]
+       
+val_dict = defaultdict(list)   
 for x in val_cap:
    key = str(x['image_id'])
    while len(key) < 6:
        key = '0' + key
-   try:
-       val_dict[key] = val_dict[key] + [x]
-   except:
-       val_dict[key] = [x]
+   val_dict[key] = val_dict[key] + [x]
 
 # strip the files to their basename (remove file extension)
 train_imgs_base = [x.split('.')[0] for x in train_imgs]
@@ -75,7 +83,7 @@ for im in val_imgs_base:
     val_img[im.split('_')[-1][-6:]] = [im + '.jpg']
 
 # create h5 output file for preprocessed images and audio
-output_file = tables.open_file('/prep_data/coco_features.h5', mode='a')
+output_file = tables.open_file(data_loc, mode='a')
 
 # we need to append something to the flickr files names because pytable group names cannot start
 # with integers.
@@ -92,7 +100,6 @@ for batch in batcher(10000, train_img):
     for x in batch:
         output_file.create_group(node, append_name + x.split('.')[0])
     count +=1
-
 # list all the nodes containing training instances
 train_node_list = []
 for subgroup in subgroups:
@@ -104,8 +111,7 @@ for batch in batcher(10000, val_img):
     subgroups.append(node)
     for x in batch:
         output_file.create_group(node, append_name + x.split('.')[0])
-    count +=1
-     
+    count +=1     
 # list all the nodes containing validation instances
 val_node_list = []
 for subgroup in subgroups:
@@ -116,7 +122,7 @@ vis_feats(val_img_path, output_file, append_name, val_img, val_node_list, 'resne
 vis_feats(train_img_path, output_file, append_name, train_img, train_node_list, 'resnet') 
 
 # add text features for all captions
-text_features_coco(train_dict, output_file, append_name, train_node_list)
-text_features_coco(val_dict, output_file, append_name, val_node_list)
+text_features_coco(train_dict, output_file, append_name, train_node_list, spell_dict, freq_dict)
+text_features_coco(val_dict, output_file, append_name, val_node_list, spell_dict, freq_dict)
 # close the output files
 output_file.close()

@@ -258,8 +258,8 @@ while epoch <= args.n_epochs:
     # this part is usefull only if you want to update the value for gradient clipping at each epoch
     # I found it didn't work well 
     #if args.gradient_clipping:
-        #text_clipper.update_clip_value()
-        #text_clipper.reset_gradients()
+        #cap_clipper.update_clip_value()
+        #cap_clipper.reset_gradients()
         #img_clipper.update_clip_value()
         #img_clipper.reset_gradients()
     
@@ -268,6 +268,6 @@ print("test loss:\t\t{:.6f}".format(test_loss.cpu()[0]))# calculate the recall@n
 recall(test, [1, 5, 10], c2i = True, i2c = True, prepend = 'test')
 
 # save the gradients for each epoch, can be usefull to select an initial clipping value.
-#if args.gradient_clipping:
-#    text_clipper.save_grads(args.results_loc, 'textgrads')
-#    img_clipper.save_grads(args.results_loc, 'imgrads')
+if args.gradient_clipping:
+    cap_clipper.save_grads(args.results_loc, 'textgrads')
+    img_clipper.save_grads(args.results_loc, 'imgrads')

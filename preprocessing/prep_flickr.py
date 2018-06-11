@@ -1,16 +1,14 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Spyder Editor
+Created on Thu May 17 11:49:51 2018
 
-Make a dictionary that pairs all the flickr8k images with their 5 captions
-
+@author: danny
 """
-
-import numpy as np
 import tables
 import os
 import json
-
+import pickle
 from visual_features import vis_feats
 from audio_features import audio_features
 from text_features import text_features_flickr
@@ -18,11 +16,20 @@ from text_features import text_features_flickr
 audio_path = os.path.join('/data/flickr/flickr_audio/wavs')
 img_path = os.path.join('/data/flickr/Flickr8k_Dataset/Flicker8k_Dataset')
 text_path = os.path.join('/data/speech2image/preprocessing/dataset.json')
-
+# save the resulting feature file here
+data_loc = os.path.join('/prep_data/flickr_features.h5')
+# path to the word frequency dictionary
+freq_dict_loc = os.path.join('/data/speech2image/preprocessing/dictionaries/flickr_frequency') 
 # some bools in case only some new features needs to be added
 vis = True
 speech = True
 text = True
+
+def load_obj(loc):
+    with open(loc + '.pkl', 'rb') as f:
+        return pickle.load(f)
+# load the word frequency dictionary    
+freq_dict = load_obj(freq_dict_loc)
 
 # list the img and audio directories
 audio = os.listdir(audio_path)
@@ -54,7 +61,7 @@ for im in imgs_base:
         no_cap.append(im)
 
 # create h5 output file for preprocessed images and audio
-output_file = tables.open_file('/prep_data/flickr_features.h5', mode='a')
+output_file = tables.open_file(data_loc, mode='a')
 
 # we need to append something to the flickr files names because pytable group names cannot start
 # with integers.
@@ -106,12 +113,13 @@ params.append(use_energy)
 if speech:
     audio_features(params, img_audio, audio_path, append_name, node_list)
 
+# load all the captions
 text_dict = {}
 txt = json.load(open(text_path))['images']
 for x in txt:
     text_dict[x['filename'].split('.')[0]] = x
 # add text features for all captions
 if text:
-    text_features_flickr(text_dict, output_file, append_name, node_list)
+    text_features_flickr(text_dict, output_file, append_name, node_list, freq_dict)
 # close the output files
 output_file.close()

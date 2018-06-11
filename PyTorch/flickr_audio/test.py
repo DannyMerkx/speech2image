@@ -33,7 +33,7 @@ parser.add_argument('-split_loc', type = str, default = '/data/speech2image/prep
 parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/flickr_audio/results/',
                     help = 'location of the json file containing the data split information')
 # args concerning training settings
-parser.add_argument('-batch_size', type = int, default = 100, help = 'batch size, default: 32')
+parser.add_argument('-batch_size', type = int, default = 100, help = 'batch size, default: 100')
 parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, default: True')
 # args concerning the database and which features to load
 parser.add_argument('-data_base', type = str, default = 'flickr', help = 'database to train on, default: flickr')
@@ -101,7 +101,7 @@ def recall(data, at_n, c2i, i2c, prepend):
     # and a prepend string (e.g. to print validation or test in front of the results)
     if c2i:
         # create a minibatcher over the validation set
-        iterator = batcher(data, args.batch_size, args.visual, args.cap, shuffle = False)
+        iterator = batcher(data, args.batch_size, args.visual, args.cap, frames = 2048, shuffle = False)
         recall, median_rank = caption2image(iterator, img_net, cap_net, at_n, dtype)
         # print some info about this epoch
         for x in range(len(recall)):
@@ -109,7 +109,7 @@ def recall(data, at_n, c2i, i2c, prepend):
         print(prepend + ' caption2image median rank= ' + str(median_rank))
     if i2c:
         # create a minibatcher over the validation set
-        iterator = batcher(data, args.batch_size, args.visual, args.cap, shuffle = False)
+        iterator = batcher(data, args.batch_size, args.visual, args.cap, frames = 2048, shuffle = False)
         recall, median_rank = image2caption(iterator, img_net, cap_net, at_n, dtype)
         for x in range(len(recall)):
             print(prepend + ' image2caption recall@' + str(at_n[x]) + ' = ' + str(recall[x]*100) + '%')

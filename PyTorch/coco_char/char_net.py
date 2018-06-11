@@ -33,11 +33,10 @@ parser.add_argument('-data_loc', type = str, default = '/prep_data/coco_features
                     help = 'location of the feature file, default: /prep_data/coco_features.h5')
 parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/coco_char/results/',
                     help = 'location to save the results and network parameters')
-
 # args concerning training settings
 parser.add_argument('-batch_size', type = int, default = 32, help = 'batch size, default: 32')
-parser.add_argument('-lr', type = float, default = 0.0001, help = 'learning rate, default:0.002')
-parser.add_argument('-n_epochs', type = int, default = 32, help = 'number of training epochs, default: 25')
+parser.add_argument('-lr', type = float, default = 0.0001, help = 'learning rate, default:0.0001')
+parser.add_argument('-n_epochs', type = int, default = 32, help = 'number of training epochs, default: 32')
 parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, default: True')
 # args concerning the database and which features to load
 parser.add_argument('-data_base', type = str, default = 'coco', help = 'database to train on, default: coco')
@@ -126,17 +125,13 @@ def save_params(model, file_name, epoch):
 # Adam optimiser. I found SGD to work terribly and could not find appropriate parameter settings for it.
 optimizer = torch.optim.Adam(list(img_net.parameters())+list(cap_net.parameters()), 1)
 
-#plateau_scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode = 'min', factor = 0.9, patience = 100, 
-#                                                   threshold = 0.0001, min_lr = 1e-8, cooldown = 100)
-
-#step_scheduler = lr_scheduler.StepLR(optimizer, 1000, gamma=0.1, last_epoch=-1)
-
 def create_cyclic_scheduler(max_lr, min_lr, stepsize):
-    lr_lambda = lambda iteration: (max_lr - min_lr)*(0.5 * (np.cos(np.pi * (1 + (3 - 1) / stepsize * iteration)) + 1))+min_lr
-    cyclic_scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda, last_epoch=-1)
     # lambda function which uses the cosine function to cycle the learning rate between the given min and max rates
     # the function operates between 1 and 3 (so the cos cycles from -1 to -1 ) normalise between 0 and 1 and then press between
     # min and max lr   
+    lr_lambda = lambda iteration: (max_lr - min_lr)*(0.5 * (np.cos(np.pi * (1 + (3 - 1) / stepsize * iteration)) + 1))+min_lr
+    cyclic_scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda, last_epoch=-1)
+
     return(cyclic_scheduler)
 
 cyclic_scheduler = create_cyclic_scheduler(max_lr = args.lr, min_lr = 1e-6, stepsize = (int(len(train)/args.batch_size)*5)*4)
@@ -149,7 +144,7 @@ def train_epoch(epoch, img_net, cap_net, optimizer, f_nodes, batch_size):
     # for keeping track of the average loss over all batches
     train_loss = 0
     num_batches =0
-    for batch in batcher(f_nodes, batch_size, args.visual, args.cap, words = 260, shuffle = True):
+    for batch in batcher(f_nodes, batch_size, args.visual, args.cap, max_chars = 260, shuffle = True):
         cyclic_scheduler.step()
         iteration +=1
         img, cap, lengths = batch
@@ -189,7 +184,7 @@ def test_epoch(img_net, cap_net, f_nodes, batch_size):
     # for keeping track of the average loss
     test_batches = 0
     test_loss = 0
-    for batch in batcher(f_nodes, batch_size, args.visual, args.cap, words = 260, shuffle = False):
+    for batch in batcher(f_nodes, batch_size, args.visual, args.cap, max_chars = 260, shuffle = False):
         img, cap, lengths = batch
         test_batches += 1
         # sort the tensors based on the unpadded caption length so they can be used
@@ -221,7 +216,7 @@ def recall(data, at_n, c2i, i2c, prepend):
     # and a prepend string (e.g. to print validation or test in front of the results)
     if c2i:
         # create a minibatcher over the validation set
-        iterator = batcher(data, args.batch_size, args.visual, args.cap, words = 260, shuffle = False)
+        iterator = batcher(data, args.batch_size, args.visual, args.cap, max_chars = 260, shuffle = False)
         recall, median_rank = caption2image(iterator, img_net, cap_net, at_n, dtype)
         # print some info about this epoch
         for x in range(len(recall)):
@@ -229,7 +224,7 @@ def recall(data, at_n, c2i, i2c, prepend):
         print(prepend + ' caption2image median rank= ' + str(median_rank))
     if i2c:
         # create a minibatcher over the validation set
-        iterator = batcher(data, args.batch_size, args.visual, args.cap, words = 260, shuffle = False)
+        iterator = batcher(data, args.batch_size, args.visual, args.cap, max_chars = 260, shuffle = False)
         recall, median_rank = image2caption(iterator, img_net, cap_net, at_n, dtype)
         for x in range(len(recall)):
             print(prepend + ' image2caption recall@' + str(at_n[x]) + ' = ' + str(recall[x]*100) + '%')
@@ -256,21 +251,21 @@ while epoch <= args.n_epochs:
     # print some info about this epoch
     report(start_time, train_loss, val_loss, epoch)
     recall(val, [1, 5, 10], c2i = True, i2c = False, prepend = 'validation')
-    recall(val[:1000], c2i = True, i2c = False, prepend = '1k validation')
+    recall(val[:1000], [1, 5, 10], c2i = True, i2c = False, prepend = '1k validation')
     epoch += 1
     # this part is usefull only if you want to update the value for gradient clipping at each epoch
     # I found it didn't work well 
     #if args.gradient_clipping:
-        #text_clipper.update_clip_value()
-        #text_clipper.reset_gradients()
+        #cap_clipper.update_clip_value()
+        #cap_clipper.reset_gradients()
         #img_clipper.update_clip_value()
         #img_clipper.reset_gradients()
     
 test_loss = test_epoch(img_net, cap_net, test, args.batch_size)
 print("test loss:\t\t{:.6f}".format(test_loss.cpu()[0]))# calculate the recall@n
 recall(test, [1, 5, 10], c2i = True, i2c = True, prepend = 'test')
-recall(test[:1000], c2i = True, i2c = False, prepend = '1k test')
+recall(test[:1000], [1, 5, 10], c2i = True, i2c = False, prepend = '1k test')
 # save the gradients for each epoch, can be usefull to select an initial clipping value.
-#if args.gradient_clipping:
-#    text_clipper.save_grads(args.results_loc, 'textgrads')
-#    img_clipper.save_grads(args.results_loc, 'imgrads')
+if args.gradient_clipping:
+    cap_clipper.save_grads(args.results_loc, 'textgrads')
+    img_clipper.save_grads(args.results_loc, 'imgrads')

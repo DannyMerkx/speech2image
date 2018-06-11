@@ -106,6 +106,8 @@ else:
 # with the karpathy split
 train, val = split_data_coco(f_nodes)
 test = train[-5000:]
+#size of the test set
+test_size = len(test) * 5
 def recall(cap, img, at_n, c2i, i2c, prepend):
     # calculate the recall@n. Arguments are a set of nodes, the @n values, whether to do caption2image, image2caption or both
     # and a prepend string (e.g. to print validation or test in front of the results)
@@ -141,8 +143,8 @@ img_models = [x for x in models if 'image' in x]
 # run the image and caption retrieval and create an ensemble
 img_models.sort()
 caption_models.sort()
-caps = torch.autograd.Variable(dtype(np.zeros((5000, 2048)))).data
-imgs = torch.autograd.Variable(dtype(np.zeros((5000, 2048)))).data
+caps = torch.autograd.Variable(dtype(np.zeros((test_size, 2048)))).data
+imgs = torch.autograd.Variable(dtype(np.zeros((test_size, 2048)))).data
 for img, cap in zip(img_models, caption_models) :
     
     img_state = torch.load(args.results_loc + img)
@@ -150,7 +152,7 @@ for img, cap in zip(img_models, caption_models) :
     
     img_net.load_state_dict(img_state)
     cap_net.load_state_dict(caption_state)
-    iterator = batcher(test, args.batch_size, args.visual, args.cap, args.dict_loc, max_words= 50, shuffle = False)
+    iterator = batcher(test, args.batch_size, args.visual, args.cap, args.dict_loc, max_words= 60, shuffle = False)
     caption, image = embed_data(iterator, img_net, cap_net, dtype)
     print("Epoch " + img.split('.')[1])
     #print the per epoch results

@@ -2,7 +2,9 @@
 # -*- coding: utf-8 -*-
 """
 Created on Wed May 23 16:48:16 2018
-
+Creates a dictionary of common english contractions. 
+I removed ambiguous contractions as the pretty naive spelling corrector I made 
+has no information to prefer one over the other. 
 @author: danny
 """
 def contractions():

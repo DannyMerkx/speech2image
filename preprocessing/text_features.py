@@ -1,15 +1,23 @@
-import string
-import pickle
-import sys
-sys.path.append('/data/speech2image/preprocessing/coco_cleanup')
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Thu May 17 11:49:51 2018
 
-from text_cleanup import tokenise, correct_spel, remove_low_occurence, remove_stop_words, clean_wordnet, remove_punctuation, remove_numerical
+@author: danny
+"""
+import string
+import sys
+sys.path.append('/data/speech2image/preprocessing/dictionaries')
+
+from text_cleanup import tokenise, correct_spel, remove_low_occurence, remove_stop_words, remove_punctuation, remove_numerical
 from nltk.corpus import stopwords
 
-def text_features_flickr(text_dict, output_file, append_name, node_list): 
-    count = 1
-    flickr_freq = load_obj('/data/speech2image/preprocessing/dictionaries/flickr_frequency')
+def text_features_flickr(text_dict, output_file, append_name, node_list, freq_dict): 
+    # threshold for the word occurrence frequency. Most previous papers remove words that do not occur more than 5 times
+    # in the training data
+    threshold = 5
     
+    count = 1
     for node in node_list:
         print('processing file: ' + str(count))
         count+=1
@@ -21,43 +29,35 @@ def text_features_flickr(text_dict, output_file, append_name, node_list):
         base_name = node._v_name.split(append_name)[1]
         
         captions = text_dict[base_name]['sentences']
-        for x in captions:
-            
+        for x in captions:            
             raw = x['raw']
             if not raw[-1] == '.':
                 raw = raw +' .'
             tokens = x['tokens']
-            clean_tokens = remove_low_occurence(tokens, flickr_freq)
+            clean_tokens = remove_low_occurence(tokens, freq_dict, threshold)
             output_file.create_array(raw_text_node, append_name + base_name + '_' + str(x['sentid']), bytes(raw, 'utf-8'))
             output_file.create_array(token_node, append_name +  base_name + '_' + str(x['sentid']), tokens) 
             output_file.create_array(clean_token_node, append_name +  base_name + '_' + str(x['sentid']), clean_tokens)
-
-def load_obj(loc):
-    with open(loc + '.pkl', 'rb') as f:
-        return pickle.load(f)
     
-def text_features_coco(text_dict, output_file, append_name, node_list): 
-    # load the spelling correction dictionary
-    # this function creates 4 text based features. raw text are untokenised characters
-    # raw tokens are the tokens with just a tokeniser and capital lowering applied
-    # spell tokens are the raw tokens with a basic spelling correction applied
-    # cleaned_tokens are tokens with low occurence words removed, stop words removed,
-    # punctuation removed, digits removed and only containing words occuring in wordnet. 
-
+def text_features_coco(text_dict, output_file, append_name, node_list, spell_dict, freq_dict):     
+    # make lists of stop words, digits and punctuation
     stop_words = stopwords.words('english')
-    spell_dict = load_obj('/data/speech2image/preprocessing/coco_cleanup/spell_dict')   
-    coco_dict = load_obj('/data/speech2image/preprocessing/coco_cleanup/coco_dict')
     punct = string.punctuation
     digits = string.digits
+    # threshold for the word occurrence frequency. Most previous papers remove words that do not occur more than 5 times
+    # in the training data
+    threshold = 5
+    
     count = 1
     for node in node_list:
         print('processing file: ' + str(count))
         count+=1
         # create nodes for the raw text and the tokenised text
         raw_text_node = output_file.create_group(node, 'raw_text')
-        token_node = output_file.create_group(node, 'cleaned_tokens')
+        token_node = output_file.create_group(node, 'clean_tokens')
         raw_token_node = output_file.create_group(node, 'raw_tokens')
-        spell_token_node = output_file.create_group(node, 'spell_tokens')
+        corrected_node = output_file.create_group(node, 'spell_tokens')
+        cannonical_node = output_file.create_group(node, 'cannonical_tokens')
         # base name of the image caption pair to extract sentences from the dictionary
         base_name = node._v_name.split(append_name)[1]
         
@@ -73,13 +73,14 @@ def text_features_coco(text_dict, output_file, append_name, node_list):
             if not raw_tokens[-1] == '.':
                 raw_tokens[-1] = '.'
             # tokens with simple spelling correction applied. 
-            spell_correct_tokens = correct_spel(raw_tokens, spell_dict)
-            # cleaned tokens, with numericals removed, single occuring words removed, stop words removed and
-            # only contains wordnet words. 
-            cleaned_tokens =  clean_wordnet(remove_punctuation(remove_stop_words(remove_low_occurence(remove_numerical(raw_tokens, digits), coco_dict), stop_words),punct))
+            corrected_tokens = correct_spel(raw_tokens, spell_dict)
+            # the most common tokens in other research use only words occuring over 5 times in the training data, remove numerical values and punctuation.
+            cannonical_tokens = remove_punctuation(remove_low_occurence(remove_numerical(raw_tokens, digits), freq_dict, threshold), punct)
+            # the cannonical tokens but also with stop words removed and uses the spell correct tokens
+            clean_tokens = remove_punctuation(remove_stop_words(remove_low_occurence(remove_numerical(corrected_tokens, digits), freq_dict, threshold), stop_words), punct)
             
             output_file.create_array(raw_token_node, append_name +  base_name + '_' + str(x['id']), raw_tokens)
-            output_file.create_array(spell_token_node, append_name +  base_name + '_' + str(x['id']), spell_correct_tokens)
+            output_file.create_array(corrected_node, append_name +  base_name + '_' + str(x['id']), corrected_tokens)
             output_file.create_array(raw_text_node, append_name + base_name + '_' + str(x['id']), bytes(raw, 'utf-8'))
-            output_file.create_array(token_node, append_name +  base_name + '_' + str(x['id']), cleaned_tokens) 
-    
+            output_file.create_array(token_node, append_name +  base_name + '_' + str(x['id']), clean_tokens) 
+            output_file.create_array(cannonical_node, append_name +  base_name + '_' + str(x['id']), cannonical_tokens)

@@ -17,6 +17,7 @@ import numpy as np
 import string
 from nltk.corpus import wordnet
 from nltk.corpus import stopwords
+from collections import defaultdict 
 # list all single character edits to a word
 def edits1(word):
     "All edits that are one edit away from `word`."
@@ -28,85 +29,64 @@ def edits1(word):
     inserts    = [L + c + R               for L, R in splits for c in letters]
     return set(deletes + transposes + replaces + inserts)
 
-
-
-def create_spell_check_dict(coco_dict):
+def create_spell_check_dict(coco_dict, corpus):
     stop_words = set(stopwords.words('english')) 
-        # open a dictionary file
-    with open('/data/speech2image/preproccesing/dictionaries/large.txt') as file:
+    # open a text file containing a large corpus of english words
+    with open(corpus) as file:
         x = file.read()
     
     # split the dictionary add punctuation as valid 'words'
     spell = x.split()
     for x in string.punctuation:
         spell.append(x)
-    # make a dictionary to speed up search
+    # recast into a dictionary to speed up search
     spelling_dict = {}
     for x in spell:
         spelling_dict[x] = x
         
-    # get all the words that appear in mscoco that do not match any dictionary or wordnet word
+    # get all the words that appear in mscoco that do not match any dictionary word, stop word or wordnet word
     misspelled = {}
     for x in coco_dict.keys():
         if wordnet.synsets(x) == [] and not x in stop_words and not x in spelling_dict:
             # add the single edits that would result in a valid dictionary word
             misspelled[x] = [x for x in list(edits1(x)) if not wordnet.synsets(x) == [] or x in stop_words or x in spelling_dict]
     
-    # remove spelling suggestions for words containing digits 
-    pop = []
-    for x in misspelled.keys():
-        for y in string.digits:
-            if y in x:
-                pop.append(x)
+    # remove spelling suggestions for words containing digits (they will likely be incorrect suggestions)
+    pop = [x for x in misspelled.keys() for y in string.digits if y in x]
     # pop the digits from the misspelled list
     pop = list(set(pop))
     for x in pop:
         misspelled.pop(x)  
 
-    # remove spelling suggestions for words with 's as these are not valid spellings but do not occur in 
+    # remove spelling suggestions for words with 's as these can be valid contractions but do not occur in 
     # wordnet or the dictionary
-    pop = []
-    for x in misspelled.keys():
-        if '\'s' in x:        
-            pop.append(x)
+    pop = [x for x in misspelled.keys() if '\'s' in x]
     # pop the digits from the misspelled list
     pop = list(set(pop))
     for x in pop:
         misspelled.pop(x)              
     
     # a list of all the misspells with only one option for correction        
-    single_opt = {}
-    
+    single_opt = {}   
     for x in misspelled.keys():
         if len(misspelled[x]) == 1:
             single_opt[x] = misspelled[x][0]
-    # for the ones with multiple options we need a way to choose the best option
+    # seperately handle words with multiple correction options. 
     multi_opt = {}
-    
     for x in misspelled.keys():
         if len(misspelled[x]) > 1:
-            multi_opt[x] = misspelled[x]
-    
-    # make a list with the probability of the suggested corrections in the current corpus
-    count = []
-    
-    for x in coco_dict.keys():
-        count.append(coco_dict[x])
-    p = {}
-    
+            multi_opt[x] = misspelled[x]    
+    # make a list with the probability of the suggested corrections based on their occurence in the corpus
+    p = defaultdict(list)   
     for x in multi_opt.keys():
-        p[x] = []
         for y  in multi_opt[x]:
             if y in coco_dict:
-                p[x].append(coco_dict[y]/sum(count))
+                p[x].append(coco_dict[y])
             else:
                 p[x].append(0)
     
     # pop the spelling suggestions that do not occur in the corpus            
-    pop = []
-    for x in p.keys():
-        if sum(p[x]) == 0:
-            pop.append(x)
+    pop = [x for x in p.keys() if sum(p[x]) == 0]
     pop = list(set(pop))
     for x in pop:
         multi_opt.pop(x)  
@@ -114,9 +94,10 @@ def create_spell_check_dict(coco_dict):
     
     # add the most likely correction to the correction dictionary
     for x in multi_opt.keys():
-        most_likely = np.argmax(p[x])
-        multi_opt[x] = multi_opt[x][most_likely]
-    
+        # find the index of the most likely word
+        max_p = np.argmax(p[x])
+        # keep only the most likely spelling correction
+        multi_opt[x] = multi_opt[x][max_p]
+    # combine the two dictionaries
     dictionary = {**single_opt, **multi_opt}
-
     return(dictionary)

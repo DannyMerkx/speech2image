@@ -6,37 +6,33 @@ Take an existing h5 file and make a dictionary containing the frequency of all t
 could be used to create new token features for flickr where only words occuring n times in the train set are kept.
 @author: danny
 """
-import sys
 import pickle
-import string
 import os
+from collections import defaultdict
 import json
-
-sys.path.append('/data/speech2image/PyTorch/functions')
-
+# path to the flickr8k dataset.json file
 text_path = os.path.join('/data/speech2image/preprocessing/dataset.json')
-
-text_dict = {}
-txt = json.load(open(text_path))['images']
-for x in txt:
-    text_dict[x['filename'].split('.')[0]] = x
-
+# save the dictionary in this folder
+dict_loc = os.path.join('/data/speech2image/preprocessing/dictionaries/')
 # save dictionary
 def save_obj(obj, loc):
     with open(loc + '.pkl', 'wb') as f:
         pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
-
-flickr_dict = {}
-
+        
+# make a dictionary of all the flickr8k captions
+text_dict = {}
+txt = json.load(open(text_path))['images']
+for x in txt:
+    text_dict[x['filename'].split('.')[0]] = x
+    
+# make a dictionary containing the frequency of each word in the training part of the corpus
+flickr_dict = defaultdict(int)
 for x in text_dict.keys():
+    # only take into account the training set of the corpus
     if text_dict[x]['split'] == 'train':
         captions = text_dict[x]['sentences']
         for y in captions:
             for z in y['tokens']:
-                try:
-                    flickr_dict[z] += 1
-                except:
-                    flickr_dict[z] = 1
+                flickr_dict[z] += 1
 
-
-save_obj(flickr_dict, '/data/speech2image/preprocessing/dictionaries/flickr_frequency')
+save_obj(flickr_dict, os.path.join(dict_loc, 'flickr_frequency'))

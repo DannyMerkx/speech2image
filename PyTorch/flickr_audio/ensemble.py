@@ -40,7 +40,7 @@ parser.add_argument('-split_loc', type = str, default = '/data/speech2image/prep
 parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/flickr_audio/ensemble_results/',
                     help = 'location of the json file containing the data split information')
 # args concerning training settings
-parser.add_argument('-batch_size', type = int, default = 100, help = 'batch size, default: 32')
+parser.add_argument('-batch_size', type = int, default = 100, help = 'batch size, default: 100')
 parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, default: True')
 # args concerning the database and which features to load
 parser.add_argument('-data_base', type = str, default = 'flickr', help = 'database to train on, default: flickr')
@@ -147,7 +147,7 @@ for img, cap in zip(img_models, caption_models) :
     
     img_net.load_state_dict(img_state)
     cap_net.load_state_dict(caption_state)
-    iterator = batcher(test, args.batch_size, args.visual, args.cap, max_chars= 200, shuffle = False)
+    iterator = batcher(test, args.batch_size, args.visual, args.cap, frames = 2048, shuffle = False)
     caption, image = embed_data(iterator, img_net, cap_net, dtype)
     print("Epoch " + img.split('.')[1])
     #print the per epoch results
