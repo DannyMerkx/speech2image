@@ -10,10 +10,9 @@ models pretrained on the image captioning task to improve learning
 """
 
 import sys
-import os
-import json
 import argparse
 import numpy as np
+import time
 
 import torch
 import torch.nn as nn
@@ -22,7 +21,6 @@ from torch.optim import lr_scheduler
 sys.path.append('/data/speech2image/PyTorch/functions')
 
 from encoders import char_gru_encoder, snli
-from prep_text import char_2_index
 from minibatchers import iterate_snli
 from data_split import split_snli
 
@@ -66,14 +64,14 @@ def save_params(model, file_name, epoch):
     torch.save(model.state_dict(), args.results_loc + file_name + '.' +str(epoch))
     
 # convenience function to embed a batch of sentences using the network
-def embed(sent, lenght, network):
+def embed(sent, length, network):
     # sort the sentences in descending order by length
     l_sort = np.argsort(- np.array(length))
-    index = index[l_sort]
+    sent = sent[l_sort]
     length = np.array(length)[l_sort]   
     # embed the sentences
-    index= Variable(dtype(index))
-    emb = network(index, length)
+    sent = Variable(dtype(sent))
+    emb = network(sent, length)
     # reverse the sorting again such that the sentence pairs can be properly lined up again    
     emb = emb[torch.cuda.LongTensor(np.argsort(l_sort))]    
     return emb
@@ -111,12 +109,12 @@ classifier = snli(classifier_config)
 
 # use cuda if availlable
 if cuda:
-    cap_net.cuda()
+    emb_net.cuda()
     classifier.cuda()
 # load pretrained network
 if args.pre_trained:
     caption_state = torch.load(args.cap_net, map_location=lambda storage, loc: storage)
-    cap_net.load_state_dict(caption_state)
+    emb_net.load_state_dict(caption_state)
 
 def create_cyclic_scheduler(max_lr, min_lr, stepsize):
     lr_lambda = lambda iteration: (max_lr - min_lr)*(0.5 * (np.cos(np.pi * (1 + (3 - 1) / stepsize * iteration)) + 1))+min_lr
@@ -126,7 +124,7 @@ def create_cyclic_scheduler(max_lr, min_lr, stepsize):
     # min and max lr   
     return(cyclic_scheduler)
 # create the optimizer, loss function and the learning rate scheduler
-optimizer = torch.optim.Adam(list(cap_net.parameters()) + list(classifier.parameters()), 1)
+optimizer = torch.optim.Adam(list(emb_net.parameters()) + list(classifier.parameters()), 1)
 cross_entropy_loss = nn.CrossEntropyLoss(ignore_index = -100)
 cyclic_scheduler = create_cyclic_scheduler(max_lr = args.lr, min_lr = 1e-6, stepsize = (int(len(train)/args.batch_size)*5)*4)
 
@@ -202,8 +200,7 @@ while epoch <= args.n_epochs:
     val_loss, val_accuracy = test_epoch(emb_net, classifier, val)
     
     # save network parameters
-    save_params(img_net, 'image_model', epoch)
-    save_params(cap_net, 'caption_model', epoch)
+    save_params(emb_net, 'caption_model', epoch)
     
     print("validation loss:\t\t{:.6f}".format(val_loss))
     print("validation accuracy: " + str(val_accuracy) + '%')
