@@ -61,7 +61,7 @@ dict_size = len(load_obj(args.dict_loc)) + 3
 # create config dictionaries with all the parameters for your encoders
 char_config = {'embed':{'num_chars': dict_size, 'embedding_dim': 300, 'sparse': False, 'padding_idx': 0}, 
                'gru':{'input_size': 300, 'hidden_size': 1024, 'num_layers': 1, 'batch_first': True,
-               'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 2048, 'hidden_size': 128}}
+               'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1}}
 
 image_config = {'linear':{'in_size': 2048, 'out_size': 2048}, 'norm': True}
 
@@ -113,13 +113,13 @@ def recall(cap, img, at_n, c2i, i2c, prepend):
     # and a prepend string (e.g. to print validation or test in front of the results)
     if c2i:
         # create a minibatcher over the validation set
-        recall, median_rank = recall_at_n(img, cap, at_n)
+        recall, median_rank = recall_at_n(img, cap, at_n, transpose = False)
         # print some info about this epoch
         for x in range(len(recall)):
             print(prepend + ' caption2image recall@' + str(at_n[x]) + ' = ' + str(recall[x]*100) + '%')
         print(prepend + ' caption2image median rank= ' + str(median_rank))
     if i2c:
-        recall, median_rank = recall_at_n(cap, img, at_n)
+        recall, median_rank = recall_at_n(cap, img, at_n, transpose = True)
         for x in range(len(recall)):
             print(prepend + ' image2caption recall@' + str(at_n[x]) + ' = ' + str(recall[x]*100) + '%')
         print(prepend + ' image2caption median rank= ' + str(median_rank))  
