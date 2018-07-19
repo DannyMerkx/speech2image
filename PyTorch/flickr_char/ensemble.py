@@ -112,7 +112,7 @@ def recall(cap, img, at_n, c2i, i2c, prepend):
             print(prepend + ' caption2image recall@' + str(at_n[x]) + ' = ' + str(recall[x]*100) + '%')
         print(prepend + ' caption2image median rank= ' + str(median_rank))
     if i2c:
-        recall, median_rank = recall_at_n(cap, img, at_n, transpose = True)
+        recall, median_rank = recall_at_n(img, cap, at_n, transpose = True)
         for x in range(len(recall)):
             print(prepend + ' image2caption recall@' + str(at_n[x]) + ' = ' + str(recall[x]*100) + '%')
         print(prepend + ' image2caption median rank= ' + str(median_rank))  
