@@ -34,7 +34,7 @@ parser.add_argument('-data_loc', type = str, default = '/prep_data/coco_features
                     help = 'location of the feature file, default: /prep_data/coco_features.h5')
 parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/coco_words/results/',
                     help = 'location to save the results and network parameters')
-parser.add_argument('-dict_loc', type = str, default = '/data/speech2image/preprocessing/dictionaries/coco_dict')
+parser.add_argument('-dict_loc', type = str, default = '/data/speech2image/preprocessing/dictionaries/coco_indices')
 
 # args concerning training settings
 parser.add_argument('-batch_size', type = int, default = 32, help = 'batch size, default: 32')
@@ -44,7 +44,7 @@ parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, defa
 # args concerning the database and which features to load
 parser.add_argument('-data_base', type = str, default = 'coco', help = 'database to train on, default: coco')
 parser.add_argument('-visual', type = str, default = 'resnet', help = 'name of the node containing the visual features, default: resnet')
-parser.add_argument('-cap', type = str, default = 'tokens', help = 'name of the node containing the caption features, default: tokens')
+parser.add_argument('-cap', type = str, default = 'cannonical_tokens', help = 'name of the node containing the caption features, default: tokens')
 parser.add_argument('-gradient_clipping', type = bool, default = False, help ='use gradient clipping, default: False')
 
 args = parser.parse_args()
@@ -54,14 +54,15 @@ def load_obj(loc):
         return pickle.load(f)
 # get the size of the dictionary for the embedding layer (pytorch crashes if the embedding layer is not correct for the dictionary size)
 # add 1 for the zero or padding embedding
-dict_size = len(load_obj(args.dict_loc)) + 1
+dict_size = len(load_obj(args.dict_loc)) + 3
 
 # create config dictionaries with all the parameters for your encoders
 char_config = {'embed':{'num_chars': dict_size, 'embedding_dim': 300, 'sparse': False, 'padding_idx': 0}, 
                'gru':{'input_size': 300, 'hidden_size': 1024, 'num_layers': 1, 'batch_first': True,
-               'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 2048, 'hidden_size': 128}}
-
-image_config = {'linear':{'in_size': 2048, 'out_size': 2048}, 'norm': True}
+               'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1}}
+# automatically adapt the image encoder output size to the size of the caption encoder
+out_size = char_config['gru']['hidden_size'] * 2**char_config['gru']['bidirectional']
+image_config = {'linear':{'in_size': 2048, 'out_size': out_size}, 'norm': True}
 
 # open the data file
 data_file = tables.open_file(args.data_loc, mode='r+') 
@@ -156,6 +157,8 @@ def train_epoch(epoch, img_net, cap_net, optimizer, f_nodes, batch_size):
     train_loss = 0
     num_batches =0
     for batch in batcher(f_nodes, batch_size, args.visual, args.cap, args.dict_loc, max_words = 60, shuffle = True):
+        cyclic_scheduler.step()
+        iteration += 1
         img, cap, lengths = batch
         num_batches +=1
         # sort the tensors based on the unpadded caption length so they can be used
@@ -184,6 +187,8 @@ def train_epoch(epoch, img_net, cap_net, optimizer, f_nodes, batch_size):
         # add loss to average
         train_loss += loss.data
         print(train_loss.cpu()[0]/num_batches)
+        if np.mod(iteration, 10000) == 0:
+            recall(val[:1000], [1, 5 , 10], c2i = True, i2c = False, prepend = '1k validation')
     return train_loss/num_batches
 
 def test_epoch(img_net, cap_net, f_nodes, batch_size):

@@ -11,7 +11,7 @@ import pickle
 from collections import defaultdict 
 import tables
 # name of the token feature nodes in the h5 file
-feature = 'tokens'
+feature = 'cannonical_tokens'
 # save the resulting dictionary here
 dict_loc = os.path.join('/data/speech2image/preprocessing/dictionaries/')
 # location of the mscoco features

@@ -22,6 +22,10 @@ import argparse
 import torch
 import sys
 import numpy as np
+import sklearn.linear_model
+import scipy.spatial
+from torch.autograd import Variable
+
 sys.path.append('/data/speech2image/PyTorch/functions')
 
 from minibatchers import iterate_raw_text_5fold, iterate_raw_text
@@ -37,10 +41,10 @@ parser.add_argument('-data_loc', type = str, default = '/prep_data/flickr_featur
                     help = 'location of the feature file, default: /prep_data/flickr_features.h5')
 parser.add_argument('-split_loc', type = str, default = '/data/speech2image/preprocessing/dataset.json', 
                     help = 'location of the json file containing the data split information')
-parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/flickr_char/ensemble_results/',
+parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/flickr_char/ensemble/',
                     help = 'location of the json file containing the data split information')
 # args concerning training settings
-parser.add_argument('-batch_size', type = int, default = 100, help = 'batch size, default: 100')
+parser.add_argument('-batch_size', type = int, default = 100, help = 'batch size, default: 32')
 parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, default: True')
 # args concerning the database and which features to load
 parser.add_argument('-data_base', type = str, default = 'flickr', help = 'database to train on, default: flickr')
@@ -138,19 +142,66 @@ img_models.sort()
 caption_models.sort()
 caps = torch.autograd.Variable(dtype(np.zeros((5000, 2048)))).data
 imgs = torch.autograd.Variable(dtype(np.zeros((5000, 2048)))).data
-for img, cap in zip(img_models, caption_models) :
+
+a = []
+b = []
+encode = False
+
+if encode == True:
+ 
+    for img, cap in zip(img_models, caption_models) :
     
-    img_state = torch.load(args.results_loc + img)
-    caption_state = torch.load(args.results_loc + cap)
+        img_state = torch.load(args.results_loc + img)
+        caption_state = torch.load(args.results_loc + cap)
     
-    img_net.load_state_dict(img_state)
-    cap_net.load_state_dict(caption_state)
-    iterator = batcher(test, args.batch_size, args.visual, args.cap, max_chars = 200, shuffle = False)
-    caption, image = embed_data(iterator, img_net, cap_net, dtype)
-    print("Epoch " + img.split('.')[1])
-    #print the per epoch results
-    recall(caption, image, [1, 5, 10], c2i = True, i2c = True, prepend = 'test')
-    caps += caption
-    imgs += image
+        img_net.load_state_dict(img_state)
+        cap_net.load_state_dict(caption_state)
+        iterator = batcher(test, args.batch_size, args.visual, args.cap, max_chars= 200, shuffle = False)
+        caption, image = embed_data(iterator, img_net, cap_net, dtype)
+        print("Epoch " + img.split('.')[1])
+        #print the per epoch results
+        recall(caption, image, [1, 5, 10], c2i = True, i2c = True, prepend = 'test')
+        caps += caption
+        imgs += image
+        a.append(caption)
+        b.append(image)
+    # save the models (handy in case you want to run the ensembling with multiple settings)
+    models = []
+    for m in range(len(a)):
+        # for all pretrained models, concatenate the image and caption embeddings along a new dimension.
+        models.append(torch.cat((a[m], b[m]), 0).unsqueeze(2))
+    models = torch.cat(models, 2)
+    models = models.cpu()
+    torch.save(models, 'model')
+    # z becomes the ensemble embedding space. We want to minimise the distance between the pretrained models and the embeddings in the ensemble space using procrustal or linear regression
+    z = models.mean(2)
+
+if encode == False:
+    models = torch.load('model')
+    z = models.mean(2)
+    #z = torch.rand(10000,2048)
+
+# variables to keep track of the decrease in procrustes disparity
+prev_disp =2
+disp = 1
+while prev_disp - disp >= 0.00001:
+    prev_disp = disp
+    predict = []
+    disparity = []
+    # for all the pretrained models apply the procrustes transformations to the ensemble model space
+    for x in range(models.size()[2]):
+        mtx_1, mtx_2, disp_x = scipy.spatial.procrustes(z.numpy(), models[:,:,x].cpu().numpy())
+        # keep track of the predictions and disparity
+        predict.append(torch.Tensor(mtx_2).unsqueeze(2))
+        disparity.append(disp_x)
+    disp = sum(disparity)/len(disparity)
+    print(disp)
+    # use the predictions to incrementally update the ensemble embedding space
+    z = torch.cat(predict, 2).mean(2)
+
+# separate the caption and image embeddings again
+caps = z[:5000]
+imgs = z[5000:10000]
+
 # print the results of the ensemble
 recall(caps, imgs, [1,5,10], c2i = True, i2c = True, prepend = 'test ensemble')

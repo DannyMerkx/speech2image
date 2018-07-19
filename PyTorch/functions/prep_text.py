@@ -1,4 +1,5 @@
-#!/usr/bin/env python3
+#!/u)sr/bin/env python3
+
 # -*- coding: utf-8 -*-
 """
 Created on Thu Apr 26 13:56:15 2018
@@ -45,6 +46,9 @@ def char_2_index(raw_text, batch_size, max_sent_len):
 
 def word_2_index(word_list, batch_size, max_sent_len, dict_loc):
     w_dict = load_obj(dict_loc)
+    x = len(w_dict)
+    w_dict['<bos>'] = x+1
+    w_dict['<eos>'] = x+2
     text_batch = np.zeros([batch_size, max_sent_len])
     lengths = []
     for i, words in enumerate(word_list):

@@ -40,7 +40,7 @@ parser.add_argument('-split_loc', type = str, default = '/data/speech2image/prep
                     help = 'location of the json file containing the data split information')
 parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/flickr_words/ensemble_results/',
                     help = 'location to save the results and network parameters')
-parser.add_argument('-dict_loc', type = str, default = '/data/speech2image/PyTorch/flickr_words/word_dict')
+parser.add_argument('-dict_loc', type = str, default = '/data/speech2image/preprocessing/dictionaries/flickr_indices')
 # args concerning training settings
 parser.add_argument('-batch_size', type = int, default = 100, help = 'batch size, default: 100')
 parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, default: True')
@@ -56,7 +56,7 @@ def load_obj(loc):
         return pickle.load(f)
 # get the size of the dictionary for the embedding layer (pytorch crashes if the embedding layer is not correct for the dictionary size)
 # add 1 for the zero or padding embedding
-dict_size = len(load_obj(args.dict_loc)) + 1
+dict_size = len(load_obj(args.dict_loc)) + 3
 
 # create config dictionaries with all the parameters for your encoders
 char_config = {'embed':{'num_chars': dict_size, 'embedding_dim': 300, 'sparse': False, 'padding_idx': 0}, 

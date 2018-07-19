@@ -67,19 +67,28 @@ class RHN(nn.Module):
         return torch.cat(output)
 
 ############################################################################################################
-
+# class for making multi headed attenders. Takes n_heads as extra argument to construct multiple attention heads.
+class multi_attention(nn.Module):
+    def __init__(self, in_size, hidden_size, n_heads):
+        super(multi_attention, self).__init__()
+        self.att_heads = nn.ModuleList()
+        for x in range(n_heads):
+            self.att_heads.append(attention(in_size, hidden_size))
+    def forward(self, input):
+        return torch.cat([x(input) for x in self.att_heads], 1)
+    
 # attention layer for audio encoders
 class attention(nn.Module):
     def __init__(self, in_size, hidden_size):
         super(attention, self).__init__()
         self.hidden = nn.Linear(in_size, hidden_size)
         nn.init.orthogonal(self.hidden.weight.data)
-        self.out = nn.Linear(hidden_size, 1)
+        self.out = nn.Linear(hidden_size, in_size)
         nn.init.orthogonal(self.hidden.weight.data)
         self.softmax = nn.Softmax(dim = 1)
     def forward(self, input):
         # calculate the attention weights
         alpha = self.softmax(self.out(nn.functional.tanh(self.hidden(input))))
         # apply the weights to the input and sum over all timesteps
-        x = torch.sum(alpha.expand_as(input) * input, 1)
+        x = torch.sum(alpha * input, 1)
         return x        

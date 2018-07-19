@@ -53,9 +53,10 @@ args = parser.parse_args()
 audio_config = {'conv':{'in_channels': 39, 'out_channels': 64, 'kernel_size': 6, 'stride': 2,
                'padding': 0, 'bias': False}, 'gru':{'input_size': 64, 'hidden_size': 1024, 
                'num_layers': 4, 'batch_first': True, 'bidirectional': True, 'dropout': 0}, 
-               'att':{'in_size': 2048, 'hidden_size': 128}}
-
-image_config = {'linear':{'in_size': 2048, 'out_size': 2048}, 'norm': True}
+               'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1}}
+# automatically adapt the image encoder output size to the size of the caption encoder
+out_size = audio_config['gru']['hidden_size'] * 2**audio_config['gru']['bidirectional']
+image_config = {'linear':{'in_size': 2048, 'out_size': out_size}, 'norm': True}
 
 
 # open the data file

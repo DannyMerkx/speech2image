@@ -59,3 +59,38 @@ def split_data_coco(f_nodes):
         if name.split('coco_')[1] in val_img.keys():
             val.append(x)
     return train, val
+
+def split_snli(snli_dir):
+    # list the snli files
+    files = os.listdir(snli_dir)
+    files.sort()
+    # extract the train and test examples. (indexing based on sorted directory contents
+    # do not add files to the directory)
+    train = []
+    for line in open(os.path.join(snli_dir, files[7])):
+        train.append(json.loads(line))
+        
+    test = []
+    for line in open(os.path.join(snli_dir, files[5])):
+        test.append(json.loads(line))
+            
+    val = []
+    for line in open(os.path.join(snli_dir, files[3])):
+        val.append(json.loads(line))
+    
+    # extract the gold label and the two sentences for each example
+    train_labels = [x['gold_label'] for x in train]
+    train_sentence_1 = [x['sentence1'] for x in train]
+    train_sentence_2 = [x['sentence2'] for x in train]
+    train = zip(train_sentence_1, train_sentence_2, train_labels)
+    
+    test_labels = [x['gold_label'] for x in test]
+    test_sentence_1 = [x['sentence1'] for x in test]
+    test_sentence_2 = [x['sentence2'] for x in test]
+    test = zip(test_sentence_1, test_sentence_2, test_labels)
+    
+    val_labels = [x['gold_label'] for x in val]
+    val_sentence_1 = [x['sentence1'] for x in val]
+    val_sentence_2 = [x['sentence2'] for x in val]
+    val = zip(val_sentence_1, val_sentence_2, val_labels)
+    return(train, test, val)

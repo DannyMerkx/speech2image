@@ -6,7 +6,7 @@ Created on Mon Mar 26 17:54:07 2018
 @author: danny
 """
 
-from costum_layers import RHN, attention
+from costum_layers import RHN, attention, multi_attention
 import torch
 import torch.nn as nn
 
@@ -34,7 +34,7 @@ class Harwath_audio_encoder(nn.Module):
         x = torch.squeeze(x)
         return nn.functional.normalize(x, p = 2, dim = 1)
 
-# gru encoder for characters
+# gru encoder for characters and tokens
 class char_gru_encoder(nn.Module):
     def __init__(self, config):
         super(char_gru_encoder, self).__init__()
@@ -47,7 +47,7 @@ class char_gru_encoder(nn.Module):
         self.GRU = nn.GRU(input_size = gru['input_size'], hidden_size = gru['hidden_size'], 
                           num_layers = gru['num_layers'], batch_first = gru['batch_first'],
                           bidirectional = gru['bidirectional'], dropout = gru['dropout'])
-        self.att = attention(in_size = att['in_size'], hidden_size = att['hidden_size'])
+        self.att = multi_attention(in_size = att['in_size'], hidden_size = att['hidden_size'], n_heads = att['heads'])
         
     def forward(self, input, l):
         # embedding layers expect Long tensors
@@ -60,30 +60,6 @@ class char_gru_encoder(nn.Module):
         x, lens = nn.utils.rnn.pad_packed_sequence(x, batch_first = True)
         x = nn.functional.normalize(self.att(x), p=2, dim=1)
         return x
-
-# the convolutional character encoder described by Wehrmann et al. 
-class conv_encoder(nn.Module):
-    def __init__(self):
-        super(conv_encoder, self).__init__()
-        self.Conv1d_1 = nn.Conv1d(in_channels = 20, out_channels = 512, kernel_size = 7,
-                                 stride = 1, padding = 3, groups = 1)
-        self.Conv1d_2 = nn.Conv1d(in_channels = 512, out_channels = 512, kernel_size = 5,
-                                 stride = 1, padding = 2, groups = 1)
-        self.Conv1d_3 = nn.Conv1d(in_channels = 512, out_channels = 512, kernel_size = 3,
-                                 stride = 1, padding = 1, groups = 1)
-        self.relu = nn.ReLU()
-        self.embed = nn.Embedding(num_embeddings = 100, embedding_dim = 20,
-                                  sparse = False, padding_idx = 0)
-        self.Pool = nn.AdaptiveMaxPool1d(output_size = 1, return_indices=False)
-        self.linear = nn.Linear(in_features = 512, out_features = 512)
-    def forward(self, input, l):
-        x = self.embed(input.long()).permute(0,2,1)
-        x = self.relu(self.Conv1d_1(x))
-        x = self.relu(self.Conv1d_2(x))
-        x = self.relu(self.Conv1d_3(x))
-        x = self.linear(self.Pool(x).squeeze())
-        return nn.functional.normalize(x, p = 2, dim = 1)
-
 
 # gru encoder for audio
 class audio_gru_encoder(nn.Module):
@@ -99,14 +75,15 @@ class audio_gru_encoder(nn.Module):
         self.GRU = nn.GRU(input_size = gru['input_size'], hidden_size = gru['hidden_size'], 
                           num_layers = gru['num_layers'], batch_first = gru['batch_first'],
                           bidirectional = gru['bidirectional'], dropout = gru['dropout'])
-        self.att = attention(in_size = att['in_size'], hidden_size = att['hidden_size'])
+        self.att = multi_attention(in_size = att['in_size'], hidden_size = att['hidden_size'], n_heads = att['heads'])
         
     def forward(self, input, l):
         x = self.Conv1d(input)
         x = x.permute(0, 2, 1)
+        # update the lengths to compensate for the convolution (N.B. hard coded for stride 2 and size 6)
+        l = [int((y-4)/2) for y in l]
         # create a packed_sequence object. The padding will be excluded from the update step
         # thereby training on the original sequence length only
-        l = [int((y-4)/2) for y in l]
         x = torch.nn.utils.rnn.pack_padded_sequence(x, l, batch_first=True)
         x, hx = self.GRU(x)
         # unpack again as at the moment only rnn layers except packed_sequence objects
@@ -128,6 +105,24 @@ class img_encoder(nn.Module):
             return nn.functional.normalize(x, p=2, dim=1)
         else:
             return x
+
+# classifier layer to use on top of sentence encoders. Predicts snli labels for sentence pairs
+class snli(nn.Module):
+    def __init__(self, config):
+        super(snli, self).__init__()
+        self.hidden = nn.Linear(in_features = config['in_feats'], out_features = config['hidden'])
+        self.linear_transform = nn.Linear(in_features = config['hidden'], out_features = config['class'])
+        nn.init.xavier_uniform(self.hidden.weight.data)
+        nn.init.xavier_uniform(self.linear_transform.weight.data)
+        self.softmax = nn.Softmax()
+    def forward(self, input):
+        x = self.hidden(input)
+        x = self.linear_transform(x)
+        return self.softmax(x)
+
+######################################################################################################
+# network concepts and experiments
+######################################################################################################
 
 # combination of a convolutional network topped by a GRU for audio
 class RCNN_audio_encoder(nn.Module):
@@ -177,6 +172,29 @@ class RHN_audio_encoder(nn.Module):
         x = self.RHN_4(x)
         x = self.att(x)
         return x
+
+# the convolutional character encoder described by Wehrmann et al. 
+class conv_encoder(nn.Module):
+    def __init__(self):
+        super(conv_encoder, self).__init__()
+        self.Conv1d_1 = nn.Conv1d(in_channels = 20, out_channels = 512, kernel_size = 7,
+                                 stride = 1, padding = 3, groups = 1)
+        self.Conv1d_2 = nn.Conv1d(in_channels = 512, out_channels = 512, kernel_size = 5,
+                                 stride = 1, padding = 2, groups = 1)
+        self.Conv1d_3 = nn.Conv1d(in_channels = 512, out_channels = 512, kernel_size = 3,
+                                 stride = 1, padding = 1, groups = 1)
+        self.relu = nn.ReLU()
+        self.embed = nn.Embedding(num_embeddings = 100, embedding_dim = 20,
+                                  sparse = False, padding_idx = 0)
+        self.Pool = nn.AdaptiveMaxPool1d(output_size = 1, return_indices=False)
+        self.linear = nn.Linear(in_features = 512, out_features = 512)
+    def forward(self, input, l):
+        x = self.embed(input.long()).permute(0,2,1)
+        x = self.relu(self.Conv1d_1(x))
+        x = self.relu(self.Conv1d_2(x))
+        x = self.relu(self.Conv1d_3(x))
+        x = self.linear(self.Pool(x).squeeze())
+        return nn.functional.normalize(x, p = 2, dim = 1)
 
 # code for simple testing of encoders and timing
 

@@ -181,9 +181,9 @@ def iterate_tokens_5fold(f_nodes, batchsize, visual, text, dict_loc, max_words =
                 images.append(eval('ex.' + visual + '._f_list_nodes()[0].read()'))
                 # extract the audio features
                 cap = eval('ex.' + text + '._f_list_nodes()[i].read()')
-                cap = [x.decode('utf-8') for x in cap]
-                # append an otherwise unused character as a start of sentence character and 
-                # convert the sentence to lower case.
+                # add begin of sentence and end of sentence tokens
+                cap = ['<bos>'] + [x.decode('utf-8') for x in cap] + ['<eos>']
+                                
                 caption.append(cap)
             # converts the sentence to character ids. 
             caption, lengths = word_2_index(caption, batchsize, max_words, dict_loc)
@@ -191,3 +191,17 @@ def iterate_tokens_5fold(f_nodes, batchsize, visual, text, dict_loc, max_words =
             # images should be shape (batch_size, 1024). images_shape[1] is collapsed as the original features are of shape (1,1024) 
             images = np.float64(np.reshape(images,(images_shape[0],images_shape[2])))
             yield images, caption, lengths
+
+# iterator over the snli sentence pairs. Expects zipped lists of sentences and labels.
+def iterate_snli(data, batchsize, max_chars = 450, shuffle = True):
+    if shuffle:
+        # optionally shuffle the input
+        np.random.shuffle(data)
+    for start_idx in range(0, len(data) - batchsize + 1, batchsize):
+        # take a batch of nodes of the given size               
+        excerpt = data[start_idx:start_idx + batchsize]
+        sent1, sent2, labels = zip(*excerpt)
+        # converts the sentences to character ids and sentence lengths
+        sent1, l1 = char_2_index(list(sent1), batchsize, max_chars)
+        sent2, l2 = char_2_index(list(sent2), batchsize, max_chars)
+        yield sent1, l1, sent2, l2, list(labels)

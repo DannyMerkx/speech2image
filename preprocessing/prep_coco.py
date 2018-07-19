@@ -20,8 +20,8 @@ text_path = os.path.join('/data/mscoco/annotations')
 # save the resulting feature file here
 data_loc = os.path.join('/prep_data/coco_features.h5')
 # path to the word frequency dictionary and the spelling correction dictionary
-spell_dict_loc = os.path.join('/data/speech2image/preprocessing/coco_cleanup/spell_dict')  
-freq_dict_loc = os.path.join('/data/speech2image/preprocessing/coco_cleanup/coco_dict')
+spell_dict_loc = os.path.join('/data/speech2image/preprocessing/dictionaries/spell_dict')  
+freq_dict_loc = os.path.join('/data/speech2image/preprocessing/dictionaries/coco_dict')
 
 def batcher(batch_size, dictionary):
     keys = [x for x in dictionary]

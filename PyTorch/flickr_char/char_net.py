@@ -44,16 +44,17 @@ parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, defa
 parser.add_argument('-data_base', type = str, default = 'flickr', help = 'database to train on, default: flickr')
 parser.add_argument('-visual', type = str, default = 'resnet', help = 'name of the node containing the visual features, default: resnet')
 parser.add_argument('-cap', type = str, default = 'raw_text', help = 'name of the node containing the caption features, default: raw_text')
-parser.add_argument('-gradient_clipping', type = bool, default = False, help ='use gradient clipping, default: False')
+parser.add_argument('-gradient_clipping', type = bool, default = True, help ='use gradient clipping, default: True')
 
 args = parser.parse_args()
 
 # create config dictionaries with all the parameters for your encoders
 char_config = {'embed':{'num_chars': 100, 'embedding_dim': 20, 'sparse': False, 'padding_idx': 0}, 
                'gru':{'input_size': 20, 'hidden_size': 1024, 'num_layers': 1, 'batch_first': True,
-               'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 2048, 'hidden_size': 128}}
-
-image_config = {'linear':{'in_size': 2048, 'out_size': 2048}, 'norm': True}
+               'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1}}
+# automatically adapt the image encoder output size to the size of the caption encoder
+out_size = char_config['gru']['hidden_size'] * 2**char_config['gru']['bidirectional']
+image_config = {'linear':{'in_size': 2048, 'out_size': out_size}, 'norm': True}
 
 # open the data file
 data_file = tables.open_file(args.data_loc, mode='r+') 
