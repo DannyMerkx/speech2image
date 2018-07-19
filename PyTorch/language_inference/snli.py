@@ -133,12 +133,12 @@ cyclic_scheduler = create_cyclic_scheduler(max_lr = args.lr, min_lr = 1e-6, step
 # training epoch, takes epoch number, embedding networks, paired lists of sentences and their labels
 def train_epoch(epoch, emb_net, classifier, data):
     global iteration  
-    cap_net.train()
+    emb_net.train()
     classifier.train()
     train_loss = 0
     num_batches = 0 
     # iterator returns converted sentences and their lenghts and labels in minibatches
-    for sen1, len1, sen2, len2, labels in iterate_snli(data, max_chars = 450, args.batch_size):
+    for sen1, len1, sen2, len2, labels in iterate_snli(data, args.batch_size, max_chars = 450, shuffle = True):
         cyclic_scheduler.step()
         iteration += 1
         num_batches += 1
@@ -148,7 +148,7 @@ def train_epoch(epoch, emb_net, classifier, data):
         # predict the class label using the classifier. 
         prediction = classifier(feature_vector(sent1, sent2))
         # convert the true labels of the sentence pairs to indices 
-        labels = create_labels(z)
+        labels = create_labels(labels)
         # calculate the loss an take a training step
         loss = cross_entropy_loss(prediction, labels)
         optimizer.zero_grad()
@@ -166,7 +166,7 @@ def test_epoch(emb_net, classifier, data):
     val_loss = 0
     num_batches = 0
     # iterator returns converted sentences and their lenghts and labels in minibatches
-    for sen1, len1, sen2, len2, labels in iterate_snli(data, max_chars = 450, args.batch_size):
+    for sen1, len1, sen2, len2, labels in iterate_snli(data, args.batch_size, max_chars = 450, shuffle = False):
         num_batches += 1
         # embed the sentences using the network.
         sent1 = embed(sen1, len1, emb_net)
@@ -174,7 +174,7 @@ def test_epoch(emb_net, classifier, data):
         # predict the class label using the classifier. 
         prediction = classifier(feature_vector(sent1, sent2))
         # convert the true labels of the sentence pairs to indices 
-        labels = create_labels(z)
+        labels = create_labels(labels)
         # calculate the loss
         loss = cross_entropy_loss(prediction, labels)
         val_loss += loss.data       
