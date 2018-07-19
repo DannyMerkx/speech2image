@@ -5,14 +5,14 @@ Created on Thu May 17 11:49:51 2018
 prepare the mscoco data into h5 file format
 @author: danny
 """
-import tables
+
 import os
 import json
 import pickle
 from visual_features import vis_feats
 from text_features import text_features_coco
 from collections import defaultdict
-
+import tables
 # paths to the coco caption and image files 
 train_img_path = os.path.join('/data/mscoco/train2017')
 val_img_path = os.path.join('/data/mscoco/val2017')

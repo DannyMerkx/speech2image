@@ -5,13 +5,13 @@ Created on Thu May 17 11:49:51 2018
 
 @author: danny
 """
-import tables
 import os
 import json
 import pickle
 from visual_features import vis_feats
 from audio_features import audio_features
 from text_features import text_features_flickr
+import tables
 # path to the flickr audio, caption and image files 
 audio_path = os.path.join('/data/flickr/flickr_audio/wavs')
 img_path = os.path.join('/data/flickr/Flickr8k_Dataset/Flicker8k_Dataset')

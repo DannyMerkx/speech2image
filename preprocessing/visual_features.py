@@ -17,12 +17,12 @@ to-do: vgg16 weight location is hard coded, add option to pass it through prep_f
 
 """
 import os
-import tables
 import torch
 import torchvision.models as models
 import torchvision.transforms as transforms
 import torch.nn as nn
 import PIL.Image
+import tables
 
 # this script uses a pretrained vgg16 model to extract the penultimate layer activations
 # for images
