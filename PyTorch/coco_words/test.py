@@ -19,7 +19,7 @@ import pickle
 sys.path.append('/data/speech2image/PyTorch/functions')
 
 from minibatchers import iterate_text_5fold, iterate_text
-from evaluate import caption2image, image2caption
+from evaluate import calc_recall
 from encoders import img_encoder, char_gru_encoder
 from data_split import split_data_coco
 ##################################### parameter settings ##############################################
@@ -101,21 +101,10 @@ train, test, val = split_data_coco(f_nodes, args.split_loc)
 def recall(data, at_n, c2i, i2c, prepend):
     # calculate the recall@n. Arguments are a set of nodes, the @n values, whether to do caption2image, image2caption or both
     # and a prepend string (e.g. to print validation or test in front of the results)
-    if c2i:
-        # create a minibatcher over the validation set
-        iterator = batcher(data, args.batch_size, args.visual, args.cap, max_words = 60, shuffle = False)
-        recall, median_rank = caption2image(iterator, img_net, cap_net, at_n, dtype)
-        # print some info about this epoch
-        for x in range(len(recall)):
-            print(prepend + ' caption2image recall@' + str(at_n[x]) + ' = ' + str(recall[x]*100) + '%')
-        print(prepend + ' caption2image median rank= ' + str(median_rank))
-    if i2c:
-        # create a minibatcher over the validation set
-        iterator = batcher(data, args.batch_size, args.visual, args.cap, max_words = 60, shuffle = False)
-        recall, median_rank = image2caption(iterator, img_net, cap_net, at_n, dtype)
-        for x in range(len(recall)):
-            print(prepend + ' image2caption recall@' + str(at_n[x]) + ' = ' + str(recall[x]*100) + '%')
-        print(prepend + ' image2caption median rank= ' + str(median_rank))  
+    # create a minibatcher over the validation set
+    iterator = batcher(data, args.batch_size, args.visual, args.cap, max_chars= 200, shuffle = False)
+    # the calc_recall function calculates and prints the recall.
+    calc_recall(iterator, img_net, cap_net, at_n, c2i, i2c, prepend, dtype)
 
 #####################################################
 
