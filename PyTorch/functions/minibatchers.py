@@ -192,7 +192,7 @@ def iterate_tokens_5fold(f_nodes, batchsize, visual, text, dict_loc, max_words =
             images = np.float64(np.reshape(images,(images_shape[0],images_shape[2])))
             yield images, caption, lengths
 
-# iterator over the snli sentence pairs. Expects zipped lists of sentences and labels.
+# iterator over the snli sentence pairs. Expects triples of paired sentences and labels.
 def iterate_snli(data, batchsize, max_chars = 450, shuffle = True):
     if shuffle:
         # optionally shuffle the input

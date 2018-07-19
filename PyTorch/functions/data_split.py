@@ -93,4 +93,4 @@ def split_snli(snli_dir):
     val_sentence_1 = [x['sentence1'] for x in val]
     val_sentence_2 = [x['sentence2'] for x in val]
     val = zip(val_sentence_1, val_sentence_2, val_labels)
-    return(train, test, val)
+    return(list(train), list(test), list(val))
