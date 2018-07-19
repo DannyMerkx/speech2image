@@ -12,17 +12,22 @@ import numpy as np
 import torch
 from torch.autograd import Variable
 
-# small convenience functions for combining everything in this script.
-# N.B. make sure the order in which you pass the embedding functions is the 
-# order in which the iterator yields the appropriate features!
-
-def caption2image(iterator, image_embed_function, caption_embed_function, n, dtype):
+# small convenience function for combining everything in this script.
+# pass bools i2c and c2i to determine which recall measures to return
+def calc_recall(iterator, image_embed_function, caption_embed_function, n, c2i, i2c, prepend, dtype):
     im_embeddings, caption_embeddings = embed_data(iterator, image_embed_function, caption_embed_function, dtype)
-    return recall_at_n(im_embeddings, caption_embeddings, n)
-
-def image2caption(iterator, image_embed_function, caption_embed_function, n, dtype):
-    im_embeddings, caption_embeddings = embed_data(iterator, image_embed_function, caption_embed_function, dtype)
-    return recall_at_n(caption_embeddings, im_embeddings, n)  
+    if c2i:
+        # calculate the recall and median rank and print the results
+        recall, median_rank = recall_at_n(im_embeddings, caption_embeddings, n, transpose = False)
+        for x in range(len(recall)):
+            print(prepend + ' caption2image recall@' + str(n[x]) + ' = ' + str(recall[x]*100) + '%')
+        print(prepend + ' caption2image median rank= ' + str(median_rank))
+    if i2c:
+        # calculate the recall and median rank and print the results
+        recall, median_rank = recall_at_n(im_embeddings, caption_embeddings, n, transpose = True)
+        for x in range(len(recall)):
+            print(prepend + ' image2caption recall@' + str(n[x]) + ' = ' + str(recall[x]*100) + '%')
+        print(prepend + ' image2caption median rank= ' + str(median_rank))  
 
 # embeds the validation or test data using the trained neural network. Takes
 # an iterator (minibatcher) and the embedding functions (i.e. deterministic 
@@ -52,15 +57,15 @@ def embed_data(iterator, embed_function_1, embed_function_2, dtype):
             image = torch.cat((image, img.data))
         except:
             image = img.data
-    return caption, image
+    return image, caption
 
 ###########################################################################################
 
-def recall_at_n(emb_1, emb_2, n, cosine = True):
+def recall_at_n(emb_1, emb_2, n, transpose = False, cosine = True):
 # calculate the recall at n for a retrieval task where given an embedding of some
 # data we want to retrieve the embedding of a related piece of data (e.g. images and captions)
-# recall works in the direction of embeddings_1 to embeddings_2, so if you pass images, and speech
-# respectively you calculate image to speech retrieval scores.
+# By transposing the similarity matrix we can switch between calculating image2caption and caption2image.
+# With transpose == False, the directions is emb2 to emb1 so passing img and caption in that order yields caption2image scores
     # total number of the embeddings
     n_emb = emb_1.size()[0]
     recall = np.zeros(np.shape(n))
@@ -79,7 +84,10 @@ def recall_at_n(emb_1, emb_2, n, cosine = True):
             for x in range(1, embeddings_2.size(0)):
                 s = torch.clamp(embeddings_1 - embeddings_2[x], min = 0).norm(1, dim = 1, keepdim = True)**2
                 sim = torch.cat((sim, s), 1)
-            sim = - sim   
+            sim = - sim
+        # transposing switches the order of the recall.
+        if transpose:
+            sim = sim.t()
         # apply sort two times to get a matrix where the values for each position indicate its rank in the column
         sorted, indices = sim.sort(dim = 1, descending = True)
         sorted, indices = indices.sort(dim = 1)
