@@ -150,11 +150,11 @@ class evaluate():
         self.image2caption()
         r = 'recall :'
         for x in range(len(self.recall)):
-            r += (' @' + str(self.n[x]) + ': ' + str(self.recall[x] * 100))
-        print(prepend + ' i2c,' + ' epoch: ' + str(epoch) + ' ' + r + ' median: ' + str(self.median) + ' mean: ' + str(self.mean))  
+            r += (' @' + str(self.n[x]) + ': ' + str(np.round(self.recall[x] * 100)),2)
+        print(prepend + ' i2c,' + ' epoch:' + str(epoch) + ' ' + r + ' median: ' + str(self.median) + ' mean: ' + str(np.round(self.mean),2))  
     def print_image2caption(self, prepend, epoch = 0):
         self.caption2image()
         r = 'recall:'
         for x in range(len(self.recall)):
-            r += (' @' + str(self.n[x]) + ': ' + str(self.recall[x] * 100))
-        print(prepend + ' c2i,' + ' epoch: ' + str(epoch) + ' ' + r + ' median: ' + str(self.median) + ' mean: ' + str(self.mean))  
+            r += (' @' + str(self.n[x]) + ': ' + str(np.round(self.recall[x] * 100)),2)
+        print(prepend + ' c2i,' + ' epoch:' + str(epoch) + ' ' + r + ' median: ' + str(self.median) + ' mean: ' + str(np.round(self.mean),2))  
