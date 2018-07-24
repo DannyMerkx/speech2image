@@ -47,7 +47,7 @@ args = parser.parse_args()
 
 char_config = {'embed':{'num_chars': 100, 'embedding_dim': 20, 'sparse': False, 'padding_idx': 0},
                'gru':{'input_size': 20, 'hidden_size': 1024, 'num_layers': 1, 'batch_first': True,
-               'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1}}
+               'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 4}}
 # automatically adapt the image encoder output size to the size of the caption encoder
 out_size = char_config['gru']['hidden_size'] * 2**char_config['gru']['bidirectional'] * char_config['att']['heads']
 image_config = {'linear':{'in_size': 2048, 'out_size': out_size}, 'norm': True}
@@ -139,7 +139,7 @@ for img, cap in zip(img_models, caption_models) :
     cap_net.load_state_dict(caption_state)
     # calculate the recall@n
     # create a minibatcher over the validation set
-    print("Epoch " + epoch)
+    print("Epoch " + ep)
     recall(val, evaluator, c2i = True, i2c = True, prepend = 'validation', epoch = ep)
     recall(test, evaluator, c2i = True, i2c = True, prepend = 'test', epoch = ep)
 

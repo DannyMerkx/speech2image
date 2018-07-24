@@ -141,7 +141,7 @@ for img, cap in zip(img_models, caption_models) :
     cap_net.load_state_dict(caption_state)
     # calculate the recall@n
     # create a minibatcher over the validation set
-    print("Epoch " + epoch)
+    print("Epoch " + ep)
     recall(val, evaluator, c2i = True, i2c = True, prepend = 'validation', epoch = ep)
     recall(test, evaluator, c2i = True, i2c = True, prepend = 'test', epoch = ep)
 
