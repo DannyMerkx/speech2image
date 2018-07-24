@@ -94,6 +94,7 @@ class evaluate():
     
     def mean_rank(self, ranks):
         self.mean = ranks.double().mean()
+    
     def recall_at_n(self, ranks):
         if type(self.n) == int:
             r = ranks.le(self.n).double().mean()
@@ -103,14 +104,19 @@ class evaluate():
                 r.append(ranks.le(x).double().mean())
         self.recall = r
     
-    def caption2image(self):
-        # calculate the recall and median rank
+    def caption2image(self, prepend):
+        # calculate the recall and median rank and print the results
         self.dist_matrix(col = False)
+        print(self.ranks.size())
         self.median_rank(self.ranks)
         self.mean_rank(self.ranks)
         self.recall_at_n(self.ranks)
-    def image2caption(self):
-        # calculate the recall and median rank
+        median = self.median
+        for x in range(len(self.recall)):
+            print(prepend + ' caption2image recall@' + str(self.n[x]) + ' = ' + str(self.recall[x]*100) + '%')
+        print(prepend + ' caption2image median rank= ' + str(median))
+    def image2caption(self, prepend):
+        # calculate the recall and median rank and print the results
         self.dist_matrix(col = True)
         self.median_rank(self.ranks.min(1)[0])
         self.mean_rank(self.ranks.min(1)[0])
@@ -124,9 +130,9 @@ class evaluate():
     def return_caption_embeddings(self):
         return self.caption_embeddings
     def return_median_rank(self):
-        return self.median
+        return self.median_rank
     def return_mean_rank(self):
-        return self.mean
+        return self.mean_rank
     def return_recall(self):
         return self.recall
 ###############################################################################
@@ -145,16 +151,8 @@ class evaluate():
     def set_embedder_2(self, embedder):
         self.embed_function_2 = embedder
 ###############################################################################
-    # function to run the image2caption or caption2 image and print the results
-    def print_caption2image(self, prepend, epoch = 0):
-        self.image2caption()
-        r = 'recall :'
-        for x in range(len(self.recall)):
-            r += (' @' + str(self.n[x]) + ': ' + str(self.recall[x] * 100))
-        print(prepend + ' i2c,' + ' epoch: ' + str(epoch) + ' ' + r + ' median: ' + str(self.median) + ' mean: ' + str(self.mean))  
-    def print_image2caption(self, prepend, epoch = 0):
-        self.caption2image()
+    def print_eval(self, prepend, i2c, epoch):
         r = 'recall:'
         for x in range(len(self.recall)):
-            r += (' @' + str(self.n[x]) + ': ' + str(self.recall[x] * 100))
-        print(prepend + ' c2i,' + ' epoch: ' + str(epoch) + ' ' + r + ' median: ' + str(self.median) + ' mean: ' + str(self.mean))  
+            r += (' ' + str(self.n[x]) + ' ' + str(self.recall[x] * 100))
+        print(str(epoch) + ' ' + prepend + ' image2caption' + r + ' ' + 'median: ' + str(self.median_rank)) + 'mean: ' + str(self.mean_rank)   

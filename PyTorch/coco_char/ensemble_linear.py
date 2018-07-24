@@ -155,7 +155,7 @@ if encode == True:
     
         img_net.load_state_dict(img_state)
         cap_net.load_state_dict(caption_state)
-        iterator = batcher(test, args.batch_size, args.visual, args.cap, max_chars= 200, shuffle = False)
+        iterator = batcher(test, args.batch_size, args.visual, args.cap, max_chars= 260, shuffle = False)
         caption, image = embed_data(iterator, img_net, cap_net, dtype)
         print("Epoch " + img.split('.')[1])
         #print the per epoch results

@@ -228,7 +228,7 @@ def recall(data, at_n, c2i, i2c, prepend):
     # calculate the recall@n. Arguments are a set of nodes, the @n values, whether to do caption2image, image2caption or both
     # and a prepend string (e.g. to print validation or test in front of the results)
     # create a minibatcher over the validation set
-    iterator = batcher(data, args.batch_size, args.visual, args.cap, max_chars= 200, shuffle = False)
+    iterator = batcher(data, args.batch_size, args.visual, args.cap, max_chars= 60, shuffle = False)
     # the calc_recall function calculates and prints the recall.
     calc_recall(iterator, img_net, cap_net, at_n, c2i, i2c, prepend, dtype)
 

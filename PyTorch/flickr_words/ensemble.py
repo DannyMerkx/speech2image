@@ -26,7 +26,7 @@ import pickle
 sys.path.append('/data/speech2image/PyTorch/functions')
 
 from minibatchers import iterate_tokens_5fold, iterate_tokens
-from evaluate import embed_data, recall_at_n
+from evaluate import evaluate
 from encoders import img_encoder, char_gru_encoder
 from data_split import split_data
 ##################################### parameter settings ##############################################
@@ -62,8 +62,9 @@ dict_size = len(load_obj(args.dict_loc)) + 3
 char_config = {'embed':{'num_chars': dict_size, 'embedding_dim': 300, 'sparse': False, 'padding_idx': 0}, 
                'gru':{'input_size': 300, 'hidden_size': 1024, 'num_layers': 1, 'batch_first': True,
                'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1}}
-
-image_config = {'linear':{'in_size': 2048, 'out_size': 2048}, 'norm': True}
+# automatically adapt the image encoder output size to the size of the caption encoder
+out_size = char_config['gru']['hidden_size'] * 2**char_config['gru']['bidirectional'] * char_config['att']['heads']
+image_config = {'linear':{'in_size': 2048, 'out_size': out_size}, 'norm': True}
 
 
 # open the data file
@@ -108,21 +109,6 @@ else:
 # with the karpathy split
 train, test, val = split_data(f_nodes, args.split_loc)
 
-def recall(cap, img, at_n, c2i, i2c, prepend):
-    # calculate the recall@n. Arguments are a set of nodes, the @n values, whether to do caption2image, image2caption or both
-    # and a prepend string (e.g. to print validation or test in front of the results)
-    if c2i:
-        # create a minibatcher over the validation set
-        recall, median_rank = recall_at_n(img, cap, at_n, transpose = False)
-        # print some info about this epoch
-        for x in range(len(recall)):
-            print(prepend + ' caption2image recall@' + str(at_n[x]) + ' = ' + str(recall[x]*100) + '%')
-        print(prepend + ' caption2image median rank= ' + str(median_rank))
-    if i2c:
-        recall, median_rank = recall_at_n(img, cap, at_n, transpose = True)
-        for x in range(len(recall)):
-            print(prepend + ' image2caption recall@' + str(at_n[x]) + ' = ' + str(recall[x]*100) + '%')
-        print(prepend + ' image2caption median rank= ' + str(median_rank))  
 #####################################################
 
 # network modules
@@ -142,8 +128,11 @@ img_models = [x for x in models if 'image' in x]
 # run the image and caption retrieval and create an ensemble
 img_models.sort()
 caption_models.sort()
-caps = torch.autograd.Variable(dtype(np.zeros((5000, 2048)))).data
-imgs = torch.autograd.Variable(dtype(np.zeros((5000, 2048)))).data
+caps = torch.autograd.Variable(dtype(np.zeros((5000, out_size)))).data
+imgs = torch.autograd.Variable(dtype(np.zeros((5000, out_size)))).data
+
+evaluator = evaluate(dtype, img_net, cap_net)
+evaluator.set_n([1,5,10])
 for img, cap in zip(img_models, caption_models) :
     
     img_state = torch.load(args.results_loc + img)
@@ -151,12 +140,23 @@ for img, cap in zip(img_models, caption_models) :
     
     img_net.load_state_dict(img_state)
     cap_net.load_state_dict(caption_state)
-    iterator = batcher(test, args.batch_size, args.visual, args.cap, args.dict_loc, max_words= 50, shuffle = False)
-    caption, image = embed_data(iterator, img_net, cap_net, dtype)
+    iterator = batcher(test, args.batch_size, args.visual, args.cap, max_chars = 50, shuffle = False)
+    
+    evaluator.embed_data(iterator)
+    caption =  evaluator.return_caption_embeddings()
+    image = evaluator.return_image_embeddings()
+
     print("Epoch " + img.split('.')[1])
     #print the per epoch results
-    recall(caption, image, [1, 5, 10], c2i = True, i2c = True, prepend = 'test')
+    evaluator.print_caption2image('test')
+    evaluator.print_image2caption('test')
+        
     caps += caption
     imgs += image
 # print the results of the ensemble
-recall(caps, imgs, [1,5,10], c2i = True, i2c = True, prepend = 'test ensemble')
+evaluator.set_image_embeddings(imgs)
+evaluator.set_caption_embeddings(caps)
+
+evaluator.print_caption2image('test ensemble')
+evaluator.print_image2caption('test ensemble')
+
