@@ -249,7 +249,7 @@ while epoch <= args.n_epochs:
     
     # print some info about this epoch
     report(start_time, train_loss, val_loss, epoch)
-    recall(val, evaluator, c2i = True, i2c = True, prepend = 'validation', epoch)    
+    recall(val, evaluator, c2i = True, i2c = True, prepend = 'validation', epoch = epoch)    
     epoch += 1
     # this part is usefull only if you want to update the value for gradient clipping at each epoch
     # I found it didn't work well 
