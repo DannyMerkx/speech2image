@@ -131,7 +131,7 @@ evaluator = evaluate(dtype, img_net, cap_net)
 evaluator.set_n([1,5,10])
 
 for img, cap in zip(img_models, caption_models) :
-    epoch = img.split('.')[1]
+    ep = img.split('.')[1]
     img_state = torch.load(args.results_loc + img)
     caption_state = torch.load(args.results_loc + cap)
     
@@ -140,5 +140,6 @@ for img, cap in zip(img_models, caption_models) :
     # calculate the recall@n
     # create a minibatcher over the validation set
     print("Epoch " + epoch)
-    recall(val, evaluator, c2i = True, i2c = True, prepend = 'validation', epoch)
-    recall(test, evaluator, c2i = True, i2c = True, prepend = 'test', epoch)
+    recall(val, evaluator, c2i = True, i2c = True, prepend = 'validation', epoch = ep)
+    recall(test, evaluator, c2i = True, i2c = True, prepend = 'test', epoch = ep)
+
