@@ -201,5 +201,5 @@ evaluator.set_image_embeddings(imgs)
 evaluator.set_caption_embeddings(caps)
 
 # print the results of the ensemble
-evaluator.print_caption2image('test')
-evaluator.print_image2caption('test')
+evaluator.print_caption2image('test ensemble')
+evaluator.print_image2caption('test ensemble')

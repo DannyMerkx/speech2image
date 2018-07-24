@@ -18,7 +18,7 @@ import sys
 sys.path.append('/data/speech2image/PyTorch/functions')
 
 from minibatchers import iterate_raw_text_5fold, iterate_raw_text
-from evaluate import calc_recall
+from evaluate import evaluate
 from encoders import img_encoder, char_gru_encoder
 from data_split import split_data_coco
 ##################################### parameter settings ##############################################
@@ -45,8 +45,9 @@ args = parser.parse_args()
 char_config = {'embed':{'num_chars': 100, 'embedding_dim': 20, 'sparse': False, 'padding_idx': 0},
                'gru':{'input_size': 20, 'hidden_size': 1024, 'num_layers': 1, 'batch_first': True,
                'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1}}
-
-image_config = {'linear':{'in_size': 2048, 'out_size': 2048}, 'norm': True}
+# automatically adapt the image encoder output size to the size of the caption encoder
+out_size = char_config['gru']['hidden_size'] * 2**char_config['gru']['bidirectional'] * char_config['att']['heads']
+image_config = {'linear':{'in_size': 2048, 'out_size': out_size}, 'norm': True}
 
 
 # open the data file
@@ -94,14 +95,17 @@ train, val = split_data_coco(f_nodes)
 test = train[-5000:]
 train = train[:-5000]
 
-def recall(data, at_n, c2i, i2c, prepend):
+def recall(data, evaluator, c2i, i2c, prepend, epoch = 0):
     # calculate the recall@n. Arguments are a set of nodes, the @n values, whether to do caption2image, image2caption or both
     # and a prepend string (e.g. to print validation or test in front of the results)
     # create a minibatcher over the validation set
     iterator = batcher(data, args.batch_size, args.visual, args.cap, max_chars= 260, shuffle = False)
     # the calc_recall function calculates and prints the recall.
-    calc_recall(iterator, img_net, cap_net, at_n, c2i, i2c, prepend, dtype)
-
+    evaluator.embed_data(iterator)
+    if c2i:
+        evaluator.print_caption2image(prepend, epoch)
+    if i2c:
+        evaluator.print_image2caption(prepend, epoch)
 #####################################################
 
 # network modules
@@ -121,8 +125,13 @@ img_models = [x for x in models if 'image' in x]
 # run the image and caption retrieval
 img_models.sort()
 caption_models.sort()
+
+# create an evaluator and set the recall@n
+evaluator = evaluate(dtype, img_net, cap_net)
+evaluator.set_n([1,5,10])
+
 for img, cap in zip(img_models, caption_models) :
-    
+    ep = img.split('.')[1]
     img_state = torch.load(args.results_loc + img)
     caption_state = torch.load(args.results_loc + cap)
     
@@ -130,9 +139,8 @@ for img, cap in zip(img_models, caption_models) :
     cap_net.load_state_dict(caption_state)
     # calculate the recall@n
     # create a minibatcher over the validation set
-    print("Epoch " + img.split('.')[1])
-    recall(val, [1, 5, 10], c2i = True, i2c = True, prepend = 'validation') 
-    recall(val[:1000], [1, 5, 10], c2i = True, i2c = True, prepend = 'validation 1k') 
-    recall(test, [1, 5, 10], c2i = True, i2c = True, prepend = 'test') 
-    recall(test[1000], [1, 5, 10], c2i = True, i2c = True, prepend = 'test 1k') 
-
+    print("Epoch " + ep)
+    recall(val, evaluator, c2i = True, i2c = True, prepend = 'validation', epoch = ep)
+    recall(val[:1000], evaluator, c2i = True, i2c = True, prepend = '1k validation', epoch = ep)
+    recall(test, evaluator, c2i = True, i2c = True, prepend = 'test', epoch = ep)
+    recall(test[:1000], evaluator, c2i = True, i2c = True, prepend = '1k test', epoch = ep)
