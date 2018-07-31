@@ -23,7 +23,7 @@ sys.path.append('/data/speech2image/PyTorch/functions')
 from encoders import char_gru_encoder, snli
 from minibatchers import iterate_snli
 from data_split import split_snli
-
+# settings for the language inference task
 parser = argparse.ArgumentParser(description='Create and run an articulatory feature classification DNN')
 parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, default: True')
 parser.add_argument('-snli_dir', type = str, default =  '/data/snli_1.0', help = 'location of the snli data')
@@ -56,7 +56,7 @@ else:
     print('using cpu')
     dtype = torch.FloatTensor
 
-# load data
+# load data from the dir holding snli
 train, test, val = split_snli(args.snli_dir)
 
 # function to save parameters in a results folder
@@ -76,7 +76,7 @@ def embed(sent, length, network):
     emb = emb[torch.cuda.LongTensor(np.argsort(l_sort))]    
     return emb
 
-# loss function expects indices corresponding to the softmax layer
+# convert the text labels to integers for the sofmax layer.
 def create_labels(labels):
     labs = []
     for x in labels:
@@ -86,13 +86,14 @@ def create_labels(labels):
             l = 1
         elif x  == 'neutral':
             l = 2
+        # pairs where annotators were indecisive are marked neutral
         else:
             l = 2
         labs.append(l)
     labs = torch.autograd.Variable(torch.cuda.LongTensor(labs), requires_grad = False)
     return labs
 
-# create a feature vector for the classifier.
+# create the feature vector for the classifier.
 def feature_vector(sent1, sent2):
     # cosine distance
     cosine = torch.matmul(sent1, sent2.t()).diag()
@@ -103,7 +104,7 @@ def feature_vector(sent1, sent2):
     # concatenate the embeddings and the derived features into a single feature vector
     return torch.cat((sent1, sent2, elem_wise, absolute, cosine.unsqueeze(1)), 1)
 
-# create network
+# create the encoder and the classifier
 emb_net = char_gru_encoder(char_config)
 classifier = snli(classifier_config)
 
@@ -111,11 +112,13 @@ classifier = snli(classifier_config)
 if cuda:
     emb_net.cuda()
     classifier.cuda()
-# load pretrained network
+
+# load pretrained network if provided
 if args.pre_trained:
     caption_state = torch.load(args.cap_net, map_location=lambda storage, loc: storage)
     emb_net.load_state_dict(caption_state)
 
+# function to create a cyclic learning rate scheduler
 def create_cyclic_scheduler(max_lr, min_lr, stepsize):
     lr_lambda = lambda iteration: (max_lr - min_lr)*(0.5 * (np.cos(np.pi * (1 + (3 - 1) / stepsize * iteration)) + 1))+min_lr
     cyclic_scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda, last_epoch=-1)
@@ -123,6 +126,7 @@ def create_cyclic_scheduler(max_lr, min_lr, stepsize):
     # the function operates between 1 and 3 (so the cos cycles from -1 to -1 ) normalise between 0 and 1 and then press between
     # min and max lr   
     return(cyclic_scheduler)
+    
 # create the optimizer, loss function and the learning rate scheduler
 optimizer = torch.optim.Adam(list(emb_net.parameters()) + list(classifier.parameters()), 1)
 cross_entropy_loss = nn.CrossEntropyLoss(ignore_index = -100)
@@ -140,14 +144,14 @@ def train_epoch(epoch, emb_net, classifier, data):
         cyclic_scheduler.step()
         iteration += 1
         num_batches += 1
-        # embed the sentences using the network.
+        # embed the sentences using the encoder.
         sent1 = embed(sen1, len1, emb_net)
         sent2 = embed(sen2, len2, emb_net)
-        # predict the class label using the classifier. 
+        # predict the class labels using the classifier. 
         prediction = classifier(feature_vector(sent1, sent2))
-        # convert the true labels of the sentence pairs to indices 
+        # convert the ground truth text labels of the sentence pairs to indices 
         labels = create_labels(labels)
-        # calculate the loss an take a training step
+        # calculate the loss and take a training step
         loss = cross_entropy_loss(prediction, labels)
         optimizer.zero_grad()
         loss.backward()
@@ -160,28 +164,30 @@ def train_epoch(epoch, emb_net, classifier, data):
 def test_epoch(emb_net, classifier, data):
     emb_net.eval()
     classifier.eval()
+    # list to hold the scores of each minibatch
     preds = []
     val_loss = 0
     num_batches = 0
     # iterator returns converted sentences and their lenghts and labels in minibatches
     for sen1, len1, sen2, len2, labels in iterate_snli(data, args.batch_size, max_chars = 450, shuffle = False):
         num_batches += 1
-        # embed the sentences using the network.
+        # embed the sentences using the encoder.
         sent1 = embed(sen1, len1, emb_net)
         sent2 = embed(sen2, len2, emb_net)
         # predict the class label using the classifier. 
         prediction = classifier(feature_vector(sent1, sent2))
-        # convert the true labels of the sentence pairs to indices 
+        # convert the ground truth labels of the sentence pairs to indices 
         labels = create_labels(labels)
         # calculate the loss
         loss = cross_entropy_loss(prediction, labels)
         val_loss += loss.data       
         # get the index (i) of the predicted class
         v, i = torch.max(prediction, 1)
-        # compare the predicted class to the true label and add to the predictions list
+        # compare the predicted class to the true label and add the score to the predictions list
         preds.append(torch.Tensor.double(i.cpu().data == labels.cpu().data).numpy())
     # concatenate all the minibatches and calculate the accuracy of the predictions
     preds = np.concatenate(preds)
+    # calculate the accuracy based on the number of correct predictions
     correct = np.mean(preds) * 100 
     return val_loss.cpu()[0]/num_batches, correct
 
@@ -189,8 +195,7 @@ epoch = 1
 iteration = 0
 while epoch <= args.n_epochs:
     # keep track of runtime
-    start_time = time.time()
-    
+    start_time = time.time()  
     print('training epoch: ' + str(epoch))
     
     train_loss = train_epoch(epoch, emb_net, classifier, train)

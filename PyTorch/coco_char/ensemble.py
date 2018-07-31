@@ -136,9 +136,10 @@ for img, cap in zip(img_models, caption_models) :
     iterator = batcher(test, args.batch_size, args.visual, args.cap, max_chars = 260, shuffle = False)
     
     evaluator.embed_data(iterator)
+    evaluator.fivefold_c2i('1ktest')
     caption =  evaluator.return_caption_embeddings()
     image = evaluator.return_image_embeddings()
-
+    
     print("Epoch " + img.split('.')[1])
     #print the per epoch results
     evaluator.print_caption2image('test')

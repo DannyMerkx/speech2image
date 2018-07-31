@@ -98,14 +98,19 @@ else:
 # with the karpathy split
 train, test, val = split_data_coco(f_nodes, args.split_loc)
 
-def recall(data, at_n, c2i, i2c, prepend):
+def recall(data, evaluator, c2i, i2c, epoch, prepend):
     # calculate the recall@n. Arguments are a set of nodes, the @n values, whether to do caption2image, image2caption or both
     # and a prepend string (e.g. to print validation or test in front of the results)
     # create a minibatcher over the validation set
-    iterator = batcher(data, args.batch_size, args.visual, args.cap, max_chars= 60, shuffle = False)
+    iterator = batcher(data, args.batch_size, args.visual, args.cap, args.dict_loc, max_chars= 60, shuffle = False)
     # the calc_recall function calculates and prints the recall.
-    calc_recall(iterator, img_net, cap_net, at_n, c2i, i2c, prepend, dtype)
-
+    evaluator.embed_data(iterator)
+    if c2i:
+        evaluator.print_caption2image(prepend, epoch)
+        evaluator.evaluator.fivefold_c2i('1k ' + prepend, epoch)
+    if i2c:
+        evaluator.print_image2caption(prepend, epoch)
+        evaluator.evaluator.fivefold_i2c('1k ' + prepend, epoch)
 #####################################################
 
 # network modules
@@ -125,8 +130,13 @@ img_models = [x for x in models if 'image' in x]
 # run the image and caption retrieval
 img_models.sort()
 caption_models.sort()
+
+# create an evaluator and set the recall@n
+evaluator = evaluate(dtype, img_net, cap_net)
+evaluator.set_n([1,5,10])
+
 for img, cap in zip(img_models, caption_models) :
-    
+    epoch = img.split('.')[1]
     img_state = torch.load(args.results_loc + img)
     caption_state = torch.load(args.results_loc + cap)
     
@@ -134,8 +144,6 @@ for img, cap in zip(img_models, caption_models) :
     cap_net.load_state_dict(caption_state)
     # calculate the recall@n
     # create a minibatcher over the validation set
-    print("Epoch " + img.split('.')[1])
-    recall(val, [1, 5, 10], c2i = True, i2c = True, prepend = 'validation') 
-    recall(val[:1000], [1, 5, 10], c2i = True, i2c = True, prepend = 'validation 1k') 
-    recall(test, [1, 5, 10], c2i = True, i2c = True, prepend = 'test') 
-    recall(test[1000], [1, 5, 10], c2i = True, i2c = True, prepend = 'test 1k') 
+    print("Epoch " + epoch)
+    recall(val, evaluator, c2i = True, i2c = True, epoch, prepend = 'validation')
+    recall(test, evaluator, c2i = True, i2c = True, epoch, prepend = 'test')

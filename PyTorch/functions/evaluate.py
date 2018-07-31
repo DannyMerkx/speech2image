@@ -18,7 +18,7 @@ class evaluate():
         self.dtype = dtype
         self.embed_function_1 = embed_function_1
         self.embed_function_2 = embed_function_2
-        
+        self.dist = self.cosine
     # embed the captions and images
     def embed_data(self, iterator):
         # set to evaluation mode
@@ -51,9 +51,34 @@ class evaluate():
         # set the image and caption embeddings as class values.
         self.image_embeddings = image
         self.caption_embeddings = caption
+    # distance functions for calculating recall
+    def cosine(self, emb_1, emb_2):
+        return torch.matmul(emb_1, emb_2.t())
+    def ordered(self, emb_1, emb_2):
+        return  - torch.clamp(emb_1 - emb_2, min = 0).norm(1, dim = 1, keepdim = True)**2
         
-    # creates the distance matrix that can then be input to the evaluation functions
-    def dist_matrix(self, col = False, cosine = True):    
+    def c2i(self):
+        # total number of the embeddings
+        n_emb = self.image_embeddings.size()[0]
+        # with the 5 captions per image we got 5 copies of all images, get rid of the copies.
+        embeddings_1 = self.caption_embeddings
+        embeddings_2 = self.image_embeddings[0:n_emb//5, :]
+        # get the cosine similarity matrix for the embeddings by default. pass cosine = False to use the
+        # ordered distance measure proposed by vendrov et al. 
+        ranks = []
+        for index, emb in enumerate(embeddings_1):
+            sim = self.dist(emb, embeddings_2)
+            # apply sort two times to get a matrix where the values for each position indicate its rank in the column
+            sorted, indices = sim.sort(descending = True)
+            sorted, indices = indices.sort()
+
+            rank = indices[np.mod(index, embeddings_2.size()[0])] + 1
+            ranks.append(rank)
+
+        # concat the diagonals
+        self.ranks = self.dtype(ranks)        
+
+    def i2c(self):
         # total number of the embeddings
         n_emb = self.image_embeddings.size()[0]
         # with the 5 captions per image we got 5 copies of all images, get rid of the copies.
@@ -61,34 +86,19 @@ class evaluate():
         embeddings_2 = self.caption_embeddings
         # get the cosine similarity matrix for the embeddings by default. pass cosine = False to use the
         # ordered distance measure proposed by vendrov et al. 
-        if cosine:
-            sim = torch.matmul(embeddings_1, embeddings_2.t())
-        else:
-            sim = torch.clamp(embeddings_1 - embeddings_2[0], min = 0).norm(1, dim = 1, keepdim = True)**2
-            for x in range(1, embeddings_2.size(0)):
-                s = torch.clamp(embeddings_1 - embeddings_2[x], min = 0).norm(1, dim = 1, keepdim = True)**2
-                sim = torch.cat((sim, s), 1)
-            sim = - sim
-            
-        # the sorting dimension determines if we do cap2im or im2cap. Sorting the matrix by columns by setting col=True
-        # results in image2caption
-        if col:
-            dim = 1
-        else:
-            dim = 0
-        # apply sort two times to get a matrix where the values for each position indicate its rank in the column
-        sorted, indices = sim.sort(dim, descending = True)
-        sorted, indices = indices.sort(dim)
+        ranks = []
+        for index, emb in enumerate(embeddings_1):
+            sim = self.dist(emb, embeddings_2)
+            # apply sort two times to get a matrix where the values for each position indicate its rank in the column
+            sorted, indices = sim.sort(descending = True)
+            sorted, indices = indices.sort()
+            # get the indices of the 5 captions 
+            inds = [index + (x * (n_emb // 5)) for x in range (5)]
+            ranks.append(indices[inds].unsqueeze(1) + 1)
 
-        # we now take the diagonal at intervals of n_emb /5 (i.e. the diagonal of each caption 'submatrix').
-        # the ranks of the correct solutions are on the diagonal.
-        diags = []
-        for x in range(0,5):
-            # we add one to each rank so we count from 1 instead of 0
-            diag = indices.diag((int(x*(n_emb/5)))) + 1
-            diags.append(diag.unsqueeze(1))
         # concat the diagonals
-        self.ranks = torch.cat(diags,1)
+        self.ranks = torch.cat(ranks,1)
+                
     def median_rank(self, ranks):
         self.median = ranks.double().median()
     
@@ -105,17 +115,93 @@ class evaluate():
     
     def caption2image(self):
         # calculate the recall and median rank
-        self.dist_matrix(col = False)
+        self.c2i()
         self.median_rank(self.ranks)
         self.mean_rank(self.ranks)
         self.recall_at_n(self.ranks)
     def image2caption(self):
         # calculate the recall and median rank
-        self.dist_matrix(col = True)
-        self.median_rank(self.ranks.min(1)[0])
-        self.mean_rank(self.ranks.min(1)[0])
-        self.recall_at_n(self.ranks.min(1)[0])
-     
+        self.i2c()
+        self.median_rank(self.ranks.min(0)[0])
+        self.mean_rank(self.ranks.min(0)[0])
+        self.recall_at_n(self.ranks.min(0)[0])
+    
+    def fivefold_c2i(self, prepend, epoch = 0):
+        # get the embeddings for the full test set
+        capts = (self.caption_embeddings)
+        imgs = (self.image_embeddings)
+        # get indices for the full test set, shuffle them and reshape them to
+        # create 5 random folds
+        x = np.array([x for x in range(5000)])
+        np.random.shuffle(x)
+        x = np.reshape(x, (5,1000))
+        # variables to save the evaluation metrics 
+        median_rank = []
+        mean_rank = []
+        recall = []
+        for y in range(5):
+            # for the current fold get the indices of the embeddings. Add 5 increments of 5000 to the indices
+            # in order to retrieve all 5 captions for each image in the fold.
+            fold = torch.cuda.LongTensor(np.concatenate([x[y] + z  for z in range(0,25000,5000)]))
+            # overwrite the embeddings variables with the current fold
+            self.set_caption_embeddings(capts[fold])
+            self.set_image_embeddings(imgs[fold])
+            # perform the caption2image calculations
+            self.caption2image()
+            # retrieve the calculated metrics
+            median_rank.append(self.median)
+            mean_rank.append(self.mean)
+            recall.append(self.recall)
+        # calculate the average metrics over all folds
+        self.median = torch.FloatTensor(median_rank).mean()
+        self.mean = torch.FloatTensor(mean_rank).mean()
+        self.recall = torch.FloatTensor(recall).mean(0)
+        # reset the embedding variables to the full set
+        self.set_caption_embeddings(capts)
+        self.set_image_embeddings(imgs)
+        # print the scores
+        r = 'recall :'
+        for x in range(len(self.recall)):
+            r += (' @' + str(self.n[x]) + ': ' + str(np.round(self.recall[x] * 100,2)))
+        print(prepend + ' c2i,' + ' epoch:' + str(epoch) + ' ' + r + ' median: ' + str(self.median) + ' mean: ' + str(np.round(self.mean,2)))  
+
+    def fivefold_i2c(self, prepend, epoch = 0):
+        # get the embeddings for the full test set
+        capts = (self.caption_embeddings)
+        imgs = (self.image_embeddings)
+        # get indices for the full test set, shuffle them and reshape them to
+        # create 5 random folds
+        x = np.array([x for x in range(5000)])
+        np.random.shuffle(x)
+        x = np.reshape(x, (5,1000))
+        # variables to save the evaluation metrics 
+        median_rank = []
+        mean_rank = []
+        recall = []
+        for y in range(5):
+            # for the current fold get the indices of the embeddings. Add 5 increments of 5000 to the indices
+            # in order to retrieve all 5 captions for each image in the fold.
+            fold = torch.cuda.LongTensor(np.concatenate([x[y] + z  for z in range(0,25000,5000)]))
+            # overwrite the embeddings variables with the current fold
+            self.set_caption_embeddings(capts[fold])
+            self.set_image_embeddings(imgs[fold])
+            # perform the image2caption calculations
+            self.image2caption()
+            # retrieve the calculated metrics
+            median_rank.append(self.median)
+            mean_rank.append(self.mean)
+            recall.append(self.recall)
+        # calculate the average metrics over all folds
+        self.median = torch.FloatTensor(median_rank).mean()
+        self.mean = torch.FloatTensor(mean_rank).mean()
+        self.recall = torch.FloatTensor(recall).mean(0)
+        # reset the embedding variables to the full set
+        self.set_caption_embeddings(capts)
+        self.set_image_embeddings(imgs)
+        r = 'recall :'
+        for x in range(len(self.recall)):
+            r += (' @' + str(self.n[x]) + ': ' + str(np.round(self.recall[x] * 100,2)))
+        print(prepend + ' i2c,' + ' epoch:' + str(epoch) + ' ' + r + ' median: ' + str(self.median) + ' mean: ' + str(np.round(self.mean,2)))  
 
 ###############################################################################
     # functions used to return the class values
@@ -144,6 +230,12 @@ class evaluate():
         self.embed_function_1 = embedder
     def set_embedder_2(self, embedder):
         self.embed_function_2 = embedder
+    def set_cosine(self):
+        # set the distance function for recall to cosine
+        self.dist = self.cosine
+    def set_ordered(self):
+        # set the distance function to ordered
+        self.dist = self.ordered
 ###############################################################################
     # function to run the image2caption or caption2 image and print the results
     def print_caption2image(self, prepend, epoch = 0):

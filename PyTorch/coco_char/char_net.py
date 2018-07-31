@@ -212,7 +212,7 @@ def report(start_time, train_loss, val_loss, epoch):
     print("training loss:\t\t{:.6f}".format(train_loss.cpu()[0]))
     print("validation loss:\t\t{:.6f}".format(val_loss.cpu()[0]))
     
-def recall(data, evaluator, c2i, i2c, prepend, epoch = 0):
+def recall(data, evaluator, c2i, i2c, epoch, prepend):
     # calculate the recall@n. Arguments are a set of nodes, the @n values, whether to do caption2image, image2caption or both
     # and a prepend string (e.g. to print validation or test in front of the results)
     # create a minibatcher over the validation set
@@ -221,8 +221,10 @@ def recall(data, evaluator, c2i, i2c, prepend, epoch = 0):
     evaluator.embed_data(iterator)
     if c2i:
         evaluator.print_caption2image(prepend, epoch)
+        evaluator.evaluator.fivefold_c2i('1k ' + prepend, epoch)
     if i2c:
         evaluator.print_image2caption(prepend, epoch)
+        evaluator.evaluator.fivefold_i2c('1k ' + prepend, epoch)
 ################################# training/test loop #####################################
 epoch = 1
 iteration = 0
@@ -246,9 +248,7 @@ while epoch <= args.n_epochs:
     
     # print some info about this epoch
     report(start_time, train_loss, val_loss, epoch)
-    recall(val, evaluator, c2i = True, i2c = True, prepend = 'validation', epoch)
-    recall(val[:1000], evaluator, c2i = True, i2c = True, prepend = '1k validation', epoch)    
-    epoch += 1
+    recall(val, evaluator, c2i = True, i2c = True, epoch, prepend = 'validation')
     # this part is usefull only if you want to update the value for gradient clipping at each epoch
     # I found it didn't work well 
     #if args.gradient_clipping:
@@ -259,10 +259,9 @@ while epoch <= args.n_epochs:
     
 test_loss = test_epoch(img_net, cap_net, test, args.batch_size)
 print("test loss:\t\t{:.6f}".format(test_loss.cpu()[0]))# calculate the recall@n
-recall(test, evaluator, c2i = True, i2c = True, prepend = 'test')
-recall(test[:1000], evaluator, c2i = True, i2c = True, prepend = '1k test')
+recall(test, evaluator, c2i = True, i2c = True, epoch, prepend = 'test')
 
 # save the gradients for each epoch, can be usefull to select an initial clipping value.
-#if args.gradient_clipping:
-#    text_clipper.save_grads(args.results_loc, 'textgrads')
-#    img_clipper.save_grads(args.results_loc, 'imgrads')
+if args.gradient_clipping:
+    text_clipper.save_grads(args.results_loc, 'textgrads')
+    img_clipper.save_grads(args.results_loc, 'imgrads')

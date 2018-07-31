@@ -95,7 +95,7 @@ train, val = split_data_coco(f_nodes)
 test = train[-5000:]
 train = train[:-5000]
 
-def recall(data, evaluator, c2i, i2c, prepend, epoch = 0):
+def recall(data, evaluator, c2i, i2c, epoch, prepend):
     # calculate the recall@n. Arguments are a set of nodes, the @n values, whether to do caption2image, image2caption or both
     # and a prepend string (e.g. to print validation or test in front of the results)
     # create a minibatcher over the validation set
@@ -104,8 +104,10 @@ def recall(data, evaluator, c2i, i2c, prepend, epoch = 0):
     evaluator.embed_data(iterator)
     if c2i:
         evaluator.print_caption2image(prepend, epoch)
+        evaluator.evaluator.fivefold_c2i('1k ' + prepend, epoch)
     if i2c:
         evaluator.print_image2caption(prepend, epoch)
+        evaluator.evaluator.fivefold_i2c('1k ' + prepend, epoch)
 #####################################################
 
 # network modules
@@ -131,7 +133,7 @@ evaluator = evaluate(dtype, img_net, cap_net)
 evaluator.set_n([1,5,10])
 
 for img, cap in zip(img_models, caption_models) :
-    ep = img.split('.')[1]
+    epoch = img.split('.')[1]
     img_state = torch.load(args.results_loc + img)
     caption_state = torch.load(args.results_loc + cap)
     
@@ -139,8 +141,6 @@ for img, cap in zip(img_models, caption_models) :
     cap_net.load_state_dict(caption_state)
     # calculate the recall@n
     # create a minibatcher over the validation set
-    print("Epoch " + ep)
-    recall(val, evaluator, c2i = True, i2c = True, prepend = 'validation', epoch = ep)
-    recall(val[:1000], evaluator, c2i = True, i2c = True, prepend = '1k validation', epoch = ep)
-    recall(test, evaluator, c2i = True, i2c = True, prepend = 'test', epoch = ep)
-    recall(test[:1000], evaluator, c2i = True, i2c = True, prepend = '1k test', epoch = ep)
+    print("Epoch " + epoch)
+    recall(val, evaluator, c2i = True, i2c = True, epoch, prepend = 'validation')
+    recall(test, evaluator, c2i = True, i2c = True, epoch, prepend = 'test')
