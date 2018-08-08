@@ -8,6 +8,7 @@ Created on Tue Aug  7 15:45:31 2018
 from minibatchers import iterate_tokens_5fold, iterate_raw_text_5fold, iterate_audio_5fold, iterate_snli_tokens, iterate_snli
 from grad_tracker import gradient_clipping
 from evaluate import evaluate
+from load_embeddings import load_word_embeddings
 
 import numpy as np
 from torch.autograd import Variable
@@ -92,6 +93,10 @@ class flickr_trainer():
     def load_img_embedder(self, loc):
         img_state = torch.load(loc)
         self.img_embedder.load_state_dict(img_state)
+    # optionally load glove embeddings for token based embedders
+    def load_glove_embeddings(self, glove_loc):
+        self.cap_embedder.load_embeddings(self.dict_loc, glove_loc)
+    # manually update the epoch number
     def update_epoch(self):
         self.epoch += 1
     def train_epoch(self, data, batch_size):

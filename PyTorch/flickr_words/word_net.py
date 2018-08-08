@@ -8,23 +8,19 @@ Created on Tue Feb 27 14:13:00 2018
 #!/usr/bin/env python
 from __future__ import print_function
 
-import time
 import tables
 import argparse
 import torch
-import pickle
-from torch.autograd import Variable
 import numpy as np
 from torch.optim import lr_scheduler
 import sys
 sys.path.append('/data/speech2image/PyTorch/functions')
 
+from trainer import flickr_trainer
 from minibatchers import iterate_tokens_5fold, iterate_tokens
 from costum_loss import batch_hinge_loss, ordered_loss
-from evaluate import evaluate
 from encoders import img_encoder, char_gru_encoder
 from data_split import split_data
-from grad_tracker import gradient_clipping
 ##################################### parameter settings ##############################################
 
 parser = argparse.ArgumentParser(description='Create and run an articulatory feature classification DNN')
@@ -74,11 +70,8 @@ data_file = tables.open_file(args.data_loc, mode='r+')
 cuda = args.cuda and torch.cuda.is_available()
 if cuda:
     print('using gpu')
-    # if cuda cast all variables as cuda tensor
-    dtype = torch.cuda.FloatTensor
 else:
     print('using cpu')
-    dtype = torch.FloatTensor
 
 # get a list of all the nodes in the file. h5 format takes at most 10000 leaves per node, so big
 # datasets are split into subgroups at the root node 
@@ -108,35 +101,11 @@ else:
 # split the database into train test and validation sets. default settings uses the json file
 # with the karpathy split
 train, test, val = split_data(f_nodes, args.split_loc)
-
 ############################### Neural network setup #################################################
-
 # network modules
 img_net = img_encoder(image_config)
 cap_net = char_gru_encoder(char_config)
-# load pretrained word embeddings
-if args.glove:
-    cap_net.load_embeddings(args.dict_loc, args.glove_loc)
-
-# gradient clipping with these parameters (based the avg gradient norm for the first epoch)
-# can help stabilise training in the first epoch. I found that gradient clipping with 
-# a cutoff based on the previous epochs avg gradient is a bad idea though.
-if args.gradient_clipping:
-    img_clipper = gradient_clipping(clip_value = 0.0025)
-    cap_clipper = gradient_clipping(clip_value = 0.05)  
-    img_clipper.register_hook(img_net)
-    cap_clipper.register_hook(cap_net)
     
-    
-# move graph to gpu if cuda is availlable
-if cuda:
-    img_net.cuda()
-    cap_net.cuda()
-
-# function to save parameters in a results folder
-def save_params(model, file_name, epoch):
-    torch.save(model.state_dict(), args.results_loc + file_name + '.' +str(epoch))
-
 # Adam optimiser. I found SGD to work terribly and could not find appropriate parameter settings for it.
 optimizer = torch.optim.Adam(list(img_net.parameters())+list(cap_net.parameters()), 1)
 
@@ -155,130 +124,49 @@ def create_cyclic_scheduler(max_lr, min_lr, stepsize):
 
 cyclic_scheduler = create_cyclic_scheduler(max_lr = args.lr, min_lr = 1e-6, stepsize = (int(len(train)/args.batch_size)*5)*4)
 
-# training routine 
-def train_epoch(epoch, img_net, cap_net, optimizer, f_nodes, batch_size):
-    global iteration
-    img_net.train()
-    cap_net.train()
-    # for keeping track of the average loss over all batches
-    train_loss = 0
-    num_batches =0
-    for batch in batcher(f_nodes, batch_size, args.visual, args.cap, args.dict_loc, max_words = 60, shuffle = True):
-        cyclic_scheduler.step()
-        iteration +=1
-        img, cap, lengths = batch
-        num_batches +=1
-        # sort the tensors based on the unpadded caption length so they can be used
-        # with the pack_padded_sequence function
-        cap = cap[np.argsort(- np.array(lengths))]
-        img = img[np.argsort(- np.array(lengths))]
-        lengths = np.array(lengths)[np.argsort(- np.array(lengths))]
-        
-        # convert data to pytorch variables
-        img, cap = Variable(dtype(img)), Variable(dtype(cap))
-        # reset the gradients of the optimiser
-        optimizer.zero_grad()
-        # embed the images and audio using the networks
-        img_embedding = img_net(img)
-        cap_embedding = cap_net(cap, lengths)
-        # calculate the loss
-        loss = batch_hinge_loss(img_embedding, cap_embedding, cuda)
-        # calculate the gradients and perform the backprop step
-        loss.backward()
-        # clip the gradients if required
-        if args.gradient_clipping:
-            torch.nn.utils.clip_grad_norm(img_net.parameters(), img_clipper.clip)
-            torch.nn.utils.clip_grad_norm(cap_net.parameters(), cap_clipper.clip)
-        # update weights
-        optimizer.step()
-        # add loss to average
-        train_loss += loss.data
-        print(train_loss.cpu()[0]/num_batches)
-    return train_loss/num_batches
-
-def test_epoch(img_net, cap_net, f_nodes, batch_size):
-    # set to evaluation mode
-    img_net.eval()
-    cap_net.eval()
-    # for keeping track of the average loss
-    test_batches = 0
-    test_loss = 0
-    for batch in batcher(f_nodes, batch_size, args.visual, args.cap, args.dict_loc, max_words = 60, shuffle = False):
-        img, cap, lengths = batch
-        test_batches += 1
-        # sort the tensors based on the unpadded caption length so they can be used
-        # with the pack_padded_sequence function
-        cap = cap[np.argsort(- np.array(lengths))]
-        img = img[np.argsort(- np.array(lengths))]
-        lengths = np.array(lengths)[np.argsort(- np.array(lengths))]
- 
-        # convert data to pytorch variables
-        img, cap = Variable(dtype(img)), Variable(dtype(cap))        
-        # embed the images and audio using the networks
-        img_embedding = img_net(img)
-        cap_embedding = cap_net(cap, lengths)
-        loss = batch_hinge_loss(img_embedding, cap_embedding, cuda)
-        # add loss to average
-        test_loss += loss.data 
-    return test_loss/test_batches 
-
-def report(start_time, train_loss, val_loss, epoch):
-    # report on the time and train and val loss for the epoch
-    print("Epoch {} of {} took {:.3f}s".format(
-            epoch, args.n_epochs, time.time() - start_time))
-    print("training loss:\t\t{:.6f}".format(train_loss.cpu()[0]))
-    print("validation loss:\t\t{:.6f}".format(val_loss.cpu()[0]))
-    
-def recall(data, evaluator, c2i, i2c, epoch, prepend):
-    # calculate the recall@n. Arguments are a set of nodes, the @n values, whether to do caption2image, image2caption or both
-    # and a prepend string (e.g. to print validation or test in front of the results)
-    # create a minibatcher over the validation set
-    iterator = batcher(data, args.batch_size, args.visual, args.cap, args.dict_loc, max_words= 50, shuffle = False)
-    # the calc_recall function calculates and prints the recall.
-    evaluator.embed_data(iterator)
-    if c2i:
-        evaluator.print_caption2image(prepend, epoch)
-    if i2c:
-        evaluator.print_image2caption(prepend, epoch)
-
+# create a trainer setting the loss function, optimizer, minibatcher, lr_scheduler and the r@n evaluator
+trainer = flickr_trainer(img_net, cap_net, optimizer, args.visual, args.cap)
+trainer.set_loss(batch_hinge_loss)
+trainer.set_optimizer(optimizer)
+trainer.set_token_batcher()
+trainer.set_dict_loc(args.dict_loc)
+trainer.set_lr_scheduler(cyclic_scheduler)
+# optionally use cuda, gradient clipping and pretrained glove vectors
+if cuda:
+    trainer.set_cuda()
+if args.glove:
+    trainer.set_glove_embeddings(args.glove_loc)
+trainer.set_evaluator([1, 5, 10])
+# gradient clipping with these parameters (based the avg gradient norm for the first epoch)
+# can help stabilise training in the first epoch.
+if args.gradient_clipping:
+    trainer.set_gradient_clipping(0.0025, 0.05)
 ################################# training/test loop #####################################
-epoch = 1
-iteration = 0
-# create an evaluator and set the recall@n
-evaluator = evaluate(dtype, img_net, cap_net)
-evaluator.set_n([1,5,10])
+    
 # run the training loop for the indicated amount of epochs 
-while epoch <= args.n_epochs:
-    # keep track of runtime
-    start_time = time.time()
-
-    print('training epoch: ' + str(epoch))
+while trainer.epoch <= args.n_epochs:
     # Train on the train set
-    train_loss = train_epoch(epoch, img_net, cap_net, optimizer, train, args.batch_size)
-    
+    train_loss = trainer.train_epoch(train, args.batch_size)
     #evaluate on the validation set
-    val_loss = test_epoch(img_net, cap_net, val, args.batch_size)
+    val_loss = trainer.test_epoch(val, args.batch_size)
     # save network parameters
-    save_params(img_net, 'image_model', epoch)
-    save_params(cap_net, 'caption_model', epoch)
-    
+    trainer.save_params(args.results_loc)
+    trainer.save_params(args.results_loc)    
     # print some info about this epoch
-    report(start_time, train_loss, val_loss, epoch)
-    recall(val, evaluator, c2i = True, i2c = True, epoch, prepend = 'validation')    
-    epoch += 1
-    # this part is usefull only if you want to update the value for gradient clipping at each epoch
-    # I found it didn't work well 
-    #if args.gradient_clipping:
-        #text_clipper.update_clip_value()
-        #text_clipper.reset_gradients()
-        #img_clipper.update_clip_value()
-        #img_clipper.reset_gradients()
+    trainer.report(args.n_epochs)
+    trainer.recall_at_n(val, args.batch_size, prepend = 'validation')    
+    trainer.update_epoch()
+
+    if args.gradient_clipping:
+        # I found that updating the clip value at each epoch did not work well     
+        # trainer.update_clip()
+        trainer.reset_grads()
     
-test_loss = test_epoch(img_net, cap_net, test, args.batch_size)
-print("test loss:\t\t{:.6f}".format(test_loss.cpu()[0]))# calculate the recall@n
-recall(test, evaluator, c2i = True, i2c = True, epoch, prepend = 'test')
+test_loss = trainer.test_epoch(test, args.batch_size)
+trainer.print_test_loss()
+# calculate the recall@n
+trainer.recall_at_n(test, args.batch_size, prepend = 'test')
 
 # save the gradients for each epoch, can be usefull to select an initial clipping value.
 if args.gradient_clipping:
-    text_clipper.save_grads(args.results_loc, 'textgrads')
-    img_clipper.save_grads(args.results_loc, 'imgrads')
+    trainer.save_gradients(args.results_loc)

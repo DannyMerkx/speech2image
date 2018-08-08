@@ -120,6 +120,7 @@ trainer.set_loss(batch_hinge_loss)
 trainer.set_optimizer(optimizer)
 trainer.set_raw_text_batcher()
 trainer.set_lr_scheduler(cyclic_scheduler)
+#optionally use cuda and gradient clipping
 if cuda:
     trainer.set_cuda()
 trainer.set_evaluator([1, 5, 10])
@@ -128,8 +129,6 @@ trainer.set_evaluator([1, 5, 10])
 if args.gradient_clipping:
     trainer.set_gradient_clipping(0.0025, 0.05)
 ################################# training/test loop #####################################
-epoch = 1
-iteration = 0
 
 # run the training loop for the indicated amount of epochs 
 while trainer.epoch <= args.n_epochs:

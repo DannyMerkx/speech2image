@@ -108,6 +108,7 @@ caption_models.sort()
 # create a trainer with just the evaluator for the purpose of testing a pretrained model
 trainer = flickr_trainer(img_net, cap_net, args.visual, args.cap)
 trainer.set_raw_text_batcher()
+# optionally use cuda
 if cuda:
     trainer.set_cuda()
 trainer.set_evaluator([1, 5, 10])
