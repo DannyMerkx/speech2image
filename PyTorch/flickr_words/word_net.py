@@ -8,6 +8,7 @@ Created on Tue Feb 27 14:13:00 2018
 #!/usr/bin/env python
 from __future__ import print_function
 
+import pickle
 import tables
 import argparse
 import torch
