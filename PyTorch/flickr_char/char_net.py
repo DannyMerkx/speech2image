@@ -152,7 +152,7 @@ if cuda:
 evaluator = evaluate(dtype, img_net, cap_net)
 evaluator.set_n([1,5,10])
 
-def recall(data, evaluator, c2i, i2c, epoch, prepend):
+def recall(data, evaluator, epoch ,c2i, i2c, prepend):
     # calculate the recall@n. Arguments are a set of nodes, the @n values, whether to do caption2image, image2caption or both
     # and a prepend string (e.g. to print validation or test in front of the results)
     # create a minibatcher over the validation set
@@ -184,7 +184,7 @@ while epoch <= args.n_epochs:
     
     # print some info about this epoch
     report(start_time, train_loss, val_loss, epoch)
-    recall(val, evaluator, c2i = True, i2c = True, epoch, prepend = 'validation')    
+    recall(val, evaluator, epoch, c2i = True, i2c = True, prepend = 'validation')    
     epoch += 1
     # this part is usefull only if you want to update the value for gradient clipping at each epoch
     # I found it didn't work well 
