@@ -76,7 +76,8 @@ class flickr_trainer():
             # with the pack_padded_sequence function
             cap = cap[np.argsort(- np.array(lengths))]
             img = img[np.argsort(- np.array(lengths))]
-            lengths = np.array(lengths)[np.argsort(- np.array(lengths))]            
+            lengths = np.array(lengths)[np.argsort(- np.array(lengths))] 
+            
             # convert data to pytorch variables
             img, cap = Variable(self.dtype(img)), Variable(self.dtype(cap))
             # reset the gradients of the optimiser

@@ -125,7 +125,8 @@ class evaluate():
         self.median_rank(self.ranks.min(0)[0])
         self.mean_rank(self.ranks.min(0)[0])
         self.recall_at_n(self.ranks.min(0)[0])
-    
+    # functions to run caption2image and image2caption on a 5 fold test set.
+    # creates 5 random folds and accumulates, averages and prints the results 
     def fivefold_c2i(self, prepend, epoch = 0):
         # get the embeddings for the full test set
         capts = (self.caption_embeddings)
