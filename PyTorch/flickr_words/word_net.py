@@ -125,7 +125,7 @@ def create_cyclic_scheduler(max_lr, min_lr, stepsize):
 cyclic_scheduler = create_cyclic_scheduler(max_lr = args.lr, min_lr = 1e-6, stepsize = (int(len(train)/args.batch_size)*5)*4)
 
 # create a trainer setting the loss function, optimizer, minibatcher, lr_scheduler and the r@n evaluator
-trainer = flickr_trainer(img_net, cap_net, optimizer, args.visual, args.cap)
+trainer = flickr_trainer(img_net, cap_net, args.visual, args.cap)
 trainer.set_loss(batch_hinge_loss)
 trainer.set_optimizer(optimizer)
 trainer.set_token_batcher()
