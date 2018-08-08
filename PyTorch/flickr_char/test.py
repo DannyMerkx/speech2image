@@ -56,15 +56,12 @@ image_config = {'linear':{'in_size': 2048, 'out_size': out_size}, 'norm': True}
 # open the data file
 data_file = tables.open_file(args.data_loc, mode='r+') 
 
-# check if cuda is availlable and user wants to run on gpu
+# check if cuda is availlable and if user wants to run on gpu
 cuda = args.cuda and torch.cuda.is_available()
 if cuda:
     print('using gpu')
-    # if cuda cast all variables as cuda tensor
-    dtype = torch.cuda.FloatTensor
 else:
     print('using cpu')
-    dtype = torch.FloatTensor
 
 # get a list of all the nodes in the file. h5 format takes at most 10000 leaves per node, so big
 # datasets are split into subgroups at the root node 
@@ -94,28 +91,10 @@ else:
 # split the database into train test and validation sets. default settings uses the json file
 # with the karpathy split
 train, test, val = split_data(f_nodes, args.split_loc)
-
-def recall(data, evaluator, c2i, i2c,  epoch, prepend):
-    # calculate the recall@n. Arguments are a set of nodes, the @n values, whether to do caption2image, image2caption or both
-    # and a prepend string (e.g. to print validation or test in front of the results)
-    # create a minibatcher over the validation set
-    iterator = batcher(data, args.batch_size, args.visual, args.cap, max_chars= 200, shuffle = False)
-    # the calc_recall function calculates and prints the recall.
-    evaluator.embed_data(iterator)
-    if c2i:
-        evaluator.print_caption2image(prepend, epoch)
-    if i2c:
-        evaluator.print_image2caption(prepend, epoch)
 #####################################################
-
 # network modules
 img_net = img_encoder(image_config)
 cap_net = char_gru_encoder(char_config)
-
-# move graph to gpu if cuda is availlable
-if cuda:
-    img_net.cuda()
-    cap_net.cuda()
 
 # list all the trained model parameters
 models = os.listdir(args.results_loc)
@@ -126,20 +105,22 @@ img_models = [x for x in models if 'image' in x]
 img_models.sort()
 caption_models.sort()
 
-# create an evaluator and set the recall@n
-evaluator = evaluate(dtype, img_net, cap_net)
-evaluator.set_n([1,5,10])
+# create a trainer with just the evaluator for the purpose of testing a pretrained model
+trainer = flickr_trainer(img_net, cap_net, args.visual, args.cap)
+trainer.set_raw_text_batcher()
+if cuda:
+    trainer.set_cuda()
+trainer.set_evaluator([1, 5, 10])
 
-for img, cap in zip(img_models, caption_models) :
+for img, cap in zip(img_models, caption_models):
+
     epoch = img.split('.')[1]
-    img_state = torch.load(args.results_loc + img)
-    caption_state = torch.load(args.results_loc + cap)
+    # load the pretrained embedders
+    trainer.load_cap_embedder(args.results_loc + cap)
+    trainer.load_img_embedder(args.results_loc + img)
     
-    img_net.load_state_dict(img_state)
-    cap_net.load_state_dict(caption_state)
     # calculate the recall@n
-    # create a minibatcher over the validation set
-    print("Epoch " + epoch)
-    recall(val, evaluator, c2i = True, i2c = True, epoch, prepend = 'validation')
-    recall(test, evaluator, c2i = True, i2c = True, epoch, prepend = 'test')
+    trainer.set_epoch(epoch)
+    trainer.recall_at_n(val, args.batch_size, prepend = 'val')
+    trainer.recall_at_n(test, args.batch_size, prepend = 'test')
 

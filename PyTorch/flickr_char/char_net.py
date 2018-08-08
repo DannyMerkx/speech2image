@@ -114,9 +114,10 @@ def create_cyclic_scheduler(max_lr, min_lr, stepsize):
 
 cyclic_scheduler = create_cyclic_scheduler(max_lr = args.lr, min_lr = 1e-6, stepsize = (int(len(train)/args.batch_size)*5)*4)
 
-# create a trainer setting the loss function, minibatcher, lr_scheduler and the r@n evaluator
-loss = batch_hinge_loss
-trainer = flickr_trainer(img_net, cap_net, optimizer, loss, args.visual, args.cap)
+# create a trainer setting the loss function, optimizer, minibatcher, lr_scheduler and the r@n evaluator
+trainer = flickr_trainer(img_net, cap_net, optimizer, args.visual, args.cap)
+trainer.set_loss(batch_hinge_loss)
+trainer.set_optimizer(optimizer)
 trainer.set_raw_text_batcher()
 trainer.set_lr_scheduler(cyclic_scheduler)
 if cuda:
@@ -142,7 +143,7 @@ while trainer.epoch <= args.n_epochs:
     # print some info about this epoch
     trainer.report(args.n_epochs)
     trainer.recall_at_n(val, args.batch_size, prepend = 'validation')    
-    trainer.update_epoch
+    trainer.update_epoch()
 
     if args.gradient_clipping:
         # I found that updating the clip value at each epoch did not work well     

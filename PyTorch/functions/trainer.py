@@ -17,14 +17,12 @@ import time
 
 # trainer for the flickr database. 
 class flickr_trainer():
-    def __init__(self, img_embedder, cap_embedder, optimizer, loss, vis, cap):
+    def __init__(self, img_embedder, cap_embedder, vis, cap):
         # default datatype, change to cuda by calling set_cuda
         self.dtype = torch.FloatTensor
-        # set the embedders optimizer and loss function. set an empty scheduler to keep this optional.
+        # set the embedders. Set an empty scheduler to keep this optional.
         self.img_embedder = img_embedder
         self.cap_embedder = cap_embedder
-        self.optimizer = optimizer
-        self.loss = loss
         self.scheduler = []
         # set gradient clipping to false by default
         self.grad_clipping = False
@@ -55,9 +53,14 @@ class flickr_trainer():
     # function to set the learning rate scheduler
     def set_lr_scheduler(self, scheduler):
         self.scheduler = scheduler  
-    # function to set the loss for training
+    # function to set the loss for training. Loss is not necessary e.g. when you 
+    # only want to test a pretrained model.
     def set_loss(self, loss):
         self.loss = loss
+    # set an optimizer. Optional like the loss in case of using just pretrained models.
+    def set_optimizer(self, optim):
+        self.optimizer = optim
+    # set a dictionary for models trained on tokens
     def set_dict_loc(self, loc):
         self.dict_loc = loc
     # set data type and the networks to cuda
@@ -75,7 +78,20 @@ class flickr_trainer():
         self.cap_clipper = gradient_clipping(cap_clip_value)  
         self.img_clipper.register_hook(self.img_embedder)
         self.cap_clipper.register_hook(self.cap_embedder)
-        
+    # functions to set new embedders
+    def set_img_embedder(self, emb):
+        self.img_embedder = emb
+    def set_cap_embedder(self, emb):
+        self.cap_embedder = emb
+    def set_epoch(self, epoch):
+        self.epoch = epoch
+    # functions to load a pretrained embedder
+    def load_cap_embedder(self, loc):
+        cap_state = torch.load(loc)
+        self.cap_embedder.load_state_dict(cap_state)
+    def load_img_embedder(self, loc):
+        img_state = torch.load(loc)
+        self.img_embedder.load_state_dict(img_state)
     def update_epoch(self):
         self.epoch += 1
     def train_epoch(self, data, batch_size):
