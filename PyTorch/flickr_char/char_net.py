@@ -126,18 +126,6 @@ trainer.set_evaluator([1, 5, 10])
 # can help stabilise training in the first epoch.
 if args.gradient_clipping:
     trainer.set_gradient_clipping(0.0025, 0.05)
-    
-def recall(data, evaluator, epoch ,c2i, i2c, prepend):
-    # calculate the recall@n. Arguments are a set of nodes, the @n values, whether to do caption2image, image2caption or both
-    # and a prepend string (e.g. to print validation or test in front of the results)
-    # create a minibatcher over the validation set
-    iterator = batcher(data, args.batch_size, args.visual, args.cap, shuffle = False)
-    # the calc_recall function calculates and prints the recall.
-    evaluator.embed_data(iterator)
-    if c2i:
-        evaluator.print_caption2image(prepend, epoch)
-    if i2c:
-        evaluator.print_image2caption(prepend, epoch)
 ################################# training/test loop #####################################
 epoch = 1
 iteration = 0
