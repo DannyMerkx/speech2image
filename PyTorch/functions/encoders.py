@@ -7,6 +7,7 @@ Created on Mon Mar 26 17:54:07 2018
 """
 
 from costum_layers import RHN, attention, multi_attention
+from load_embeddings import load_word_embeddings
 import torch
 import torch.nn as nn
 
@@ -60,7 +61,12 @@ class char_gru_encoder(nn.Module):
         x, lens = nn.utils.rnn.pad_packed_sequence(x, batch_first = True)
         x = nn.functional.normalize(self.att(x), p=2, dim=1)
         return x
-
+    
+    def load_embeddings(self, dict_loc, embedding_loc):
+        # optionally load pretrained word embeddings. takes the dictionary of words occuring in the training data
+        # and the location of the embeddings.
+        load_word_embeddings(dict_loc, embedding_loc, self.embed.weight.data) 
+        
 # gru encoder for audio
 class audio_gru_encoder(nn.Module):
     def __init__(self, config):

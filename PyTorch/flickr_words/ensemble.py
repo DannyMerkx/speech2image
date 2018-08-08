@@ -140,7 +140,7 @@ for img, cap in zip(img_models, caption_models) :
     
     img_net.load_state_dict(img_state)
     cap_net.load_state_dict(caption_state)
-    iterator = batcher(test, args.batch_size, args.visual, args.cap, max_words = 50, shuffle = False)
+    iterator = batcher(test, args.batch_size, args.visual, args.cap, args.dict_loc max_words = 50, shuffle = False)
     
     evaluator.embed_data(iterator)
     caption =  evaluator.return_caption_embeddings()

@@ -18,6 +18,7 @@ from torch.optim import lr_scheduler
 import sys
 sys.path.append('/data/speech2image/PyTorch/functions')
 
+from trainer import flickr_trainer
 from minibatchers import iterate_raw_text_5fold, iterate_raw_text
 from costum_loss import batch_hinge_loss, ordered_loss
 from evaluate import evaluate
@@ -113,16 +114,6 @@ if args.gradient_clipping:
     img_clipper.register_hook(img_net)
     cap_clipper.register_hook(cap_net)
     
-    
-# move graph to gpu if cuda is availlable
-if cuda:
-    img_net.cuda()
-    cap_net.cuda()
-
-# function to save parameters in a results folder
-def save_params(model, file_name, epoch):
-    torch.save(model.state_dict(), args.results_loc + file_name + '.' +str(epoch))
-
 # Adam optimiser. I found SGD to work terribly and could not find appropriate parameter settings for it.
 optimizer = torch.optim.Adam(list(img_net.parameters())+list(cap_net.parameters()), 1)
 
@@ -141,80 +132,26 @@ def create_cyclic_scheduler(max_lr, min_lr, stepsize):
 
 cyclic_scheduler = create_cyclic_scheduler(max_lr = args.lr, min_lr = 1e-6, stepsize = (int(len(train)/args.batch_size)*5)*4)
 
-# training routine 
-def train_epoch(epoch, img_net, cap_net, optimizer, f_nodes, batch_size):
-    global iteration
-    img_net.train()
-    cap_net.train()
-    # for keeping track of the average loss over all batches
-    train_loss = 0
-    num_batches =0
-    for batch in batcher(f_nodes, batch_size, args.visual, args.cap, max_chars = 200, shuffle = True):
-        cyclic_scheduler.step()
-        iteration +=1
-        img, cap, lengths = batch
-        num_batches +=1
-        # sort the tensors based on the unpadded caption length so they can be used
-        # with the pack_padded_sequence function
-        cap = cap[np.argsort(- np.array(lengths))]
-        img = img[np.argsort(- np.array(lengths))]
-        lengths = np.array(lengths)[np.argsort(- np.array(lengths))]
-        
-        # convert data to pytorch variables
-        img, cap = Variable(dtype(img)), Variable(dtype(cap))
-        # reset the gradients of the optimiser
-        optimizer.zero_grad()
-        # embed the images and audio using the networks
-        img_embedding = img_net(img)
-        cap_embedding = cap_net(cap, lengths)
-        # calculate the loss
-        loss = batch_hinge_loss(img_embedding, cap_embedding, cuda)
-        # calculate the gradients and perform the backprop step
-        loss.backward()
-        # clip the gradients if required
-        if args.gradient_clipping:
-            torch.nn.utils.clip_grad_norm(img_net.parameters(), img_clipper.clip)
-            torch.nn.utils.clip_grad_norm(cap_net.parameters(), cap_clipper.clip)
-        # update weights
-        optimizer.step()
-        # add loss to average
-        train_loss += loss.data
-        print(train_loss.cpu()[0]/num_batches)
-    return train_loss/num_batches
-
-def test_epoch(img_net, cap_net, f_nodes, batch_size):
-    # set to evaluation mode
-    img_net.eval()
-    cap_net.eval()
-    # for keeping track of the average loss
-    test_batches = 0
-    test_loss = 0
-    for batch in batcher(f_nodes, batch_size, args.visual, args.cap, max_chars= 200, shuffle = False):
-        img, cap, lengths = batch
-        test_batches += 1
-        # sort the tensors based on the unpadded caption length so they can be used
-        # with the pack_padded_sequence function
-        cap = cap[np.argsort(- np.array(lengths))]
-        img = img[np.argsort(- np.array(lengths))]
-        lengths = np.array(lengths)[np.argsort(- np.array(lengths))]
- 
-        # convert data to pytorch variables
-        img, cap = Variable(dtype(img)), Variable(dtype(cap))        
-        # embed the images and audio using the networks
-        img_embedding = img_net(img)
-        cap_embedding = cap_net(cap, lengths)
-        loss = batch_hinge_loss(img_embedding, cap_embedding, cuda)
-        # add loss to average
-        test_loss += loss.data 
-    return test_loss/test_batches 
-
 def report(start_time, train_loss, val_loss, epoch):
     # report on the time and train and val loss for the epoch
     print("Epoch {} of {} took {:.3f}s".format(
             epoch, args.n_epochs, time.time() - start_time))
     print("training loss:\t\t{:.6f}".format(train_loss.cpu()[0]))
     print("validation loss:\t\t{:.6f}".format(val_loss.cpu()[0]))
-    
+
+# create a trainer
+loss = batch_hinge_loss
+trainer = flickr_trainer(img_net, cap_net, optimizer, loss, args.visual, args.cap)
+trainer.set_raw_text_batcher()
+trainer.set_cap_len(200)
+trainer.set_lr_scheduler(cyclic_scheduler)
+if cuda:
+    trainer.set_cuda()
+
+# create an evaluator and set the recall@n
+evaluator = evaluate(dtype, img_net, cap_net)
+evaluator.set_n([1,5,10])
+
 def recall(data, evaluator, c2i, i2c, epoch, prepend):
     # calculate the recall@n. Arguments are a set of nodes, the @n values, whether to do caption2image, image2caption or both
     # and a prepend string (e.g. to print validation or test in front of the results)
@@ -229,9 +166,7 @@ def recall(data, evaluator, c2i, i2c, epoch, prepend):
 ################################# training/test loop #####################################
 epoch = 1
 iteration = 0
-# create an evaluator and set the recall@n
-evaluator = evaluate(dtype, img_net, cap_net)
-evaluator.set_n([1,5,10])
+
 # run the training loop for the indicated amount of epochs 
 while epoch <= args.n_epochs:
     # keep track of runtime
@@ -239,13 +174,13 @@ while epoch <= args.n_epochs:
 
     print('training epoch: ' + str(epoch))
     # Train on the train set
-    train_loss = train_epoch(epoch, img_net, cap_net, optimizer, train, args.batch_size)
+    train_loss = trainer.train_epoch(train, args.batch_size)
     
     #evaluate on the validation set
-    val_loss = test_epoch(img_net, cap_net, val, args.batch_size)
+    val_loss = trainer.test_epoch(val, args.batch_size)
     # save network parameters
-    save_params(img_net, 'image_model', epoch)
-    save_params(cap_net, 'caption_model', epoch)
+    trainer.save_params(epoch, args.results_loc)
+    trainer.save_params(epoch, args.results_loc)
     
     # print some info about this epoch
     report(start_time, train_loss, val_loss, epoch)
@@ -259,7 +194,7 @@ while epoch <= args.n_epochs:
         #img_clipper.update_clip_value()
         #img_clipper.reset_gradients()
     
-test_loss = test_epoch(img_net, cap_net, test, args.batch_size)
+test_loss = trainer.test_epoch(test, args.batch_size)
 print("test loss:\t\t{:.6f}".format(test_loss.cpu()[0]))# calculate the recall@n
 recall(test, evaluator, c2i = True, i2c = True, epoch, prepend = 'test')
 

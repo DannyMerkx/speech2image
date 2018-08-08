@@ -136,7 +136,8 @@ for img, cap in zip(img_models, caption_models) :
     iterator = batcher(test, args.batch_size, args.visual, args.cap, max_chars = 260, shuffle = False)
     
     evaluator.embed_data(iterator)
-    evaluator.fivefold_c2i('1ktest')
+    evaluator.fivefold_c2i('1k test')
+    evaluator.fivefold_i2c('1k test')
     caption =  evaluator.return_caption_embeddings()
     image = evaluator.return_image_embeddings()
     
@@ -148,9 +149,6 @@ for img, cap in zip(img_models, caption_models) :
     evaluator.set_caption_embeddings(caption[:1000])
     evaluator.set_image_embeddings(image[:1000])
     
-    evaluator.print_caption2image('1k test')
-    evaluator.print_image2caption('1k test')
-    
     caps += caption
     imgs += image
 # print the results of the ensemble
@@ -160,8 +158,5 @@ evaluator.set_caption_embeddings(caps)
 evaluator.print_caption2image('test ensemble')
 evaluator.print_image2caption('test ensemble')
 
-evaluator.set_caption_embeddings(caps[:1000])
-evaluator.set_image_embeddings(imgs[:1000])
-
-evaluator.print_caption2image('1k test ensemble')
-evaluator.print_image2caption('1k test ensemble')
+evaluator.fivefold_c2i('1k test ensemble')
+evaluator.fivefold_i2c('1k test ensemble')

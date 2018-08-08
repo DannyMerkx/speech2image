@@ -35,12 +35,13 @@ parser.add_argument('-data_loc', type = str, default = '/prep_data/coco_features
 parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/coco_words/results/',
                     help = 'location to save the results and network parameters')
 parser.add_argument('-dict_loc', type = str, default = '/data/speech2image/preprocessing/dictionaries/coco_indices')
-
+parser.add_argument('-glove_loc', type = str, default = '/data/SentEval-master/examples/glove.840B.300d.txt', help = 'location of pretrained glove embeddings')
 # args concerning training settings
 parser.add_argument('-batch_size', type = int, default = 32, help = 'batch size, default: 32')
 parser.add_argument('-lr', type = float, default = 0.0001, help = 'learning rate, default:0.0001')
 parser.add_argument('-n_epochs', type = int, default = 32, help = 'number of training epochs, default: 25')
 parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, default: True')
+parser.add_argument('-glove', type = bool, default = False, help = 'use pretrained glove embeddings, default: False')
 # args concerning the database and which features to load
 parser.add_argument('-data_base', type = str, default = 'coco', help = 'database to train on, default: coco')
 parser.add_argument('-visual', type = str, default = 'resnet', help = 'name of the node containing the visual features, default: resnet')
@@ -114,6 +115,9 @@ train = train[:-5000]
 # network modules
 img_net = img_encoder(image_config)
 cap_net = char_gru_encoder(char_config)
+# load pretrained word embeddings
+if args.glove:
+    cap_net.load_embeddings(args.dict_loc, args.glove_loc)
 
 # gradient clipping with these parameters (based the avg gradient norm for the first epoch)
 # can help stabilise training in the first epoch. I found that gradient clipping with 
@@ -125,7 +129,7 @@ if args.gradient_clipping:
     cap_clipper.register_hook(cap_net)
     
     
-# move graph to gpu if cuda is availlable
+# move graph to gpu if cuda is available
 if cuda:
     img_net.cuda()
     cap_net.cuda()

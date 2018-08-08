@@ -8,6 +8,7 @@ Created on Tue Apr 10 10:57:38 2018
 
 # script that loads the flickr database json file in order to split
 # the data into Karpathy's  train test and validation set.
+from nltk.tokenize.nist import NISTTokenizer
 import json
 import os
 
@@ -60,10 +61,13 @@ def split_data_coco(f_nodes):
             val.append(x)
     return train, val
 
-def split_snli(snli_dir):
+def split_snli(snli_dir, tokens = False):
+    # pass tokens = True to tokenize the sentences. 
     # list the snli files
     files = os.listdir(snli_dir)
     files.sort()
+    if tokens:
+        nist = NISTTokenizer()
     # extract the train and test examples. (indexing based on sorted directory contents
     # do not add files to the directory)
     train = []
@@ -82,15 +86,24 @@ def split_snli(snli_dir):
     train_labels = [x['gold_label'] for x in train]
     train_sentence_1 = [x['sentence1'] for x in train]
     train_sentence_2 = [x['sentence2'] for x in train]
+    if tokens:
+        train_sentence_1 = [nist.tokenize(x.lower()) for x in train_sentence_1]
+        train_sentence_2 = [nist.tokenize(x.lower()) for x in train_sentence_2]
     train = zip(train_sentence_1, train_sentence_2, train_labels)
     
     test_labels = [x['gold_label'] for x in test]
     test_sentence_1 = [x['sentence1'] for x in test]
     test_sentence_2 = [x['sentence2'] for x in test]
+    if tokens:
+        test_sentence_1 = [nist.tokenize(x.lower()) for x in test_sentence_1]
+        test_sentence_2 = [nist.tokenize(x.lower()) for x in test_sentence_2]
     test = zip(test_sentence_1, test_sentence_2, test_labels)
     
     val_labels = [x['gold_label'] for x in val]
     val_sentence_1 = [x['sentence1'] for x in val]
     val_sentence_2 = [x['sentence2'] for x in val]
+    if tokens:
+        val_sentence_1 = [nist.tokenize(x.lower()) for x in val_sentence_1]
+        val_sentence_2 = [nist.tokenize(x.lower()) for x in val_sentence_2]
     val = zip(val_sentence_1, val_sentence_2, val_labels)
     return(list(train), list(test), list(val))

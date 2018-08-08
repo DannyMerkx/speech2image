@@ -13,6 +13,7 @@ import sys
 import argparse
 import numpy as np
 import time
+import pickle
 
 import torch
 import torch.nn as nn
@@ -21,7 +22,7 @@ from torch.optim import lr_scheduler
 sys.path.append('/data/speech2image/PyTorch/functions')
 
 from encoders import char_gru_encoder, snli
-from minibatchers import iterate_snli
+from minibatchers import iterate_snli_tokens
 from data_split import split_snli
 # settings for the language inference task
 parser = argparse.ArgumentParser(description='Create and run an articulatory feature classification DNN')
@@ -29,6 +30,10 @@ parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, defa
 parser.add_argument('-snli_dir', type = str, default =  '/data/snli_1.0', help = 'location of the snli data')
 parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/language_inference/results/',
                     help = 'location to save the results and network parameters')
+parser.add_argument('-dict_loc', type = str, default = '/data/speech2image/preprocessing/dictionaries/snli_indices')
+parser.add_argument('-glove_loc', type = str, default = '/data/SentEval-master/examples/glove.840B.300d.txt', help = 'location of pretrained glove embeddings')
+parser.add_argument('-glove', type = bool, default = False, help = 'use pretrained glove embeddings, default: False')
+
 parser.add_argument('-cap_net', type = str, default = '/data/speech2image/PyTorch/coco_char/results/caption_model.25', 
                     help = 'optional location of a pretrained model')
 parser.add_argument('-lr', type = float, default = 0.0001, help = 'learning rate, default = 0.001')
@@ -37,9 +42,16 @@ parser.add_argument('-n_epochs', type = int, default = 32, help = 'number of tra
 parser.add_argument('-pre_trained', type = bool, default = False, help = 'indicates whether to load a pretrained model')
 args = parser.parse_args()
 
+def load_obj(loc):
+    with open(loc + '.pkl', 'rb') as f:
+        return pickle.load(f)
+# get the size of the dictionary for the embedding layer (pytorch crashes if the embedding layer is not correct for the dictionary size)
+# add 1 for the zero or padding embedding
+dict_size = len(load_obj(args.dict_loc)) + 3    
+    
 # create config dictionaries with all the parameters for your encoders
-char_config = {'embed':{'num_chars': 100, 'embedding_dim': 20, 'sparse': False, 'padding_idx': 0}, 
-               'gru':{'input_size': 20, 'hidden_size': 1024, 'num_layers': 1, 'batch_first': True,
+char_config = {'embed':{'num_chars': dict_size, 'embedding_dim': 300, 'sparse': False, 'padding_idx': 0}, 
+               'gru':{'input_size': 300, 'hidden_size': 1024, 'num_layers': 1, 'batch_first': True,
                'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1}}
 # calculate the number of input features for the classifier. multiply by two for bidirectional networks, times 3 (concatenated
 # vectors + hadamard product, + cosine distance and absolute distance.)
@@ -57,7 +69,7 @@ else:
     dtype = torch.FloatTensor
 
 # load data from the dir holding snli
-train, test, val = split_snli(args.snli_dir)
+train, test, val = split_snli(args.snli_dir, tokens = True)
 
 # function to save parameters in a results folder
 def save_params(model, file_name, epoch):
@@ -108,6 +120,10 @@ def feature_vector(sent1, sent2):
 emb_net = char_gru_encoder(char_config)
 classifier = snli(classifier_config)
 
+# load pretrained word embeddings
+if args.glove:
+    emb_net.load_embeddings(args.dict_loc, args.glove_loc)
+
 # use cuda if availlable
 if cuda:
     emb_net.cuda()
@@ -140,7 +156,7 @@ def train_epoch(epoch, emb_net, classifier, data):
     train_loss = 0
     num_batches = 0 
     # iterator returns converted sentences and their lenghts and labels in minibatches
-    for sen1, len1, sen2, len2, labels in iterate_snli(data, args.batch_size, max_chars = 450, shuffle = True):
+    for sen1, len1, sen2, len2, labels in iterate_snli_tokens(data, args.batch_size, args.dict_loc, max_words = 85, shuffle = True):
         cyclic_scheduler.step()
         iteration += 1
         num_batches += 1
@@ -169,7 +185,7 @@ def test_epoch(emb_net, classifier, data):
     val_loss = 0
     num_batches = 0
     # iterator returns converted sentences and their lenghts and labels in minibatches
-    for sen1, len1, sen2, len2, labels in iterate_snli(data, args.batch_size, max_chars = 450, shuffle = False):
+    for sen1, len1, sen2, len2, labels in iterate_snli_tokens(data, args.batch_size, args.dict_loc, max_words = 85, shuffle = False):
         num_batches += 1
         # embed the sentences using the encoder.
         sent1 = embed(sen1, len1, emb_net)

@@ -205,3 +205,17 @@ def iterate_snli(data, batchsize, max_chars = 450, shuffle = True):
         sent1, l1 = char_2_index(list(sent1), batchsize, max_chars)
         sent2, l2 = char_2_index(list(sent2), batchsize, max_chars)
         yield sent1, l1, sent2, l2, list(labels)
+
+# iterator over the snli sentence pairs. Expects triples of paired sentences and labels.
+def iterate_snli_tokens(data, batchsize, dict_loc, max_words = 80, shuffle = True):
+    if shuffle:
+        # optionally shuffle the input
+        np.random.shuffle(data)
+    for start_idx in range(0, len(data) - batchsize + 1, batchsize):
+        # take a batch of nodes of the given size               
+        excerpt = data[start_idx:start_idx + batchsize]
+        sent1, sent2, labels = zip(*excerpt)
+        # converts the sentences to character ids and sentence lengths
+        sent1, l1 = word_2_index(list(sent1), batchsize, max_words, dict_loc)
+        sent2, l2 = word_2_index(list(sent2), batchsize, max_words, dict_loc)
+        yield sent1, l1, sent2, l2, list(labels)

@@ -37,11 +37,13 @@ parser.add_argument('-split_loc', type = str, default = '/data/speech2image/prep
 parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/flickr_words/results/',
                     help = 'location to save the results and network parameters')
 parser.add_argument('-dict_loc', type = str, default = '/data/speech2image/preprocessing/dictionaries/flickr_indices')
+parser.add_argument('-glove_loc', type = str, default = '/data/SentEval-master/examples/glove.840B.300d.txt', help = 'location of pretrained glove embeddings')
 # args concerning training settings
 parser.add_argument('-batch_size', type = int, default = 32, help = 'batch size, default: 32')
 parser.add_argument('-lr', type = float, default = 0.001, help = 'learning rate, default:0.001')
 parser.add_argument('-n_epochs', type = int, default = 32, help = 'number of training epochs, default: 25')
 parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, default: True')
+parser.add_argument('-glove', type = bool, default = False, help = 'use pretrained glove embeddings, default: False')
 # args concerning the database and which features to load
 parser.add_argument('-data_base', type = str, default = 'flickr', help = 'database to train on, default: flickr')
 parser.add_argument('-visual', type = str, default = 'resnet', help = 'name of the node containing the visual features, default: resnet')
@@ -112,6 +114,9 @@ train, test, val = split_data(f_nodes, args.split_loc)
 # network modules
 img_net = img_encoder(image_config)
 cap_net = char_gru_encoder(char_config)
+# load pretrained word embeddings
+if args.glove:
+    cap_net.load_embeddings(args.dict_loc, args.glove_loc)
 
 # gradient clipping with these parameters (based the avg gradient norm for the first epoch)
 # can help stabilise training in the first epoch. I found that gradient clipping with 
