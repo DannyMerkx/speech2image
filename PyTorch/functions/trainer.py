@@ -13,30 +13,36 @@ import os
 
 class flickr_trainer():
     def __init__(self, img_embedder, cap_embedder, optimizer, loss, vis, cap):
+        # default datatype, change to cuda by calling set_cuda
         self.dtype = torch.FloatTensor
+        # set the embedders optimizer and loss function. set an empty scheduler to keep lr scheduling optional.
         self.img_embedder = img_embedder
         self.cap_embedder = cap_embedder
         self.optimizer = optimizer
         self.loss = loss
+        self.scheduler = []
+        # names of the features to be loaded by the batcher
         self.vis = vis
         self.cap = cap
+        # keep track of an iteration for lr scheduling
+        self.iteration = 0
         # set default for the caption length
         self.max_len = 300
+    # the possible minibatcher for all different types of data for the flickr database
     def token_batcher(self, data, batch_size, shuffle):
         return iterate_tokens_5fold(data, batch_size, self.vis, self.cap, self.dict_loc, self.max_len, shuffle)
     def audio_batcher(self, data, batch_size, shuffle):
         return iterate_audio_5fold(data, batch_size, self.vis, self.cap, self.max_len, shuffle)
     def raw_text_batcher(self, data, batch_size, shuffle):
-        return iterate_raw_text_5fold(data, batch_size, self.vis, self.cap, self.max_len, shuffle)  
-    
-    # functions to set which minibatcher to use
+        return iterate_raw_text_5fold(data, batch_size, self.vis, self.cap, self.max_len, shuffle)      
+    # functions to set which minibatcher to use. Needs to be called as no default is set.
     def set_token_batcher(self):
         self.batcher = self.token_batcher
     def set_raw_text_batcher(self):
         self.batcher = self.raw_text_batcher
     def set_audio_batcher(self):
         self.batcher = self.audio_batcher
-    # function to set the max frame/word/character length of the captions
+    # function to set the max frame/word/character length of the captions to non default value
     def set_cap_len(self, max_len):
         self.max_len = max_len
     # function to set the learning rate scheduler
@@ -53,23 +59,24 @@ class flickr_trainer():
         self.cap_embedder.cuda()
     
     def train_epoch(self, data, batch_size):
-        global iteration
         self.img_embedder.train()
         self.cap_embedder.train()
         # for keeping track of the average loss over all batches
         train_loss = 0
         num_batches = 0
         for batch in self.batcher(data, batch_size, shuffle = True):
-            self.scheduler.step()
-            iteration +=1
+            # if there is a lr scheduler, take a step in the scheduler
+            if self.scheduler:
+                self.scheduler.step()
+                self.iteration +=1
+            # retrieve a minibatch from the batcher
             img, cap, lengths = batch
             num_batches +=1
             # sort the tensors based on the unpadded caption length so they can be used
             # with the pack_padded_sequence function
             cap = cap[np.argsort(- np.array(lengths))]
             img = img[np.argsort(- np.array(lengths))]
-            lengths = np.array(lengths)[np.argsort(- np.array(lengths))]
-            
+            lengths = np.array(lengths)[np.argsort(- np.array(lengths))]            
             # convert data to pytorch variables
             img, cap = Variable(self.dtype(img)), Variable(self.dtype(cap))
             # reset the gradients of the optimiser
