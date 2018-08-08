@@ -124,21 +124,16 @@ trainer.set_evaluator([1, 5, 10])
 caps = torch.autograd.Variable(trainer.dtype(np.zeros((5000, out_size)))).data
 imgs = torch.autograd.Variable(trainer.dtype(np.zeros((5000, out_size)))).data
 
-for img, cap in zip(img_models, caption_models):
-    
+for img, cap in zip(img_models, caption_models):  
     epoch = img.split('.')[1]
     # load the pretrained embedders
     trainer.load_cap_embedder(args.results_loc + cap)
-    trainer.load_img_embedder(args.results_loc + img)
-    
+    trainer.load_img_embedder(args.results_loc + img)   
     # calculate the recall@n
     trainer.set_epoch(epoch)
     trainer.recall_at_n(val, args.batch_size, prepend = 'val')
     trainer.recall_at_n(test, args.batch_size, prepend = 'test')
 
-    
-    iterator = batcher(test, args.batch_size, args.visual, args.cap, max_chars = 200, shuffle = False)
-    
     caption =  trainer.evaluator.return_caption_embeddings()
     image = trainer.evaluator.return_image_embeddings()
 

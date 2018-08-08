@@ -8,7 +8,6 @@ Created on Tue Aug  7 15:45:31 2018
 from minibatchers import iterate_tokens_5fold, iterate_raw_text_5fold, iterate_audio_5fold, iterate_snli_tokens, iterate_snli
 from grad_tracker import gradient_clipping
 from evaluate import evaluate
-from load_embeddings import load_word_embeddings
 
 import numpy as np
 from torch.autograd import Variable
@@ -41,6 +40,8 @@ class flickr_trainer():
         return iterate_audio_5fold(data, batch_size, self.vis, self.cap, shuffle)
     def raw_text_batcher(self, data, batch_size, shuffle):
         return iterate_raw_text_5fold(data, batch_size, self.vis, self.cap, shuffle)    
+
+################## functions to set class values and attributes ###############
     # functions to set which minibatcher to use. Needs to be called as no default is set.
     def set_token_batcher(self):
         self.batcher = self.token_batcher
@@ -48,9 +49,6 @@ class flickr_trainer():
         self.batcher = self.raw_text_batcher
     def set_audio_batcher(self):
         self.batcher = self.audio_batcher
-    # function to set the max frame/word/character length of the captions to non default value
-    def set_cap_len(self, max_len):
-        self.max_len = max_len
     # function to set the learning rate scheduler
     def set_lr_scheduler(self, scheduler):
         self.scheduler = scheduler  
@@ -69,23 +67,18 @@ class flickr_trainer():
         self.dtype = torch.cuda.FloatTensor
         self.img_embedder.cuda()
         self.cap_embedder.cuda()
-    def set_evaluator(self, n):
-        self.evaluator = evaluate(self.dtype, self.img_embedder, self.cap_embedder)
-        self.evaluator.set_n(n)
-    # create a gradient tracker/clipper
-    def set_gradient_clipping(self, img_clip_value, cap_clip_value):
-        self.grad_clipping = True
-        self.img_clipper = gradient_clipping(img_clip_value)
-        self.cap_clipper = gradient_clipping(cap_clip_value)  
-        self.img_clipper.register_hook(self.img_embedder)
-        self.cap_clipper.register_hook(self.cap_embedder)
+    # manually set the epoch to some number e.g. if continuing training from a 
+    # pretrained model
+    def set_epoch(self, epoch):
+        self.epoch = epoch
+    # manually update the epoch number
+    def update_epoch(self):
+        self.epoch += 1
     # functions to set new embedders
     def set_img_embedder(self, emb):
         self.img_embedder = emb
     def set_cap_embedder(self, emb):
         self.cap_embedder = emb
-    def set_epoch(self, epoch):
-        self.epoch = epoch
     # functions to load a pretrained embedder
     def load_cap_embedder(self, loc):
         cap_state = torch.load(loc)
@@ -93,12 +86,12 @@ class flickr_trainer():
     def load_img_embedder(self, loc):
         img_state = torch.load(loc)
         self.img_embedder.load_state_dict(img_state)
-    # optionally load glove embeddings for token based embedders
+    # optionally load glove embeddings for token based embedders with load_embeddings
+    # function implemented
     def load_glove_embeddings(self, glove_loc):
         self.cap_embedder.load_embeddings(self.dict_loc, glove_loc)
-    # manually update the epoch number
-    def update_epoch(self):
-        self.epoch += 1
+       
+################## functions to perform training and testing ##################
     def train_epoch(self, data, batch_size):
         print('training epoch: ' + str(self.epoch))
         # keep track of runtime
@@ -171,10 +164,8 @@ class flickr_trainer():
             self.test_loss += loss.data 
         self.test_loss = self.test_loss/test_batches
         return self.test_loss/test_batches
-    # function to save parameters in a results folder
-    def save_params(self, loc):
-        torch.save(self.cap_embedder.state_dict(), os.path.join(loc, 'caption_model' + '.' +str(self.epoch)))
-        torch.save(self.img_embedder.state_dict(), os.path.join(loc, 'image_model' + '.' +str(self.epoch)))
+    
+######################## evaluation functions #################################
     # report on the time this epoch took and the train and test loss
     def report(self, max_epochs):
         # report on the time and train and val loss for the epoch
@@ -188,7 +179,32 @@ class flickr_trainer():
     def print_test_loss(self):        
         print("test loss:\t\t{:.6f}".format(self.test_loss.cpu()[0]))
     def print_validation_loss(self):
-        print("validation loss:\t\t{:.6f}".format(self.test_loss.cpu()[0])) 
+        print("validation loss:\t\t{:.6f}".format(self.test_loss.cpu()[0]))
+    # create and manipulate an evaluator object   
+    def set_evaluator(self, n):
+        self.evaluator = evaluate(self.dtype, self.img_embedder, self.cap_embedder)
+        self.evaluator.set_n(n)
+    # calculate the recall@n. Arguments are a set of nodes and a prepend string 
+    # (e.g. to print validation or test in front of the results)
+    def recall_at_n(self, data, batch_size, prepend):        
+        iterator = self.batcher(data, batch_size, shuffle = False)
+        # the calc_recall function calculates and prints the recall.
+        self.evaluator.embed_data(iterator)
+        self.evaluator.print_caption2image(prepend, self.epoch)
+        self.evaluator.print_image2caption(prepend, self.epoch)        
+    # function to save parameters in a results folder
+    def save_params(self, loc):
+        torch.save(self.cap_embedder.state_dict(), os.path.join(loc, 'caption_model' + '.' +str(self.epoch)))
+        torch.save(self.img_embedder.state_dict(), os.path.join(loc, 'image_model' + '.' +str(self.epoch)))
+
+############ functions to deal with the trainer's gradient clipper ############
+    # create a gradient tracker/clipper
+    def set_gradient_clipping(self, img_clip_value, cap_clip_value):
+        self.grad_clipping = True
+        self.img_clipper = gradient_clipping(img_clip_value)
+        self.cap_clipper = gradient_clipping(cap_clip_value)  
+        self.img_clipper.register_hook(self.img_embedder)
+        self.cap_clipper.register_hook(self.cap_embedder)
     # save the gradients collected so far 
     def save_gradients(self, loc):
         self.cap_clipper.save_grads(loc, 'cap_grads')
@@ -202,14 +218,7 @@ class flickr_trainer():
     def update_clip(self):
         self.cap_clipper.update_clip_value()
         self.img_clipper.update_clip_value()
-    # calculate the recall@n. Arguments are a set of nodes and a prepend string 
-    # (e.g. to print validation or test in front of the results)
-    def recall_at_n(self, data, batch_size, prepend):        
-        iterator = self.batcher(data, batch_size, shuffle = False)
-        # the calc_recall function calculates and prints the recall.
-        self.evaluator.embed_data(iterator)
-        self.evaluator.print_caption2image(prepend, self.epoch)
-        self.evaluator.print_image2caption(prepend, self.epoch)
+
     
 class snli_trainer():
     def __init__(self, cap_embedder, classifier, optimizer, loss):
