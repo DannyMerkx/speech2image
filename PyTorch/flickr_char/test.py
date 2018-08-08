@@ -17,8 +17,8 @@ import torch
 import sys
 sys.path.append('/data/speech2image/PyTorch/functions')
 
+from trainer import flickr_trainer
 from minibatchers import iterate_raw_text_5fold, iterate_raw_text
-from evaluate import evaluate
 from encoders import img_encoder, char_gru_encoder
 from data_split import split_data
 ##################################### parameter settings ##############################################
