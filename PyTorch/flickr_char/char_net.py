@@ -143,7 +143,6 @@ def report(start_time, train_loss, val_loss, epoch):
 loss = batch_hinge_loss
 trainer = flickr_trainer(img_net, cap_net, optimizer, loss, args.visual, args.cap)
 trainer.set_raw_text_batcher()
-trainer.set_cap_len(200)
 trainer.set_lr_scheduler(cyclic_scheduler)
 if cuda:
     trainer.set_cuda()

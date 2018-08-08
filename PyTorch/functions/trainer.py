@@ -26,15 +26,13 @@ class flickr_trainer():
         self.cap = cap
         # keep track of an iteration for lr scheduling
         self.iteration = 0
-        # set default for the caption length
-        self.max_len = 300
     # the possible minibatcher for all different types of data for the flickr database
     def token_batcher(self, data, batch_size, shuffle):
-        return iterate_tokens_5fold(data, batch_size, self.vis, self.cap, self.dict_loc, self.max_len, shuffle)
+        return iterate_tokens_5fold(data, batch_size, self.vis, self.cap, self.dict_loc, shuffle)
     def audio_batcher(self, data, batch_size, shuffle):
-        return iterate_audio_5fold(data, batch_size, self.vis, self.cap, self.max_len, shuffle)
+        return iterate_audio_5fold(data, batch_size, self.vis, self.cap, shuffle)
     def raw_text_batcher(self, data, batch_size, shuffle):
-        return iterate_raw_text_5fold(data, batch_size, self.vis, self.cap, self.max_len, shuffle)      
+        return iterate_raw_text_5fold(data, batch_size, self.vis, self.cap, shuffle)      
     # functions to set which minibatcher to use. Needs to be called as no default is set.
     def set_token_batcher(self):
         self.batcher = self.token_batcher
