@@ -10,6 +10,7 @@ import numpy as np
 from torch.autograd import Variable
 import torch
 import os
+import time
 
 class flickr_trainer():
     def __init__(self, img_embedder, cap_embedder, optimizer, loss, vis, cap):
@@ -57,10 +58,12 @@ class flickr_trainer():
         self.cap_embedder.cuda()
     
     def train_epoch(self, data, batch_size):
+        # keep track of runtime
+        self.start_time = time.time()
         self.img_embedder.train()
         self.cap_embedder.train()
         # for keeping track of the average loss over all batches
-        train_loss = 0
+        self.train_loss = 0
         num_batches = 0
         for batch in self.batcher(data, batch_size, shuffle = True):
             # if there is a lr scheduler, take a step in the scheduler
@@ -94,9 +97,10 @@ class flickr_trainer():
             # update weights
             self.optimizer.step()
             # add loss to average
-            train_loss += loss.data
-            print(train_loss.cpu()[0]/num_batches)
-        return train_loss/num_batches        
+            self.train_loss += loss.data
+            print(self.train_loss.cpu()[0]/num_batches)
+        self.train_loss = self.train_loss/num_batches
+        return self.train_loss/num_batches        
 
     def test_epoch(self, data, batch_size):
         # set to evaluation mode
@@ -104,7 +108,7 @@ class flickr_trainer():
         self.cap_embedder.eval()
         # for keeping track of the average loss
         test_batches = 0
-        test_loss = 0
+        self.test_loss = 0
         for batch in self.batcher(data, batch_size, shuffle = False):
             img, cap, lengths = batch
             test_batches += 1
@@ -121,12 +125,27 @@ class flickr_trainer():
             cap_embedding = self.cap_embedder(cap, lengths)
             loss = self.loss(img_embedding, cap_embedding, cuda = True)
             # add loss to average
-            test_loss += loss.data 
-        return test_loss/test_batches
+            self.test_loss += loss.data 
+        self.test_loss = self.test_loss/test_batches
+        return self.test_loss/test_batches
     # function to save parameters in a results folder
     def save_params(self, epoch, loc):
         torch.save(self.cap_embedder.state_dict(), os.path.join(loc, 'caption_model' + '.' +str(epoch)))
         torch.save(self.img_embedder.state_dict(), os.path.join(loc, 'image_model' + '.' +str(epoch)))
+    # report on the time this epoch took and the train and test loss
+    def report(self, epoch, max_epochs):
+        # report on the time and train and val loss for the epoch
+        print("Epoch {} of {} took {:.3f}s".format(
+                epoch, max_epochs, time.time() - self.start_time))
+        self.print_train_loss()
+        self.print_validation_loss()
+    # print the loss values
+    def print_train_loss(self):  
+        print("training loss:\t\t{:.6f}".format(self.train_loss.cpu()[0]))
+    def print_test_loss(self):        
+        print("test loss:\t\t{:.6f}".format(self.test_loss.cpu()[0]))
+    def print_validation_loss(self):
+        print("validation loss:\t\t{:.6f}".format(self.test_loss.cpu()[0])) 
         
 class snli_trainer():
     def __init__(self, cap_embedder, classifier, optimizer, loss):

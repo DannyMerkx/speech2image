@@ -8,7 +8,6 @@ Created on Tue Feb 27 14:13:00 2018
 #!/usr/bin/env python
 from __future__ import print_function
 
-import time
 import tables
 import argparse
 import torch
@@ -132,13 +131,6 @@ def create_cyclic_scheduler(max_lr, min_lr, stepsize):
 
 cyclic_scheduler = create_cyclic_scheduler(max_lr = args.lr, min_lr = 1e-6, stepsize = (int(len(train)/args.batch_size)*5)*4)
 
-def report(start_time, train_loss, val_loss, epoch):
-    # report on the time and train and val loss for the epoch
-    print("Epoch {} of {} took {:.3f}s".format(
-            epoch, args.n_epochs, time.time() - start_time))
-    print("training loss:\t\t{:.6f}".format(train_loss.cpu()[0]))
-    print("validation loss:\t\t{:.6f}".format(val_loss.cpu()[0]))
-
 # create a trainer
 loss = batch_hinge_loss
 trainer = flickr_trainer(img_net, cap_net, optimizer, loss, args.visual, args.cap)
@@ -155,7 +147,7 @@ def recall(data, evaluator, epoch ,c2i, i2c, prepend):
     # calculate the recall@n. Arguments are a set of nodes, the @n values, whether to do caption2image, image2caption or both
     # and a prepend string (e.g. to print validation or test in front of the results)
     # create a minibatcher over the validation set
-    iterator = batcher(data, args.batch_size, args.visual, args.cap, max_chars= 200, shuffle = False)
+    iterator = batcher(data, args.batch_size, args.visual, args.cap, shuffle = False)
     # the calc_recall function calculates and prints the recall.
     evaluator.embed_data(iterator)
     if c2i:
@@ -168,21 +160,17 @@ iteration = 0
 
 # run the training loop for the indicated amount of epochs 
 while epoch <= args.n_epochs:
-    # keep track of runtime
-    start_time = time.time()
 
     print('training epoch: ' + str(epoch))
     # Train on the train set
     train_loss = trainer.train_epoch(train, args.batch_size)
-    
     #evaluate on the validation set
     val_loss = trainer.test_epoch(val, args.batch_size)
     # save network parameters
     trainer.save_params(epoch, args.results_loc)
-    trainer.save_params(epoch, args.results_loc)
-    
+    trainer.save_params(epoch, args.results_loc)    
     # print some info about this epoch
-    report(start_time, train_loss, val_loss, epoch)
+    trainer.report(epoch, args.n_epochs)
     recall(val, evaluator, epoch, c2i = True, i2c = True, prepend = 'validation')    
     epoch += 1
     # this part is usefull only if you want to update the value for gradient clipping at each epoch
@@ -194,7 +182,8 @@ while epoch <= args.n_epochs:
         #img_clipper.reset_gradients()
     
 test_loss = trainer.test_epoch(test, args.batch_size)
-print("test loss:\t\t{:.6f}".format(test_loss.cpu()[0]))# calculate the recall@n
+trainer.print_test_loss()
+# calculate the recall@n
 recall(test, evaluator, epoch, c2i = True, i2c = True, prepend = 'test')
 
 # save the gradients for each epoch, can be usefull to select an initial clipping value.

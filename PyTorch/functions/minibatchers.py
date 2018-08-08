@@ -48,7 +48,7 @@ def iterate_audio(f_nodes, batchsize, visual, audio, frames = 2048, shuffle=True
 
 # visual and text should be the names of the feature nodes in the h5 file, chars is the maximum sentence length in characters.
 # default is 260, to accomodate the max lenght found in mscoco. The max lenght in flickr is 200 
-def iterate_raw_text(f_nodes, batchsize, visual, text, max_chars = 260, shuffle=True):
+def iterate_raw_text(f_nodes, batchsize, visual, text, shuffle=True):
     if shuffle:
         # optionally shuffle the input
         np.random.shuffle(f_nodes)
@@ -67,6 +67,7 @@ def iterate_raw_text(f_nodes, batchsize, visual, text, max_chars = 260, shuffle=
             # convert the sentence to lower case.
             caption.append(cap)
         # converts the sentence to character ids. 
+        max_chars = max([len(x) for x in caption])
         caption, lengths = char_2_index(caption, batchsize, max_chars)
         images_shape = np.shape(images)
         # images should be shape (batch_size, 1024). images_shape[1] is collapsed as the original features are of shape (1,1024) 
@@ -74,7 +75,7 @@ def iterate_raw_text(f_nodes, batchsize, visual, text, max_chars = 260, shuffle=
         yield images, caption, lengths
 
 # slightly different from the raw text loader, also takes a dictionary location. Max words default is 60 to accomodate mscoco.
-def iterate_tokens(f_nodes, batchsize, visual, text, dict_loc, max_words = 60, shuffle=True):
+def iterate_tokens(f_nodes, batchsize, visual, text, dict_loc, shuffle=True):
     if shuffle:
         # optionally shuffle the input
         np.random.shuffle(f_nodes)
@@ -93,6 +94,7 @@ def iterate_tokens(f_nodes, batchsize, visual, text, dict_loc, max_words = 60, s
             # convert the sentence to lower case.
             caption.append(cap)
         # converts the sentence to character ids. 
+        max_words = max([len(x) for x in caption])
         caption, lengths = word_2_index(caption, batchsize, max_words, dict_loc)
         images_shape = np.shape(images)
         # images should be shape (batch_size, 1024). images_shape[1] is collapsed as the original features are of shape (1,1024) 
@@ -167,7 +169,7 @@ def iterate_raw_text_5fold(f_nodes, batchsize, visual, text, shuffle=True):
 # iterate over text input. the value for chars indicates the max sentence lenght in characters. Keeps track 
 # of the unpadded senctence lengths to use with pytorch's pack_padded_sequence. slightly different from the raw text loader
 # as we need a word_2_index function and this also takes a dictionary
-def iterate_tokens_5fold(f_nodes, batchsize, visual, text, dict_loc, max_words = 60, shuffle=True):
+def iterate_tokens_5fold(f_nodes, batchsize, visual, text, dict_loc, shuffle=True):
     if shuffle:
         # optionally shuffle the input
         np.random.shuffle(f_nodes)
@@ -187,6 +189,7 @@ def iterate_tokens_5fold(f_nodes, batchsize, visual, text, dict_loc, max_words =
                                 
                 caption.append(cap)
             # converts the sentence to character ids. 
+            max_words = max([len(x) for x in caption])
             caption, lengths = word_2_index(caption, batchsize, max_words, dict_loc)
             images_shape = np.shape(images)
             # images should be shape (batch_size, 1024). images_shape[1] is collapsed as the original features are of shape (1,1024) 
@@ -194,7 +197,7 @@ def iterate_tokens_5fold(f_nodes, batchsize, visual, text, dict_loc, max_words =
             yield images, caption, lengths
 
 # iterator over the snli sentence pairs. Expects triples of paired sentences and labels.
-def iterate_snli(data, batchsize, max_chars = 450, shuffle = True):
+def iterate_snli(data, batchsize, shuffle = True):
     if shuffle:
         # optionally shuffle the input
         np.random.shuffle(data)
@@ -203,12 +206,14 @@ def iterate_snli(data, batchsize, max_chars = 450, shuffle = True):
         excerpt = data[start_idx:start_idx + batchsize]
         sent1, sent2, labels = zip(*excerpt)
         # converts the sentences to character ids and sentence lengths
-        sent1, l1 = char_2_index(list(sent1), batchsize, max_chars)
-        sent2, l2 = char_2_index(list(sent2), batchsize, max_chars)
+        max_chars_1 = max([len(x) for x in sent1])
+        max_chars_2 = max([len(x) for x in sent2])
+        sent1, l1 = char_2_index(list(sent1), batchsize, max_chars_1)
+        sent2, l2 = char_2_index(list(sent2), batchsize, max_chars_2)
         yield sent1, l1, sent2, l2, list(labels)
 
 # iterator over the snli sentence pairs. Expects triples of paired sentences and labels.
-def iterate_snli_tokens(data, batchsize, dict_loc, max_words = 80, shuffle = True):
+def iterate_snli_tokens(data, batchsize, dict_loc, shuffle = True):
     if shuffle:
         # optionally shuffle the input
         np.random.shuffle(data)
@@ -217,6 +222,8 @@ def iterate_snli_tokens(data, batchsize, dict_loc, max_words = 80, shuffle = Tru
         excerpt = data[start_idx:start_idx + batchsize]
         sent1, sent2, labels = zip(*excerpt)
         # converts the sentences to character ids and sentence lengths
-        sent1, l1 = word_2_index(list(sent1), batchsize, max_words, dict_loc)
-        sent2, l2 = word_2_index(list(sent2), batchsize, max_words, dict_loc)
+        max_words_1 = max([len(x) for x in sent1])
+        max_words_2 = max([len(x) for x in sent2])
+        sent1, l1 = word_2_index(list(sent1), batchsize, max_words_1, dict_loc)
+        sent2, l2 = word_2_index(list(sent2), batchsize, max_words_2, dict_loc)
         yield sent1, l1, sent2, l2, list(labels)
