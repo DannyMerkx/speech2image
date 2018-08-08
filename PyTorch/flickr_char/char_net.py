@@ -196,7 +196,7 @@ while epoch <= args.n_epochs:
     
 test_loss = trainer.test_epoch(test, args.batch_size)
 print("test loss:\t\t{:.6f}".format(test_loss.cpu()[0]))# calculate the recall@n
-recall(test, evaluator, c2i = True, i2c = True, epoch, prepend = 'test')
+recall(test, evaluator, epoch, c2i = True, i2c = True, prepend = 'test')
 
 # save the gradients for each epoch, can be usefull to select an initial clipping value.
 if args.gradient_clipping:
