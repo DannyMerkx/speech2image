@@ -123,7 +123,7 @@ class flickr_trainer():
             print(self.train_loss.cpu()[0]/num_batches)
         self.train_loss = self.train_loss/num_batches
         return self.train_loss/num_batches        
-
+    
     def test_epoch(self, data, batch_size):
         # set to evaluation mode
         self.img_embedder.eval()
@@ -168,14 +168,22 @@ class flickr_trainer():
         print("test loss:\t\t{:.6f}".format(self.test_loss.cpu()[0]))
     def print_validation_loss(self):
         print("validation loss:\t\t{:.6f}".format(self.test_loss.cpu()[0])) 
+    # save the gradients collected so far 
     def save_gradients(self, loc):
         self.cap_clipper.save_grads(loc, 'cap_grads')
         self.img_clipper.save_grads(loc, 'img_grads')
-
-    def recall_at_n(self, data, batch_size, prepend):
-        # calculate the recall@n. Arguments are a set of nodes, the @n values, whether to do caption2image, image2caption or both
-        # and a prepend string (e.g. to print validation or test in front of the results)
-        # create a minibatcher over the validation set
+    # reset the grads for a new epoch
+    def reset_grads(self):
+        self.cap_clipper.reset_gradients()
+        self.img_clipper.reset_gradients()
+    # update the clip value of the gradient clipper based on the previous epoch. Don't call after resetting
+    # the grads to 0
+    def update_clip(self):
+        self.cap_clipper.update_clip_value()
+        self.img_clipper.update_clip_value()
+    # calculate the recall@n. Arguments are a set of nodes and a prepend string 
+    # (e.g. to print validation or test in front of the results)
+    def recall_at_n(self, data, batch_size, prepend):        
         iterator = self.batcher(data, batch_size, shuffle = False)
         # the calc_recall function calculates and prints the recall.
         self.evaluator.embed_data(iterator)

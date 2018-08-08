@@ -119,9 +119,9 @@ loss = batch_hinge_loss
 trainer = flickr_trainer(img_net, cap_net, optimizer, loss, args.visual, args.cap)
 trainer.set_raw_text_batcher()
 trainer.set_lr_scheduler(cyclic_scheduler)
-trainer.set_evaluator([1, 5, 10])
 if cuda:
     trainer.set_cuda()
+trainer.set_evaluator([1, 5, 10])
 # gradient clipping with these parameters (based the avg gradient norm for the first epoch)
 # can help stabilise training in the first epoch.
 if args.gradient_clipping:
@@ -155,13 +155,11 @@ while trainer.epoch <= args.n_epochs:
     trainer.report(args.n_epochs)
     trainer.recall_at_n(val, args.batch_size, prepend = 'validation')    
     trainer.update_epoch
-    # this part is usefull only if you want to update the value for gradient clipping at each epoch
-    # I found it didn't work well 
-    #if args.gradient_clipping:
-        #text_clipper.update_clip_value()
-        #text_clipper.reset_gradients()
-        #img_clipper.update_clip_value()
-        #img_clipper.reset_gradients()
+
+    if args.gradient_clipping:
+        # I found that updating the clip value at each epoch did not work well     
+        # trainer.update_clip()
+        trainer.reset_grads()
     
 test_loss = trainer.test_epoch(test, args.batch_size)
 trainer.print_test_loss()
