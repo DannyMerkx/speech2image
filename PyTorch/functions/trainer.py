@@ -301,10 +301,7 @@ class snli_trainer():
             # convert the ground truth text labels of the sentence pairs to indices for the softmax layer
             labels = self.create_labels(labels)
             # calculate the loss
-            print(labels.size())
-            print(prediction.size())
-            x = torch.nn.CrossEntropyLoss()
-            loss = x(prediction, labels)
+            loss = self.loss(prediction, labels)
             # reset the gradients of the optimizer
             self.optimizer.zero_grad()
             # calculate the gradients and perform the backprop step
@@ -366,7 +363,7 @@ class snli_trainer():
 
     # convert the text labels to integers for the sofmax layer.
     def create_labels(self, labels):
-        labels = []
+        labs = []
         for x in labels:
             if x  == 'contradiction':
                 l = 0
@@ -377,9 +374,9 @@ class snli_trainer():
             # pairs where annotators were indecisive are marked neutral
             else:
                 l = 2
-            labels.append(l)
-        labels = Variable(self.long(labels), requires_grad = False)
-        return labels
+            labs.append(l)
+        labs = Variable(self.long(labs), requires_grad = False)
+        return labs
     # create the feature vector for the classifier.
     def feature_vector(self, sent1, sent2):
         # cosine distance
