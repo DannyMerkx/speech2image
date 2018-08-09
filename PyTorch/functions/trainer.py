@@ -71,6 +71,8 @@ class flickr_trainer():
     # pretrained model
     def set_epoch(self, epoch):
         self.epoch = epoch
+    def update_epoch(self):
+        self.epoch += 1
     # functions to set new embedders
     def set_img_embedder(self, emb):
         self.img_embedder = emb
@@ -126,7 +128,6 @@ class flickr_trainer():
             if num_batches%100 == 0:
                 print(self.train_loss.cpu()[0]/num_batches)
         self.train_loss = self.train_loss.cpu()[0]/num_batches
-        self.epoch += 1   
     
     def test_epoch(self, data, batch_size):
         # set to evaluation mode
@@ -260,6 +261,8 @@ class snli_trainer():
     # pretrained model
     def set_epoch(self, epoch):
         self.epoch = epoch
+    def update_epoch(self):
+        self.epoch += 1
     # functions to set new embedders
     def set_classifier(self, clas):
         self.classifier = clas
@@ -317,7 +320,6 @@ class snli_trainer():
             if num_batches%1000 == 0:
                 print(self.train_loss.cpu()[0]/num_batches)
         self.train_loss = self.train_loss.cpu()[0] / num_batches
-        self.epoch += 1
 
     def test_epoch(self, data, batch_size):
         # set the networks to evaluation mode

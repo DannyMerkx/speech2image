@@ -146,7 +146,8 @@ while trainer.epoch <= args.n_epochs:
         # I found that updating the clip value at each epoch did not work well     
         # trainer.update_clip()
         trainer.reset_grads()
-    
+    #increase epoch#
+    trainer.update_epoch()
 trainer.test_epoch(test, args.batch_size)
 trainer.print_test_loss()
 # calculate the recall@n

@@ -28,9 +28,9 @@ parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, defa
 parser.add_argument('-snli_dir', type = str, default =  '/data/snli_1.0', help = 'location of the snli data')
 parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/language_inference/results/',
                     help = 'location to save the results and network parameters')
-parser.add_argument('-dict_loc', type = str, default = '/data/speech2image/preprocessing/dictionaries/snli_indices')
+parser.add_argument('-dict_loc', type = str, default = '/data/speech2image/preprocessing/dictionaries/the_one_dictionary')
 parser.add_argument('-glove_loc', type = str, default = '/data/SentEval-master/examples/glove.840B.300d.txt', help = 'location of pretrained glove embeddings')
-parser.add_argument('-glove', type = bool, default = False, help = 'use pretrained glove embeddings, default: False')
+parser.add_argument('-glove', type = bool, default = True, help = 'use pretrained glove embeddings, default: False')
 
 parser.add_argument('-cap_net', type = str, default = '/data/speech2image/PyTorch/coco_char/results/caption_model.25', 
                     help = 'optional location of a pretrained language model')
@@ -39,7 +39,6 @@ parser.add_argument('-batch_size', type = int, default = 64, help = 'mini batch 
 parser.add_argument('-n_epochs', type = int, default = 32, help = 'number of traning epochs, default 32')
 parser.add_argument('-pre_trained', type = bool, default = False, help = 'indicates whether to load a pretrained model')
 parser.add_argument('-gradient_clipping', type = bool, default = False, help ='use gradient clipping, default: False')
-
 
 args = parser.parse_args()
 
@@ -122,6 +121,8 @@ while trainer.epoch <= args.n_epochs:
         # I found that updating the clip value at each epoch did not work well     
         # trainer.update_clip()
         trainer.reset_grads()
+    # increase epoch#
+    trainer.update_epoch()
     
 trainer.test_epoch(test, args.batch_size)
 trainer.print_test_loss()
