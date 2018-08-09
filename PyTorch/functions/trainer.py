@@ -122,7 +122,9 @@ class flickr_trainer():
             self.optimizer.step()
             # add loss to average
             self.train_loss += loss.data
-            print(self.train_loss.cpu()[0]/num_batches)
+            # print loss every n batches
+            if num_batches%100 == 0:
+                print(self.train_loss.cpu()[0]/num_batches)
         self.train_loss = self.train_loss.cpu()[0]/num_batches
         self.epoch += 1   
     
@@ -312,7 +314,8 @@ class snli_trainer():
                 torch.nn.utils.clip_grad_norm(self.cap_embedder.parameters(), self.cap_clipper.clip)
             self.optimizer.step()
             self.train_loss += loss.data
-            print(self.train_loss.cpu()[0]/num_batches)
+            if num_batches%1000 == 0:
+                print(self.train_loss.cpu()[0]/num_batches)
         self.train_loss = self.train_loss.cpu()[0] / num_batches
         self.epoch += 1
 
