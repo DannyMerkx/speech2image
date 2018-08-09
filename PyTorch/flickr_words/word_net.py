@@ -147,23 +147,21 @@ if args.gradient_clipping:
 # run the training loop for the indicated amount of epochs 
 while trainer.epoch <= args.n_epochs:
     # Train on the train set
-    train_loss = trainer.train_epoch(train, args.batch_size)
+    trainer.train_epoch(train, args.batch_size)
     #evaluate on the validation set
-    val_loss = trainer.test_epoch(val, args.batch_size)
+    trainer.test_epoch(val, args.batch_size)
     # save network parameters
-    trainer.save_params(args.results_loc)
-    trainer.save_params(args.results_loc)    
+    trainer.save_params(args.results_loc)  
     # print some info about this epoch
     trainer.report(args.n_epochs)
     trainer.recall_at_n(val, args.batch_size, prepend = 'validation')    
-    trainer.update_epoch()
-
+    
     if args.gradient_clipping:
         # I found that updating the clip value at each epoch did not work well     
         # trainer.update_clip()
         trainer.reset_grads()
     
-test_loss = trainer.test_epoch(test, args.batch_size)
+trainer.test_epoch(test, args.batch_size)
 trainer.print_test_loss()
 # calculate the recall@n
 trainer.recall_at_n(test, args.batch_size, prepend = 'test')
