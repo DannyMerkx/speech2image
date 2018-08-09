@@ -301,7 +301,8 @@ class snli_trainer():
             # convert the ground truth text labels of the sentence pairs to indices for the softmax layer
             labels = self.create_labels(labels)
             # calculate the loss
-            loss = self.loss(prediction, labels)
+            x = torch.nn.CrossEntropyLoss()
+            loss = x(prediction, labels)
             # reset the gradients of the optimizer
             self.optimizer.zero_grad()
             # calculate the gradients and perform the backprop step
