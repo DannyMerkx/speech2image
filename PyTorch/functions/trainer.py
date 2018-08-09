@@ -375,7 +375,7 @@ class snli_trainer():
             else:
                 l = 2
             labels.append(l)
-        labels = self.dtype(self.long(labels), requires_grad = False)
+        labels = Variable(self.long(labels), requires_grad = False)
         return labels
     # create the feature vector for the classifier.
     def feature_vector(self, sent1, sent2):
