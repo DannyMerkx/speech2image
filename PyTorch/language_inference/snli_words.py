@@ -12,18 +12,15 @@ models pretrained on the image captioning task to improve learning
 import sys
 import argparse
 import numpy as np
-import time
 import pickle
 
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
 from torch.optim import lr_scheduler
 sys.path.append('/data/speech2image/PyTorch/functions')
 
 from trainer import snli_trainer
 from encoders import char_gru_encoder, snli
-from minibatchers import iterate_snli_tokens
 from data_split import split_snli
 # settings for the language inference task
 parser = argparse.ArgumentParser(description='Create and run an articulatory feature classification DNN')

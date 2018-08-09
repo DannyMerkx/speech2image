@@ -18,7 +18,6 @@ import sys
 sys.path.append('/data/speech2image/PyTorch/functions')
 
 from trainer import flickr_trainer
-from minibatchers import iterate_tokens_5fold, iterate_tokens
 from costum_loss import batch_hinge_loss, ordered_loss
 from encoders import img_encoder, char_gru_encoder
 from data_split import split_data
@@ -86,13 +85,9 @@ def iterate_flickr(h5_file):
         yield x
 
 if args.data_base == 'coco':
-    f_nodes = [node for node in iterate_large_dataset(data_file)]
-    # define the batcher type to use.
-    batcher = iterate_tokens_5fold    
+    f_nodes = [node for node in iterate_large_dataset(data_file)]  
 elif args.data_base == 'flickr':
     f_nodes = [node for node in iterate_flickr(data_file)]
-    # define the batcher type to use.
-    batcher = iterate_tokens_5fold
 elif args.data_base == 'places':
     print('places has no written captions')
 else:

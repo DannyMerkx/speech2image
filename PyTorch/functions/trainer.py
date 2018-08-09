@@ -251,7 +251,7 @@ class snli_trainer():
         self.scheduler = scheduler  
     def set_cuda(self):
         self.dtype = torch.cuda.FloatTensor
-        self.Long = torch.cuda.LongTensor
+        self.long = torch.cuda.LongTensor
         self.cap_embedder.cuda()
         self.classifier.cuda()
     # manually set the epoch to some number e.g. if continuing training from a 
