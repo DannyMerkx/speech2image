@@ -102,7 +102,7 @@ if cuda:
 if args.pre_trained:
     trainer.load_cap_embedder(args.cap_net)
 if args.glove:
-    trainer.set_glove_embeddings(args.glove_loc)
+    trainer.load_glove_embeddings(args.glove_loc)
 # gradient clipping with these parameters (based the avg gradient norm for the first epoch)
 # can help stabilise training in the first epoch.
 if args.gradient_clipping:

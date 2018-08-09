@@ -131,7 +131,7 @@ trainer.set_lr_scheduler(cyclic_scheduler)
 if cuda:
     trainer.set_cuda()
 if args.glove:
-    trainer.set_glove_embeddings(args.glove_loc)
+    trainer.load_glove_embeddings(args.glove_loc)
 trainer.set_evaluator([1, 5, 10])
 # gradient clipping with these parameters (based the avg gradient norm for the first epoch)
 # can help stabilise training in the first epoch.
