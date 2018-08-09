@@ -88,7 +88,7 @@ def create_cyclic_scheduler(max_lr, min_lr, stepsize):
 cyclic_scheduler = create_cyclic_scheduler(max_lr = args.lr, min_lr = 1e-6, stepsize = (int(len(train)/args.batch_size)*5)*4)
 
 trainer = snli_trainer(emb_net, classifier)
-trainer.set_loss(nn.CrossEntropyLoss)
+trainer.set_loss(nn.CrossEntropyLoss())
 trainer.set_optimizer(optimizer)
 trainer.set_token_batcher()
 trainer.set_dict_loc(args.dict_loc)
