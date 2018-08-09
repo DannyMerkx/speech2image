@@ -336,6 +336,8 @@ class snli_trainer():
             # convert the ground truth labels of the sentence pairs to indices for the softmax layer
             labels = self.create_labels(labels)
             # calculate the loss
+            print(labels.size())
+            print(prediction.size())
             loss = self.loss(prediction, labels)
             self.test_loss += loss.data       
             # get the index (i) of the predicted class
