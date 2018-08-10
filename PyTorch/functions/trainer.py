@@ -146,8 +146,10 @@ class flickr_trainer():
             img, cap, lengths = batch
             test_batches += 1      
             # embed the images and audio using the networks
-            img_embedding, cap_embedding = self.emb(img, cap, lengths)
+            img_embedding, cap_embedding, att_matrix = self.emb(img, cap, lengths)
             loss = self.loss(img_embedding, cap_embedding, cuda = True)
+            if self.att_loss:
+                loss += self.att_loss(self.cap_embedder.att, att_matrix, cap_embedding)
             # add loss to average
             self.test_loss += loss.data 
         self.test_loss = self.test_loss/test_batches
