@@ -48,7 +48,7 @@ args = parser.parse_args()
 # create config dictionaries with all the parameters for your encoders
 char_config = {'embed':{'num_chars': 100, 'embedding_dim': 20, 'sparse': False, 'padding_idx': 0}, 
                'gru':{'input_size': 20, 'hidden_size': 1024, 'num_layers': 1, 'batch_first': True,
-               'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1}}
+               'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 2}}
 # automatically adapt the image encoder output size to the size of the caption encoder
 out_size = char_config['gru']['hidden_size'] * 2**char_config['gru']['bidirectional'] * char_config['att']['heads']
 image_config = {'linear':{'in_size': 2048, 'out_size': out_size}, 'norm': True}
@@ -94,7 +94,7 @@ train, test, val = split_data(f_nodes, args.split_loc)
 ############################### Neural network setup #################################################
 # network modules
 img_net = img_encoder(image_config)
-cap_net = char_gru_encoder(char_config)
+relo
     
 # Adam optimiser. I found SGD to work terribly and could not find appropriate parameter settings for it.
 optimizer = torch.optim.Adam(list(img_net.parameters())+list(cap_net.parameters()), 1)

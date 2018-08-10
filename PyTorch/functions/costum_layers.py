@@ -75,7 +75,14 @@ class multi_attention(nn.Module):
         for x in range(n_heads):
             self.att_heads.append(attention(in_size, hidden_size))
     def forward(self, input):
-        return torch.cat([x(input) for x in self.att_heads], 1)
+        out, alpha = [], []
+        for head in self.att_heads:
+            o, a  = head(input)
+            out.append(o) 
+            alpha.append(a)
+        # return both the resulting embedding and the full attention matrix        
+        return torch.cat(out, 1), alpha
+        #return torch.cat([x(input) for x in self.att_heads], 1)
     
 # attention layer for audio encoders
 class attention(nn.Module):
@@ -91,4 +98,5 @@ class attention(nn.Module):
         alpha = self.softmax(self.out(nn.functional.tanh(self.hidden(input))))
         # apply the weights to the input and sum over all timesteps
         x = torch.sum(alpha * input, 1)
-        return x        
+        # return both the resulting embedding and the full attention matrix
+        return x, alpha     

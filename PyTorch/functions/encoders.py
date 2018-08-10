@@ -59,8 +59,9 @@ class char_gru_encoder(nn.Module):
         x, hx = self.GRU(x)
         # unpack again as at the moment only rnn layers except packed_sequence objects
         x, lens = nn.utils.rnn.pad_packed_sequence(x, batch_first = True)
-        x = nn.functional.normalize(self.att(x), p=2, dim=1)
-        return x
+        x, ax = self.att(x)
+        x = nn.functional.normalize(x, p=2, dim=1)
+        return x, ax
     
     def load_embeddings(self, dict_loc, embedding_loc):
         # optionally load pretrained word embeddings. takes the dictionary of words occuring in the training data

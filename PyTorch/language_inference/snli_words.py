@@ -126,7 +126,7 @@ while trainer.epoch <= args.n_epochs:
     
 trainer.test_epoch(test, args.batch_size)
 trainer.print_test_loss()
-trainer.print_accuracy()
+trainer.print_test_accuracy()
         
 # save the gradients for each epoch, can be usefull to select an initial clipping value.
 if args.gradient_clipping:

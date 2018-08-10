@@ -16,7 +16,7 @@ import torch
 
 # hinge loss function based on a symmetric distance measure. The loss function uses the dot product,
 # you get the cosine similarity by normalising your embeddings at the output layer of the encoders.
-def batch_hinge_loss(embeddings_1, embeddings_2, cuda = True):
+def batch_hinge_loss(embeddings_1, embeddings_2, dtype):
     # batch size
     batch_size = embeddings_1.size(0)   
 
@@ -24,9 +24,7 @@ def batch_hinge_loss(embeddings_1, embeddings_2, cuda = True):
     error = - torch.matmul(embeddings_1, embeddings_2.t())
 
     # get the similarity of the correct image-caption pairs (the diagonal of the similarity matrix)
-    I = torch.autograd.Variable(torch.eye(batch_size), requires_grad = True)
-    if cuda:
-        I = I.cuda()
+    I = torch.autograd.Variable(dtype(torch.eye(batch_size)), requires_grad = True)
     diag = (error * I).sum(dim=0)
     
     # calculate the image to text and text to image cost.
@@ -35,15 +33,13 @@ def batch_hinge_loss(embeddings_1, embeddings_2, cuda = True):
     cost = cost_1 + cost_2
     
     # remove the diagonal for the cost matrix (i.e. count no costs for correct pairs)
-    I_2 = torch.autograd.Variable(torch.eye(batch_size), requires_grad = True)
-    if cuda:
-        I_2 = I_2.cuda()
-    
+    I_2 = torch.autograd.Variable(dtype(torch.eye(batch_size)), requires_grad = True)
+
     cost = (1 - I_2) * cost
     return cost.mean()
 
 #implements the ordered embeddings loss function proposed by vendrov et all.
-def ordered_loss(embeddings_1, embeddings_2, cuda = True):
+def ordered_loss(embeddings_1, embeddings_2, dtype):
     # batch size
     batch_size = embeddings_1.size(0)   
 
@@ -55,9 +51,8 @@ def ordered_loss(embeddings_1, embeddings_2, cuda = True):
         err = torch.cat((err, e), 1)
 
     # get the similarity of the correct image-caption pairs    
-    I = torch.autograd.Variable(torch.eye(batch_size), requires_grad = True)
-    if cuda:
-        I = I.cuda()
+    I = torch.autograd.Variable(dtype(torch.eye(batch_size)), requires_grad = True)
+
     diag_1 = (err * I).sum(dim=0)
 
     # calculate the image to text and text to image cost.
@@ -66,10 +61,34 @@ def ordered_loss(embeddings_1, embeddings_2, cuda = True):
     cost = cost_1 + cost_2
     
     # remove the diagonal for the cost matrix (i.e. count no costs for correct pairs)
-    I_2 = torch.autograd.Variable(torch.eye(batch_size), requires_grad = True)
-    if cuda:
-        I_2 = I_2.cuda()
+    I_2 = torch.autograd.Variable(dtype(torch.eye(batch_size)), requires_grad = True)
     
     cost = (1 - I_2) * cost
     
     return cost.mean()
+
+# loss function forcing the weights of the attention heads, the resulting 
+# attention matrices and the resulting embeddings to be different by a margin
+def attention_loss(att_layer, attention, emb, margin = 1):
+    # get the weight parameters from the attention layer
+    weights = []
+    for head in att_layer.att_heads:
+        w = []
+        for x in head.parameters():
+            w.append(x)
+        weights.append(w)
+    loss = 0
+    # calculate the loss of the weights
+    for x in range(len(weights)):
+        for y in range(x+1, len(weights)):
+            loss += torch.clamp(margin - torch.norm(weights[x][0] - weights[y][0]), min = 0)
+    # calculate the loss of the attention matrix
+    for x in range(len(attention)):
+        for y in range(x+1, len(attention)):
+            loss += torch.clamp(margin - torch.norm(attention[x][0] - attention[y][0]), min = 0)
+    # calculate the loss of the embeddings
+    emb = emb.t().contiguous().view(len(weights), -1, emb.size(0))
+    for x in range(emb.size(0)):
+        for y in range(x+1, emb.size(0)):
+            loss += torch.clamp(margin - torch.norm(emb[x] - emb[y]), min = 0)    
+    return loss    

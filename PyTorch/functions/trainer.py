@@ -26,6 +26,8 @@ class flickr_trainer():
         self.scheduler = []
         # set gradient clipping to false by default
         self.grad_clipping = False
+        # set the attention loss to empty by default
+        self.att_loss = []
         # names of the features to be loaded by the batcher
         self.vis = vis
         self.cap = cap
@@ -56,6 +58,8 @@ class flickr_trainer():
     # only want to test a pretrained model.
     def set_loss(self, loss):
         self.loss = loss
+    def set_att_loss(self, att_loss):
+        self.att_loss = att_loss
     # set an optimizer. Optional like the loss in case of using just pretrained models.
     def set_optimizer(self, optim):
         self.optimizer = optim
@@ -109,9 +113,11 @@ class flickr_trainer():
             img, cap, lengths = batch
             num_batches +=1
             # embed the images and audio using the networks
-            img_embedding, cap_embedding = self.emb(img, cap, lengths)
+            img_embedding, cap_embedding, att_matrix = self.emb(img, cap, lengths)
             # calculate the loss
-            loss = self.loss(img_embedding, cap_embedding, cuda = True)
+            loss = self.loss(img_embedding, cap_embedding, self.dtype)
+            if self.att_loss:
+                loss += self.att_loss(self.cap_embedder.att, att_matrix, cap_embedding)
             # reset the gradients of the optimiser
             self.optimizer.zero_grad()
             # calculate the gradients and perform the backprop step
@@ -157,8 +163,8 @@ class flickr_trainer():
         img, cap = Variable(self.dtype(img)), Variable(self.dtype(cap))        
         # embed the images and audio using the networks
         img_embedding = self.img_embedder(img)
-        cap_embedding = self.cap_embedder(cap, lengths)
-        return img_embedding, cap_embedding
+        cap_embedding, att_matrix = self.cap_embedder(cap, lengths)
+        return img_embedding, cap_embedding, att_matrix
 ######################## evaluation functions #################################
     # report on the time this epoch took and the train and test loss
     def report(self, max_epochs):
@@ -401,7 +407,7 @@ class snli_trainer():
                 self.epoch, max_epochs, time.time() - self.start_time))
         self.print_train_loss()
         self.print_validation_loss()
-        self.print_accuracy()
+        self.print_validation_accuracy()
     # print the loss values
     def print_train_loss(self):  
         print("training loss:\t\t{:.6f}".format(self.train_loss))
@@ -409,8 +415,10 @@ class snli_trainer():
         print("test loss:\t\t{:.6f}".format(self.test_loss))
     def print_validation_loss(self):
         print("validation loss:\t\t{:.6f}".format(self.test_loss))
-    def print_accuracy(self):
+    def print_validation_accuracy(self):
         print("validation accuracy:\t\t{:.6f}".format(self.accuracy))
+    def print_test_accuracy(self):
+        print("test accuracy:\t\t{:.6f}".format(self.accuracy))
     # function to save parameters in a results folder
     def save_params(self, loc):
         torch.save(self.cap_embedder.state_dict(), os.path.join(loc, 'caption_model' + '.' +str(self.epoch)))
