@@ -94,8 +94,7 @@ train, test, val = split_data(f_nodes, args.split_loc)
 ############################### Neural network setup #################################################
 # network modules
 img_net = img_encoder(image_config)
-relo
-    
+cap_net = char_gru_encoder(char_config)
 # Adam optimiser. I found SGD to work terribly and could not find appropriate parameter settings for it.
 optimizer = torch.optim.Adam(list(img_net.parameters())+list(cap_net.parameters()), 1)
 
