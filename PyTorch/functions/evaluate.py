@@ -35,7 +35,7 @@ class evaluate():
             img, cap = Variable(self.dtype(img), requires_grad=False), Variable(self.dtype(cap),requires_grad=False)
             # embed the data
             img = self.embed_function_1(img)
-            cap = self.embed_function_2(cap, lens)
+            cap, att_matrix = self.embed_function_2(cap, lens)
             # reverse the sorting by length such that the data is in the same order for all 5 captions.
             cap = cap[torch.cuda.LongTensor(np.argsort(sort))]
             img = img[torch.cuda.LongTensor(np.argsort(sort))]
