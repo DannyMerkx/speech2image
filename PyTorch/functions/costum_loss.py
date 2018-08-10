@@ -24,7 +24,7 @@ def batch_hinge_loss(embeddings_1, embeddings_2, dtype):
     error = - torch.matmul(embeddings_1, embeddings_2.t())
 
     # get the similarity of the correct image-caption pairs (the diagonal of the similarity matrix)
-    I = torch.autograd.Variable(dtype(torch.eye(batch_size)), requires_grad = True)
+    I = torch.autograd.Variable(dtype(torch.eye(batch_size).numpy()), requires_grad = True)
     diag = (error * I).sum(dim=0)
     
     # calculate the image to text and text to image cost.
@@ -33,7 +33,7 @@ def batch_hinge_loss(embeddings_1, embeddings_2, dtype):
     cost = cost_1 + cost_2
     
     # remove the diagonal for the cost matrix (i.e. count no costs for correct pairs)
-    I_2 = torch.autograd.Variable(dtype(torch.eye(batch_size)), requires_grad = True)
+    I_2 = torch.autograd.Variable(dtype(torch.eye(batch_size).numpy()), requires_grad = True)
 
     cost = (1 - I_2) * cost
     return cost.mean()
@@ -51,7 +51,7 @@ def ordered_loss(embeddings_1, embeddings_2, dtype):
         err = torch.cat((err, e), 1)
 
     # get the similarity of the correct image-caption pairs    
-    I = torch.autograd.Variable(dtype(torch.eye(batch_size)), requires_grad = True)
+    I = torch.autograd.Variable(dtype(torch.eye(batch_size).numpy()), requires_grad = True)
 
     diag_1 = (err * I).sum(dim=0)
 
@@ -61,7 +61,7 @@ def ordered_loss(embeddings_1, embeddings_2, dtype):
     cost = cost_1 + cost_2
     
     # remove the diagonal for the cost matrix (i.e. count no costs for correct pairs)
-    I_2 = torch.autograd.Variable(dtype(torch.eye(batch_size)), requires_grad = True)
+    I_2 = torch.autograd.Variable(dtype(torch.eye(batch_size).numpy()), requires_grad = True)
     
     cost = (1 - I_2) * cost
     
