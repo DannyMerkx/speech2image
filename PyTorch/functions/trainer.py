@@ -152,7 +152,7 @@ class flickr_trainer():
                 loss += self.att_loss(self.cap_embedder.att, att_matrix, cap_embedding)
             # add loss to average
             self.test_loss += loss.data 
-        self.test_loss = self.test_loss/test_batches
+        self.test_loss = self.test_loss.cpu()[0]/test_batches
     
     # embed a batch of images and captions
     def embed(self, img, cap, lengths):
