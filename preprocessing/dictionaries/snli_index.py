@@ -37,6 +37,10 @@ for x in train + test + val:
             if snli_dict[z] == 0:
                 snli_dict[z] = index
                 index += 1
+
+snli_dict[''] = 0
+snli_dict['<s>'] = index
+snli_dict['</s>'] = index + 1
 # save the dictionary
 save_obj(snli_dict, os.path.join(dict_loc, 'snli_indices'))
 

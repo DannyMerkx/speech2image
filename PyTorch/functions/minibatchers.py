@@ -67,8 +67,7 @@ def iterate_raw_text(f_nodes, batchsize, visual, text, shuffle=True):
             # convert the sentence to lower case.
             caption.append(cap)
         # converts the sentence to character ids. 
-        max_chars = max([len(x) for x in caption])
-        caption, lengths = char_2_index(caption, batchsize, max_chars)
+        caption, lengths = char_2_index(caption, batchsize)
         images_shape = np.shape(images)
         # images should be shape (batch_size, 1024). images_shape[1] is collapsed as the original features are of shape (1,1024) 
         images = np.float64(np.reshape(images,(images_shape[0],images_shape[2])))
@@ -94,8 +93,7 @@ def iterate_tokens(f_nodes, batchsize, visual, text, dict_loc, shuffle=True):
             # convert the sentence to lower case.
             caption.append(cap)
         # converts the sentence to character ids. 
-        max_words = max([len(x) for x in caption])
-        caption, lengths = word_2_index(caption, batchsize, max_words, dict_loc)
+        caption, lengths = word_2_index(caption, batchsize, dict_loc)
         images_shape = np.shape(images)
         # images should be shape (batch_size, 1024). images_shape[1] is collapsed as the original features are of shape (1,1024) 
         images = np.float64(np.reshape(images,(images_shape[0],images_shape[2])))
@@ -159,8 +157,7 @@ def iterate_raw_text_5fold(f_nodes, batchsize, visual, text, shuffle=True):
                 # convert the sentence to lower case.
                 caption.append(cap)
             # converts the sentence to character ids. 
-            max_chars = max([len(x) for x in caption])
-            caption, lengths = char_2_index(caption, batchsize, max_chars)
+            caption, lengths = char_2_index(caption, batchsize)
             images_shape = np.shape(images)
             # images should be shape (batch_size, 1024). images_shape[1] is collapsed as the original features are of shape (1,1024) 
             images = np.float64(np.reshape(images,(images_shape[0],images_shape[2])))
@@ -185,12 +182,11 @@ def iterate_tokens_5fold(f_nodes, batchsize, visual, text, dict_loc, shuffle=Tru
                 # extract the audio features
                 cap = eval('ex.' + text + '._f_list_nodes()[i].read()')
                 # add begin of sentence and end of sentence tokens
-                cap = ['<bos>'] + [x.decode('utf-8') for x in cap] + ['<eos>']
+                cap = ['<s>'] + [x.decode('utf-8') for x in cap] + ['</s>']
                                 
                 caption.append(cap)
             # converts the sentence to character ids. 
-            max_words = max([len(x) for x in caption])
-            caption, lengths = word_2_index(caption, batchsize, max_words, dict_loc)
+            caption, lengths = word_2_index(caption, batchsize, dict_loc)
             images_shape = np.shape(images)
             # images should be shape (batch_size, 1024). images_shape[1] is collapsed as the original features are of shape (1,1024) 
             images = np.float64(np.reshape(images,(images_shape[0],images_shape[2])))
@@ -206,10 +202,8 @@ def iterate_snli(data, batchsize, shuffle = True):
         excerpt = data[start_idx:start_idx + batchsize]
         sent1, sent2, labels = zip(*excerpt)
         # converts the sentences to character ids and sentence lengths
-        max_chars_1 = max([len(x) for x in sent1])
-        max_chars_2 = max([len(x) for x in sent2])
-        sent1, l1 = char_2_index(list(sent1), batchsize, max_chars_1)
-        sent2, l2 = char_2_index(list(sent2), batchsize, max_chars_2)
+        sent1, l1 = char_2_index(list(sent1), batchsize)
+        sent2, l2 = char_2_index(list(sent2), batchsize)
         yield sent1, l1, sent2, l2, list(labels)
 
 # iterator over the snli sentence pairs. Expects triples of paired sentences and labels.
@@ -221,9 +215,9 @@ def iterate_snli_tokens(data, batchsize, dict_loc, shuffle = True):
         # take a batch of nodes of the given size               
         excerpt = data[start_idx:start_idx + batchsize]
         sent1, sent2, labels = zip(*excerpt)
+        sent1 = [['<s>'] + s ['</s>'] for s in sent1]
+        sent2 = [['<s>'] + s ['</s>'] for s in sent2]
         # converts the sentences to character ids and sentence lengths
-        max_words_1 = max([len(x) for x in sent1])
-        max_words_2 = max([len(x) for x in sent2])
-        sent1, l1 = word_2_index(list(sent1), batchsize, max_words_1, dict_loc)
-        sent2, l2 = word_2_index(list(sent2), batchsize, max_words_2, dict_loc)
+        sent1, l1 = word_2_index(list(sent1), batchsize, dict_loc)
+        sent2, l2 = word_2_index(list(sent2), batchsize, dict_loc)
         yield sent1, l1, sent2, l2, list(labels)

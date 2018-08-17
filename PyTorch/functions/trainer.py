@@ -23,11 +23,11 @@ class flickr_trainer():
         # set the embedders. Set an empty scheduler to keep this optional.
         self.img_embedder = img_embedder
         self.cap_embedder = cap_embedder
-        self.scheduler = []
+        self.scheduler = False
         # set gradient clipping to false by default
         self.grad_clipping = False
         # set the attention loss to empty by default
-        self.att_loss = []
+        self.att_loss = False
         # names of the features to be loaded by the batcher
         self.vis = vis
         self.cap = cap
@@ -52,12 +52,14 @@ class flickr_trainer():
     def set_audio_batcher(self):
         self.batcher = self.audio_batcher
     # function to set the learning rate scheduler
-    def set_lr_scheduler(self, scheduler):
-        self.scheduler = scheduler  
+    def set_lr_scheduler(self, scheduler, s_type):
+        self.lr_scheduler = scheduler  
+        self.scheduler = s_type
     # function to set the loss for training. Loss is not necessary e.g. when you 
     # only want to test a pretrained model.
     def set_loss(self, loss):
         self.loss = loss
+    # loss function on the attention layer for multihead attention
     def set_att_loss(self, att_loss):
         self.att_loss = att_loss
     # set an optimizer. Optional like the loss in case of using just pretrained models.
@@ -105,19 +107,16 @@ class flickr_trainer():
         self.train_loss = 0
         num_batches = 0
         for batch in self.batcher(data, batch_size, shuffle = True):
-            # if there is a lr scheduler, take a step in the scheduler
-            if self.scheduler:
-                self.scheduler.step()
-                self.iteration +=1
             # retrieve a minibatch from the batcher
             img, cap, lengths = batch
             num_batches +=1
             # embed the images and audio using the networks
-            img_embedding, cap_embedding, att_matrix = self.embed(img, cap, lengths)
+            img_embedding, cap_embedding = self.embed(img, cap, lengths)
             # calculate the loss
             loss = self.loss(img_embedding, cap_embedding, self.dtype)
+            # optionally calculate the attention loss for multihead attention
             if self.att_loss:
-                loss += self.att_loss(self.cap_embedder.att, att_matrix, cap_embedding)
+                loss += self.att_loss(self.cap_embedder.att, cap_embedding)
             # reset the gradients of the optimiser
             self.optimizer.zero_grad()
             # calculate the gradients and perform the backprop step
@@ -133,6 +132,10 @@ class flickr_trainer():
             # print loss every n batches
             if num_batches%100 == 0:
                 print(self.train_loss.cpu()[0]/num_batches)
+            # if there is a lr scheduler, take a step in the scheduler
+            if self.scheduler == 'cyclic':
+                self.lr_scheduler.step()
+                self.iteration +=1
         self.train_loss = self.train_loss.cpu()[0]/num_batches
     
     def test_epoch(self, data, batch_size):
@@ -146,14 +149,16 @@ class flickr_trainer():
             img, cap, lengths = batch
             test_batches += 1      
             # embed the images and audio using the networks
-            img_embedding, cap_embedding, att_matrix = self.embed(img, cap, lengths)
+            img_embedding, cap_embedding = self.embed(img, cap, lengths)
             loss = self.loss(img_embedding, cap_embedding, self.dtype)
             if self.att_loss:
-                loss += self.att_loss(self.cap_embedder.att, att_matrix, cap_embedding)
+                loss += self.att_loss(self.cap_embedder.att, cap_embedding)
             # add loss to average
             self.test_loss += loss.data 
         self.test_loss = self.test_loss.cpu()[0]/test_batches
-    
+        # take a step for a plateau lr scheduler                
+        if self.scheduler == 'plateau':
+            self.lr_scheduler.step(self.test_loss)    
     # embed a batch of images and captions
     def embed(self, img, cap, lengths):
         # sort the tensors based on the unpadded caption length so they can be used
@@ -165,8 +170,8 @@ class flickr_trainer():
         img, cap = Variable(self.dtype(img)), Variable(self.dtype(cap))        
         # embed the images and audio using the networks
         img_embedding = self.img_embedder(img)
-        cap_embedding, att_matrix = self.cap_embedder(cap, lengths)
-        return img_embedding, cap_embedding, att_matrix
+        cap_embedding = self.cap_embedder(cap, lengths)
+        return img_embedding, cap_embedding
 ######################## evaluation functions #################################
     # report on the time this epoch took and the train and test loss
     def report(self, max_epochs):
@@ -193,7 +198,10 @@ class flickr_trainer():
         # the calc_recall function calculates and prints the recall.
         self.evaluator.embed_data(iterator)
         self.evaluator.print_caption2image(prepend, self.epoch)
-        self.evaluator.print_image2caption(prepend, self.epoch)        
+        self.evaluator.print_image2caption(prepend, self.epoch)
+    def fivefold_recall_at_n(self, prepend):
+        self.evaluator.fivefold_c2i('1k ' + prepend +  self.epoch)
+        self.evaluator.fivefold_i2c('1k ' + prepend +  self.epoch)
     # function to save parameters in a results folder
     def save_params(self, loc):
         torch.save(self.cap_embedder.state_dict(), os.path.join(loc, 'caption_model' + '.' +str(self.epoch)))
@@ -221,16 +229,17 @@ class flickr_trainer():
         self.cap_clipper.update_clip_value()
         self.img_clipper.update_clip_value()
 
-    
+# trainer for the snli entailment task 
 class snli_trainer():
     def __init__(self, cap_embedder, classifier):
         self.dtype = torch.FloatTensor
         self.long = torch.LongTensor
         self.cap_embedder = cap_embedder
         self.classifier = classifier
-        self.scheduler = []
+        self.scheduler = False
         # set gradient clipping to false by default
         self.grad_clipping = False
+        self.att_loss = False
         # keep track of an iteration for lr scheduling
         self.iteration = 0
         # keep track of the number of training epochs
@@ -246,9 +255,14 @@ class snli_trainer():
     # only want to test a pretrained model.
     def set_loss(self, loss):
         self.loss = loss
+    # loss function on the attention layer for multihead attention
+    def set_att_loss(self, att_loss):
+        self.att_loss = att_loss
     # set an optimizer. Optional like the loss in case of using just pretrained models.
     def set_optimizer(self, optim):
-        self.optimizer = optim
+        self.optimizer = optim        # take a step for a plateau lr scheduler                
+        if self.scheduler == 'plateau':
+            self.lr_scheduler.step(self.test_loss)
     # set a dictionary for models trained on tokens
     def set_dict_loc(self, loc):
         self.dict_loc = loc    
@@ -258,8 +272,9 @@ class snli_trainer():
     def set_raw_text_batcher(self):
         self.batcher = self.raw_text_batcher
     # function to set the learning rate scheduler
-    def set_lr_scheduler(self, scheduler):
-        self.scheduler = scheduler  
+    def set_lr_scheduler(self, scheduler, s_type):
+        self.lr_scheduler = scheduler  
+        self.scheduler = s_type
     def set_cuda(self):
         self.dtype = torch.cuda.FloatTensor
         self.long = torch.cuda.LongTensor
@@ -297,14 +312,11 @@ class snli_trainer():
         self.cap_embedder.train()
         self.classifier.train()
         self.train_loss = 0
-        num_batches = 0 
+        num_batches = 0         # take a step for a plateau lr scheduler                
+        if self.scheduler == 'plateau':
+            self.lr_scheduler.step(self.test_loss)
         # iterator returns converted sentences and their lenghts and labels in minibatches
         for sen1, len1, sen2, len2, labels in self.batcher(data, batch_size, shuffle = True):
-            # if there is a lr scheduler, take a step in the scheduler
-            if self.scheduler:
-                self.scheduler.step()
-                self.iteration +=1
-            
             num_batches += 1
             # embed the sentences using the encoder.
             sent1 = self.embed(sen1, len1)
@@ -327,6 +339,10 @@ class snli_trainer():
             self.train_loss += loss.data
             if num_batches%1000 == 0:
                 print(self.train_loss.cpu()[0]/num_batches)
+            # take a step for a cyclic lr scheduler                
+            if self.scheduler == 'cyclic':
+                self.lr_scheduler.step()
+                self.iteration +=1
         self.train_loss = self.train_loss.cpu()[0] / num_batches
 
     def test_epoch(self, data, batch_size):
@@ -360,7 +376,9 @@ class snli_trainer():
         # calculate the accuracy based on the number of correct predictions
         self.accuracy = np.mean(preds) * 100 
         self.test_loss = self.test_loss.cpu()[0] / num_batches
-    
+        # take a step for a plateau lr scheduler                
+        if self.scheduler == 'plateau':
+            self.lr_scheduler.step(self.test_loss)
     # convenience function to embed a batch of sentences using the network
     def embed(self, sent, length):
         # sort the sentences in descending order by length

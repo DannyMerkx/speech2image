@@ -17,7 +17,6 @@ import sys
 sys.path.append('/data/speech2image/PyTorch/functions')
 
 from trainer import flickr_trainer
-from minibatchers import iterate_raw_text_5fold, iterate_raw_text
 from costum_loss import batch_hinge_loss, ordered_loss, attention_loss
 from encoders import img_encoder, char_gru_encoder
 from data_split import split_data
@@ -75,13 +74,9 @@ def iterate_flickr(h5_file):
         yield x
 
 if args.data_base == 'coco':
-    f_nodes = [node for node in iterate_large_dataset(data_file)]
-    # define the batcher type to use.
-    batcher = iterate_raw_text_5fold    
+    f_nodes = [node for node in iterate_large_dataset(data_file)]   
 elif args.data_base == 'flickr':
     f_nodes = [node for node in iterate_flickr(data_file)]
-    # define the batcher type to use.
-    batcher = iterate_raw_text_5fold
 elif args.data_base == 'places':
     print('places has no written captions')
 else:
@@ -98,8 +93,8 @@ cap_net = char_gru_encoder(char_config)
 # Adam optimiser. I found SGD to work terribly and could not find appropriate parameter settings for it.
 optimizer = torch.optim.Adam(list(img_net.parameters())+list(cap_net.parameters()), 1)
 
-#plateau_scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode = 'min', factor = 0.9, patience = 100, 
-#                                                   threshold = 0.0001, min_lr = 1e-8, cooldown = 100)
+#plateau_scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode = 'min', factor = 0.2, patience = 0, 
+#                                                   threshold = 0.0001, min_lr = 1e-5, cooldown = 0)
 
 #step_scheduler = lr_scheduler.StepLR(optimizer, 1000, gamma=0.1, last_epoch=-1)
 
@@ -118,7 +113,7 @@ trainer = flickr_trainer(img_net, cap_net, args.visual, args.cap)
 trainer.set_loss(batch_hinge_loss)
 trainer.set_optimizer(optimizer)
 trainer.set_raw_text_batcher()
-trainer.set_lr_scheduler(cyclic_scheduler)
+trainer.set_lr_scheduler(cyclic_scheduler, 'cyclic')
 trainer.set_att_loss(attention_loss)
 #optionally use cuda and gradient clipping
 if cuda:

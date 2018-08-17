@@ -69,7 +69,7 @@ def ordered_loss(embeddings_1, embeddings_2, dtype):
 
 # loss function forcing the weights of the attention heads, the resulting 
 # attention matrices and the resulting embeddings to be different by a margin
-def attention_loss(att_layer, attention, emb, margin = 1):
+def attention_loss(att_layer, emb, margin = 1):
     # get the weight parameters from the attention layer
     weights = []
     for head in att_layer.att_heads:
@@ -83,9 +83,9 @@ def attention_loss(att_layer, attention, emb, margin = 1):
         for y in range(x+1, len(weights)):
             loss += torch.clamp(margin - torch.norm(weights[x][0] - weights[y][0]), min = 0)
     # calculate the loss of the attention matrix
-    for x in range(len(attention)):
-        for y in range(x+1, len(attention)):
-            loss += torch.clamp(margin - torch.norm(attention[x][0] - attention[y][0]), min = 0)
+    for x in range(len(att_layer.alpha)):
+        for y in range(x+1, len(att_layer.alpha)):
+            loss += torch.clamp(margin - torch.norm(att_layer.alpha[x][0] - att_layer.alpha[y][0]), min = 0)
     # calculate the loss of the embeddings
     emb = emb.t().contiguous().view(len(weights), -1, emb.size(0))
     for x in range(emb.size(0)):

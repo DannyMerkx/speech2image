@@ -45,6 +45,9 @@ for x in captions:
         if coco_dict[y] == 0:
             coco_dict[y] = index
             index += 1
+coco_dict[''] = 0
+coco_dict['<s>'] = index
+coco_dict['</s>'] = index + 1
 # save the dictionary
 save_obj(coco_dict, os.path.join(dict_loc, 'coco_indices'))
 

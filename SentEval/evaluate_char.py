@@ -11,7 +11,6 @@
 from __future__ import absolute_import, division, unicode_literals
 
 import sys
-import io
 import numpy as np
 import logging
 import torch
@@ -20,8 +19,8 @@ sys.path.append('/data/speech2image/PyTorch/functions')
 from encoders import char_gru_encoder
 
 # Set PATHs
-PATH_TO_SENTEVAL = '../'
-PATH_TO_DATA = '../data'
+PATH_TO_SENTEVAL = '/data/SentEval'
+PATH_TO_DATA = 'data/SentEval/data'
 # PATH_TO_VEC = 'glove/glove.840B.300d.txt'
 # path to the pretrained encoder model
 PATH_TO_ENC = '/data/speech2image/PyTorch/flickr_char/results/caption_model.20'
@@ -36,7 +35,8 @@ def find_index(char):
     return valid_chars.find(char)
 
 # convert characters to indices
-def char_2_index(raw_text, batch_size, max_sent_len):
+def char_2_index(raw_text, batch_size):
+    max_sent_len = max([len(x) for x in raw_text])
     text_batch = np.zeros([batch_size, max_sent_len])
     # keep track of the origin sentence length to use in pack_padded_sequence
     lengths = []
@@ -60,9 +60,8 @@ def batcher(params, batch):
     sents = [' '.join(s) for s in batch]    
     embeddings = []
     batchsize = len(sents)
-    max_len = max([len(x) for x in sents])
     # convert the characters to indices and return sentence lenght
-    sent, lengths = char_2_index(sents, batchsize, max_len)
+    sent, lengths = char_2_index(sents, batchsize)
     # order the batch by length
     sort = np.argsort(- np.array(lengths))    
     sent = sent[sort]
@@ -79,8 +78,8 @@ def batcher(params, batch):
 
 # create config dictionaries with all the parameters for your encoders
 char_config = {'embed':{'num_chars': 100, 'embedding_dim': 20, 'sparse': False, 'padding_idx': 0}, 
-               'gru':{'input_size': 20, 'hidden_size': 512, 'num_layers': 1, 'batch_first': True,
-               'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 1024, 'hidden_size': 128, 'heads': 1}}
+               'gru':{'input_size': 20, 'hidden_size': 1024, 'num_layers': 1, 'batch_first': True,
+               'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1}}
 
 encoder = char_gru_encoder(char_config)
 encoder.cuda()

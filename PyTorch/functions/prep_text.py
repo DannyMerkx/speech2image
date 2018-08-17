@@ -22,8 +22,9 @@ def find_index(char):
     valid_chars = string.printable
     return valid_chars.find(char)
 
-def char_2_1hot(raw_text, batch_size, max_sent_len):
+def char_2_1hot(raw_text, batch_size):
     n_letters = len(string.printable)
+    max_sent_len = max([len(x) for x in raw_text])
     text_batch = np.zeros([batch_size, max_sent_len, n_letters])
     # keep track of the origin sentence length to use in pack_padded_sequence
     lengths = []
@@ -34,7 +35,8 @@ def char_2_1hot(raw_text, batch_size, max_sent_len):
     return text_batch, lengths
 
 
-def char_2_index(raw_text, batch_size, max_sent_len):
+def char_2_index(raw_text, batch_size):
+    max_sent_len = max([len(x) for x in raw_text])
     text_batch = np.zeros([batch_size, max_sent_len])
     # keep track of the origin sentence length to use in pack_padded_sequence
     lengths = []
@@ -44,13 +46,18 @@ def char_2_index(raw_text, batch_size, max_sent_len):
             text_batch[i][j] = find_index(char)
     return text_batch, lengths
 
-def word_2_index(word_list, batch_size, max_sent_len, dict_loc):
+def word_2_index(word_list, batch_size, dict_loc):
     w_dict = load_obj(dict_loc)
-    x = len(w_dict)
-    w_dict['<bos>'] = x+1
-    w_dict['<eos>'] = x+2
+    # filter words that do not occur in the dictionary
+    word_list = [[word for word in sent if word in w_dict] for sent in word_list]
+    # If a sentence has no words occuring in the dictionary replace it with the end of sentence token
+    for x in range(len(word_list)):
+        if word_list[x] == []:
+            word_list[x] = ['</s>']
+    max_sent_len = max([len(x) for x in word_list])
     text_batch = np.zeros([batch_size, max_sent_len])
     lengths = []
+    # load the indices for the words from the dictionary
     for i, words in enumerate(word_list):
         lengths.append(len(words))
         for j, word in enumerate(words):

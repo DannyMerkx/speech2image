@@ -6,9 +6,8 @@ combines 2 dictionary of embedding indices into one large dictionary
 @author: danny
 """
 
-
+# combines 2 dictionaries 
 import argparse
-# settings for the language inference task
 parser = argparse.ArgumentParser(description='Create and run an articulatory feature classification DNN')
 parser.add_argument('-loc1', type = str, default = 'the_one_dictionary', help = 'location of the first dictionary')
 parser.add_argument('-loc2', type = str, default = 'snli_indices', help = 'location of the second dictionary')
@@ -33,5 +32,5 @@ for x in dict_2.keys():
     if dict_1[x] == 0:
         dict_1[x] = len(dict_1)
 
-
 save_obj(dict_1, args.result)
+

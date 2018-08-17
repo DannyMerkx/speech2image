@@ -44,6 +44,10 @@ for x in captions:
         if flickr_dict[y] == 0:
             flickr_dict[y] = index
             index += 1
+
+flickr_dict[''] = 0
+flickr_dict['<s>'] = index
+flickr_dict['</s>'] = index + 1
 # save the dictionary
 save_obj(flickr_dict, os.path.join(dict_loc, 'flickr_indices'))
 

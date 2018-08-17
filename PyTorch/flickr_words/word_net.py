@@ -53,8 +53,7 @@ def load_obj(loc):
         return pickle.load(f)
 # get the size of the dictionary for the embedding layer (pytorch crashes if the embedding layer is not correct for the dictionary size)
 # add 1 for the zero or padding embedding
-dict_size = len(load_obj(args.dict_loc)) + 3
-
+dict_size = len(load_obj(args.dict_loc))
 # create config dictionaries with all the parameters for your encoders
 char_config = {'embed':{'num_chars': dict_size, 'embedding_dim': 300, 'sparse': False, 'padding_idx': 0}, 
                'gru':{'input_size': 300, 'hidden_size': 1024, 'num_layers': 1, 'batch_first': True,
@@ -126,7 +125,7 @@ trainer.set_loss(batch_hinge_loss)
 trainer.set_optimizer(optimizer)
 trainer.set_token_batcher()
 trainer.set_dict_loc(args.dict_loc)
-trainer.set_lr_scheduler(cyclic_scheduler)
+trainer.set_lr_scheduler(cyclic_scheduler, 'cyclic')
 # optionally use cuda, gradient clipping and pretrained glove vectors
 if cuda:
     trainer.set_cuda()
