@@ -33,7 +33,7 @@ parser.add_argument('-split_loc', type = str, default = '/data/speech2image/prep
 parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/flickr_words/results/',
                     help = 'location to save the results and network parameters')
 parser.add_argument('-dict_loc', type = str, default = '/data/speech2image/preprocessing/dictionaries/flickr_indices')
-parser.add_argument('-glove_loc', type = str, default = '/data/SentEval-master/examples/glove.840B.300d.txt', help = 'location of pretrained glove embeddings')
+parser.add_argument('-glove_loc', type = str, default = '/data/glove.840B.300d.txt', help = 'location of pretrained glove embeddings')
 # args concerning training settings
 parser.add_argument('-batch_size', type = int, default = 32, help = 'batch size, default: 32')
 parser.add_argument('-lr', type = float, default = 0.001, help = 'learning rate, default:0.001')
@@ -129,8 +129,12 @@ trainer.set_lr_scheduler(cyclic_scheduler, 'cyclic')
 # optionally use cuda, gradient clipping and pretrained glove vectors
 if cuda:
     trainer.set_cuda()
+# load pretrained glove vectors and freeze the embedding layer
 if args.glove:
     trainer.load_glove_embeddings(args.glove_loc)
+    trainer.cap_embedder.embed.weight.requires_grad = False
+    parameters = filter(lambda p: p.requires_grad, trainer.cap_embedder.parameters())
+    optimizer = torch.optim.Adam(list(img_net.parameters())+list(parameters), 1)
 trainer.set_evaluator([1, 5, 10])
 # gradient clipping with these parameters (based the avg gradient norm for the first epoch)
 # can help stabilise training in the first epoch.
