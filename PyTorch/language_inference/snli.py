@@ -12,16 +12,15 @@ models pretrained on the image captioning task to improve learning
 import sys
 import argparse
 import numpy as np
-import time
+import pickle
 
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
 from torch.optim import lr_scheduler
 sys.path.append('/data/speech2image/PyTorch/functions')
 
+from trainer import snli_trainer
 from encoders import char_gru_encoder, snli
-from minibatchers import iterate_snli
 from data_split import split_snli
 # settings for the language inference task
 parser = argparse.ArgumentParser(description='Create and run an articulatory feature classification DNN')
@@ -59,64 +58,13 @@ else:
 # load data from the dir holding snli
 train, test, val = split_snli(args.snli_dir)
 
-# function to save parameters in a results folder
-def save_params(model, file_name, epoch):
-    torch.save(model.state_dict(), args.results_loc + file_name + '.' +str(epoch))
-    
-# convenience function to embed a batch of sentences using the network
-def embed(sent, length, network):
-    # sort the sentences in descending order by length
-    l_sort = np.argsort(- np.array(length))
-    sent = sent[l_sort]
-    length = np.array(length)[l_sort]   
-    # embed the sentences
-    sent = Variable(dtype(sent))
-    emb = network(sent, length)
-    # reverse the sorting again such that the sentence pairs can be properly lined up again    
-    emb = emb[torch.cuda.LongTensor(np.argsort(l_sort))]    
-    return emb
-
-# convert the text labels to integers for the sofmax layer.
-def create_labels(labels):
-    labs = []
-    for x in labels:
-        if x  == 'contradiction':
-            l = 0
-        elif x  == 'entailment':
-            l = 1
-        elif x  == 'neutral':
-            l = 2
-        # pairs where annotators were indecisive are marked neutral
-        else:
-            l = 2
-        labs.append(l)
-    labs = torch.autograd.Variable(torch.cuda.LongTensor(labs), requires_grad = False)
-    return labs
-
-# create the feature vector for the classifier.
-def feature_vector(sent1, sent2):
-    # cosine distance
-    cosine = torch.matmul(sent1, sent2.t()).diag()
-    # absolute elementwise distance
-    absolute = (sent1 - sent2).norm(1, dim = 1, keepdim = True)
-    # element wise or hadamard product
-    elem_wise = sent1 * sent2
-    # concatenate the embeddings and the derived features into a single feature vector
-    return torch.cat((sent1, sent2, elem_wise, absolute, cosine.unsqueeze(1)), 1)
-
+############################### Neural network setup #################################################
 # create the encoder and the classifier
 emb_net = char_gru_encoder(char_config)
 classifier = snli(classifier_config)
 
-# use cuda if availlable
-if cuda:
-    emb_net.cuda()
-    classifier.cuda()
-
-# load pretrained network if provided
-if args.pre_trained:
-    caption_state = torch.load(args.cap_net, map_location=lambda storage, loc: storage)
-    emb_net.load_state_dict(caption_state)
+# create the optimizer, loss function and the learning rate scheduler
+optimizer = torch.optim.Adam(list(emb_net.parameters()) + list(classifier.parameters()), 1)
 
 # function to create a cyclic learning rate scheduler
 def create_cyclic_scheduler(max_lr, min_lr, stepsize):
@@ -126,91 +74,49 @@ def create_cyclic_scheduler(max_lr, min_lr, stepsize):
     # the function operates between 1 and 3 (so the cos cycles from -1 to -1 ) normalise between 0 and 1 and then press between
     # min and max lr   
     return(cyclic_scheduler)
-    
-# create the optimizer, loss function and the learning rate scheduler
-optimizer = torch.optim.Adam(list(emb_net.parameters()) + list(classifier.parameters()), 1)
-cross_entropy_loss = nn.CrossEntropyLoss(ignore_index = -100)
 cyclic_scheduler = create_cyclic_scheduler(max_lr = args.lr, min_lr = 1e-6, stepsize = (int(len(train)/args.batch_size)*5)*4)
 
-# training epoch, takes epoch number, embedding networks, paired lists of sentences and their labels
-def train_epoch(epoch, emb_net, classifier, data):
-    global iteration  
-    emb_net.train()
-    classifier.train()
-    train_loss = 0
-    num_batches = 0 
-    # iterator returns converted sentences and their lenghts and labels in minibatches
-    for sen1, len1, sen2, len2, labels in iterate_snli(data, args.batch_size, max_chars = 450, shuffle = True):
-        cyclic_scheduler.step()
-        iteration += 1
-        num_batches += 1
-        # embed the sentences using the encoder.
-        sent1 = embed(sen1, len1, emb_net)
-        sent2 = embed(sen2, len2, emb_net)
-        # predict the class labels using the classifier. 
-        prediction = classifier(feature_vector(sent1, sent2))
-        # convert the ground truth text labels of the sentence pairs to indices 
-        labels = create_labels(labels)
-        # calculate the loss and take a training step
-        loss = cross_entropy_loss(prediction, labels)
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-        train_loss += loss.data
-        print(train_loss.cpu()[0]/num_batches)
-    return(train_loss.cpu()[0]/num_batches)    
-    
-# test epoch and accuracy evaluation
-def test_epoch(emb_net, classifier, data):
-    emb_net.eval()
-    classifier.eval()
-    # list to hold the scores of each minibatch
-    preds = []
-    val_loss = 0
-    num_batches = 0
-    # iterator returns converted sentences and their lenghts and labels in minibatches
-    for sen1, len1, sen2, len2, labels in iterate_snli(data, args.batch_size, max_chars = 450, shuffle = False):
-        num_batches += 1
-        # embed the sentences using the encoder.
-        sent1 = embed(sen1, len1, emb_net)
-        sent2 = embed(sen2, len2, emb_net)
-        # predict the class label using the classifier. 
-        prediction = classifier(feature_vector(sent1, sent2))
-        # convert the ground truth labels of the sentence pairs to indices 
-        labels = create_labels(labels)
-        # calculate the loss
-        loss = cross_entropy_loss(prediction, labels)
-        val_loss += loss.data       
-        # get the index (i) of the predicted class
-        v, i = torch.max(prediction, 1)
-        # compare the predicted class to the true label and add the score to the predictions list
-        preds.append(torch.Tensor.double(i.cpu().data == labels.cpu().data).numpy())
-    # concatenate all the minibatches and calculate the accuracy of the predictions
-    preds = np.concatenate(preds)
-    # calculate the accuracy based on the number of correct predictions
-    correct = np.mean(preds) * 100 
-    return val_loss.cpu()[0]/num_batches, correct
+trainer = snli_trainer(emb_net, classifier)
+trainer.set_loss(nn.CrossEntropyLoss())
+trainer.set_optimizer(optimizer)
+trainer.set_token_batcher()
+trainer.set_dict_loc(args.dict_loc)
+trainer.set_lr_scheduler(cyclic_scheduler)
 
-epoch = 1
-iteration = 0
-while epoch <= args.n_epochs:
-    # keep track of runtime
-    start_time = time.time()  
-    print('training epoch: ' + str(epoch))
-    
-    train_loss = train_epoch(epoch, emb_net, classifier, train)
-    # report on training time
-    print("Epoch {} of {} took {:.3f}s".format(epoch, args.n_epochs, time.time() - start_time))
-    print("training loss:\t\t{:.6f}".format(train_loss))
-    val_loss, val_accuracy = test_epoch(emb_net, classifier, val)
-    
+# optionally use cuda, gradient clipping and pretrained glove vectors
+if cuda:
+    trainer.set_cuda()
+# load pretrained network if provided (don't use both pretrained and glove cause
+# you will reset the embeddings learned by the pretrained network. Instead pretrain the
+# net using glove vectors and do not reload them)
+if args.pre_trained:
+    trainer.load_cap_embedder(args.cap_net)
+
+# gradient clipping with these parameters (based the avg gradient norm for the first epoch)
+# can help stabilise training in the first epoch.
+if args.gradient_clipping:
+    trainer.set_gradient_clipping(0.0025, 0.05)
+
+while trainer.epoch <= args.n_epochs:
+    # Train on the train set
+    trainer.train_epoch(train, args.batch_size)
+    #evaluate on the validation set
+    trainer.test_epoch(val, args.batch_size)
     # save network parameters
-    save_params(emb_net, 'caption_model', epoch)
+    trainer.save_params(args.results_loc)  
+    # print some info about this epoch
+    trainer.report(args.n_epochs)
+    if args.gradient_clipping:
+        # I found that updating the clip value at each epoch did not work well     
+        # trainer.update_clip()
+        trainer.reset_grads()
+    # increase epoch#
+    trainer.update_epoch()
     
-    print("validation loss:\t\t{:.6f}".format(val_loss))
-    print("validation accuracy: " + str(val_accuracy) + '%')
-    epoch += 1
-
-test_loss, test_accuracy = test_epoch(emb_net, classifier, test)
-print("Test loss:\t\t{:.6f}".format(test_loss))
-print("validation accuracy: " + str(test_accuracy) + '%')
+trainer.test_epoch(test, args.batch_size)
+trainer.print_test_loss()
+trainer.print_test_accuracy()
+        
+# save the gradients for each epoch, can be usefull to select an initial clipping value.
+if args.gradient_clipping:
+    trainer.save_gradients(args.results_loc)
