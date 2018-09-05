@@ -80,7 +80,7 @@ trainer = snli_trainer(emb_net, classifier)
 trainer.set_loss(nn.CrossEntropyLoss())
 trainer.set_optimizer(optimizer)
 trainer.set_token_batcher()
-trainer.set_lr_scheduler(cyclic_scheduler)
+trainer.set_lr_scheduler(cyclic_scheduler, 'cyclic')
 
 # optionally use cuda, gradient clipping and pretrained glove vectors
 if cuda:
