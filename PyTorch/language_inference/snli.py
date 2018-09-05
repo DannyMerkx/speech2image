@@ -34,6 +34,8 @@ parser.add_argument('-lr', type = float, default = 0.0001, help = 'learning rate
 parser.add_argument('-batch_size', type = int, default = 64, help = 'mini batch ize, default = 64')
 parser.add_argument('-n_epochs', type = int, default = 32, help = 'number of traning epochs, default 32')
 parser.add_argument('-pre_trained', type = bool, default = False, help = 'indicates whether to load a pretrained model')
+parser.add_argument('-gradient_clipping', type = bool, default = False, help ='use gradient clipping, default: False')
+
 args = parser.parse_args()
 
 # create config dictionaries with all the parameters for your encoders
