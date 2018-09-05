@@ -66,7 +66,24 @@ class char_gru_encoder(nn.Module):
         # optionally load pretrained word embeddings. takes the dictionary of words occuring in the training data
         # and the location of the embeddings.
         load_word_embeddings(dict_loc, embedding_loc, self.embed.weight.data) 
-        
+
+class bow_encoder(nn.Module):
+    def __init__(self, config):
+        super(bow_encoder, self).__init__()
+        embed = config['embed']
+        self.embed = nn.Embedding(num_embeddings = embed['num_chars'], 
+                                  embedding_dim = embed['embedding_dim'], sparse = embed['sparse'],
+                                  padding_idx = embed['padding_idx'])
+    def forward(self, input, l):
+        # embedding layers expect Long tensors
+        x = self.embed(input.long())
+        print(x.size())
+        return x
+    
+    def load_embeddings(self, dict_loc, embedding_loc):
+        # optionally load pretrained word embeddings. takes the dictionary of words occuring in the training data
+        # and the location of the embeddings.
+        load_word_embeddings(dict_loc, embedding_loc, self.embed.weight.data)         
 # gru encoder for audio
 class audio_gru_encoder(nn.Module):
     def __init__(self, config):

@@ -8,6 +8,7 @@ Created on Tue Feb 27 14:13:00 2018
 #!/usr/bin/env python
 from __future__ import print_function
 
+import pickle
 import tables
 import argparse
 import torch
@@ -137,6 +138,7 @@ if args.glove:
     trainer.cap_embedder.embed.weight.requires_grad = False
     parameters = filter(lambda p: p.requires_grad, trainer.cap_embedder.parameters())
     optimizer = torch.optim.Adam(list(img_net.parameters())+list(parameters), 1)
+    trainer.set_optimizer(optimizer)
 # gradient clipping with these parameters (based the avg gradient norm for the first epoch)
 # can help stabilise training in the first epoch.
 if args.gradient_clipping:

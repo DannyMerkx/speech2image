@@ -135,6 +135,7 @@ if args.glove:
     trainer.cap_embedder.embed.weight.requires_grad = False
     parameters = filter(lambda p: p.requires_grad, trainer.cap_embedder.parameters())
     optimizer = torch.optim.Adam(list(img_net.parameters())+list(parameters), 1)
+    trainer.set_optimizer(optimizer)
 trainer.set_evaluator([1, 5, 10])
 # gradient clipping with these parameters (based the avg gradient norm for the first epoch)
 # can help stabilise training in the first epoch.

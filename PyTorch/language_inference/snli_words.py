@@ -103,6 +103,10 @@ if args.pre_trained:
     trainer.load_cap_embedder(args.cap_net)
 if args.glove:
     trainer.load_glove_embeddings(args.glove_loc)
+    trainer.cap_embedder.embed.weight.requires_grad = False
+    parameters = filter(lambda p: p.requires_grad, trainer.cap_embedder.parameters())
+    optimizer = torch.optim.Adam(list(parameters) + list(classifier.parameters()), 1)
+    trainer.set_optimizer(optimizer)
 # gradient clipping with these parameters (based the avg gradient norm for the first epoch)
 # can help stabilise training in the first epoch.
 if args.gradient_clipping:

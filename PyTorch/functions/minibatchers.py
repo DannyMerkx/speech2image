@@ -101,7 +101,8 @@ def iterate_tokens(f_nodes, batchsize, visual, text, dict_loc, shuffle=True):
 
 
 # the 5fold minibatchers are for the datasets with 5 captions per image (mscoco, flickr). It returns all 5 captions per image.
-def iterate_audio_5fold(f_nodes, batchsize, visual, audio, frames = 2048, shuffle = True):
+def iterate_audio_5fold(f_nodes, batchsize, visual, audio, shuffle = True):
+    frames = 2048,
     if shuffle:
         # optionally shuffle the input
         np.random.shuffle(f_nodes)
