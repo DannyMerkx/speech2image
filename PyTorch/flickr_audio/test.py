@@ -27,7 +27,7 @@ parser = argparse.ArgumentParser(description='Create and run an articulatory fea
 # args concerning file location
 parser.add_argument('-data_loc', type = str, default = '/prep_data/flickr_features.h5',
                     help = 'location of the feature file, default: /prep_data/flickr_features.h5')
-parser.add_argument('-split_loc', type = str, default = '/data/speech2image/preprocessing/dataset.json', 
+parser.add_argument('-split_loc', type = str, default = '/data/flickr/dataset.json', 
                     help = 'location of the json file containing the data split information')
 parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/flickr_audio/results/',
                     help = 'location of the json file containing the data split information')
