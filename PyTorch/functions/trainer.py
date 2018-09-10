@@ -131,12 +131,12 @@ class flickr_trainer():
             self.train_loss += loss.data
             # print loss every n batches
             if num_batches%100 == 0:
-                print(self.train_loss.cpu().data.numpy()[0]/num_batches)
+                print(self.train_loss.cpu()[0].data.numpy()/num_batches)
             # if there is a lr scheduler, take a step in the scheduler
             if self.scheduler == 'cyclic':
                 self.lr_scheduler.step()
                 self.iteration +=1
-        self.train_loss = self.train_loss.cpu().data.numpy()[0]/num_batches
+        self.train_loss = self.train_loss.cpu()[0].data.numpy()/num_batches
     
     def test_epoch(self, data, batch_size):
         # set to evaluation mode
@@ -155,7 +155,7 @@ class flickr_trainer():
                 loss += self.att_loss(self.cap_embedder.att, cap_embedding)
             # add loss to average
             self.test_loss += loss.data 
-        self.test_loss = self.test_loss.cpu().data.numpy()[0]/test_batches
+        self.test_loss = self.test_loss.cpu()[0].data.numpy()/test_batches
         # take a step for a plateau lr scheduler                
         if self.scheduler == 'plateau':
             self.lr_scheduler.step(self.test_loss)    
@@ -339,12 +339,12 @@ class snli_trainer():
             self.optimizer.step()
             self.train_loss += loss.data
             if num_batches%1000 == 0:
-                print(self.train_loss.cpu()[0]/num_batches)
+                print(self.train_loss.cpu()[0].data.numpy()/num_batches)
             # take a step for a cyclic lr scheduler                
             if self.scheduler == 'cyclic':
                 self.lr_scheduler.step()
                 self.iteration +=1
-        self.train_loss = self.train_loss.cpu()[0] / num_batches
+        self.train_loss = self.train_loss.cpu()[0].data.numpy()/num_batches
 
     def test_epoch(self, data, batch_size):
         # set the networks to evaluation mode
@@ -376,7 +376,7 @@ class snli_trainer():
         preds = np.concatenate(preds)
         # calculate the accuracy based on the number of correct predictions
         self.accuracy = np.mean(preds) * 100 
-        self.test_loss = self.test_loss.cpu()[0] / num_batches
+        self.test_loss = self.test_loss.cpu()[0].data.numpy() / num_batches
         # take a step for a plateau lr scheduler                
         if self.scheduler == 'plateau':
             self.lr_scheduler.step(self.test_loss)
