@@ -2,12 +2,12 @@
 # -*- coding: utf-8 -*-
 """
 Created on Thu May 31 12:36:40 2018
-
+Some functions for tokenising captions and filtering tokens from captions
 @author: danny
 """
 from nltk.tokenize.nist import NISTTokenizer
 from contractions import contractions
-from nltk.corpus import wordnet
+import string
 
 # replace contractions in the captions with the uncontracted forms in a contraction dictionary
 def rep_contractions(cap, contract):   
@@ -38,46 +38,38 @@ def correct_spel(caption, spell_dict):
     return(cleaned_capt)
     
 # remove all words that have a low occurrence in the dataset replace with oov
-def remove_low_occurence(caption, dictionary, threshold):
+def remove_low_occurence(caption, dictionary, threshold, token):
     cleaned_capt = []
     keys = dictionary.keys()
     for x in caption:
         if not x in keys:
-            x = '<oov>'
+            x = token
         elif dictionary[x] < threshold:
-            x = '<oov>'
+            x = token
         cleaned_capt.append(x)
     return cleaned_capt
 # remove all stop words and replace with stop word token
-def remove_stop_words(caption, stop_words):
+def remove_stop_words(caption, stop_words, token):
     cleaned_capt = []
     for x in caption:
         if x in stop_words:
-            x = '<stop>'
+            x = token
         cleaned_capt.append(x)
     return cleaned_capt
 # remove all tokens with numerical values in them and replaces with a num token
-def remove_numerical(caption, digits):
+def remove_numerical(caption, token):
     cleaned_capt = []
     for x in caption:
-        for y in digits:
+        for y in string.digits:
             if y in x:
-                x = '<num>'
+                x = token
         cleaned_capt.append(x)
     return cleaned_capt   
 # replace punctuation with a punctuation token
-def remove_punctuation(caption, punct):
+def remove_punctuation(caption, token):
     cleaned_capt = []
     for x in caption:
-        if x in punct:
-            x = '<punct>'
-        cleaned_capt.append(x)
-    return cleaned_capt
-# remove all words that are not in wordnet and replace with oov. exceptions for all the other oov tokens
-def clean_wordnet(caption):
-    cleaned_capt = []
-    for x in caption:
-        if wordnet.synsets(x) == [] and not x == '<punct>' and not x == '<stop>' and not x == '<num>':
-            x = '<oov>'
+        if x in string.punctuation:
+            x = token
         cleaned_capt.append(x)
     return cleaned_capt

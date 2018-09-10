@@ -10,7 +10,7 @@ combines 2 dictionary of embedding indices into one large dictionary
 import argparse
 parser = argparse.ArgumentParser(description='Create and run an articulatory feature classification DNN')
 parser.add_argument('-loc1', type = str, default = 'flickr_indices', help = 'location of the first dictionary')
-parser.add_argument('-loc2', type = str, default = 'the_one_dictionary', help = 'location of the second dictionary')
+parser.add_argument('-loc2', type = str, default = 'all_dictionary', help = 'location of the second dictionary')
 parser.add_argument('-result', type = str, default = 'combined_dict', help = 'location of the combined dictionary')
 args = parser.parse_args()
 
@@ -35,6 +35,6 @@ for x in dict_2.keys():
         dict_1[x] = dict_size
         dict_size += 1
 
-flickr_dict[''] = 0
+dict_1[''] = 0
 save_obj(dict_1, args.result)
 

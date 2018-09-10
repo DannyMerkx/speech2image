@@ -11,9 +11,9 @@ import os
 from collections import defaultdict
 import json
 # path to the flickr8k dataset.json file
-text_path = os.path.join('/data/speech2image/preprocessing/dataset.json')
+text_path = os.path.join('/data/flickr/dataset.json')
 # save the dictionary in this folder
-dict_loc = os.path.join('/data/speech2image/preprocessing/dictionaries/')
+dict_loc = os.path.join('/data/speech2image/PyTorch/flickr_words')
 # save dictionary
 def save_obj(obj, loc):
     with open(loc + '.pkl', 'wb') as f:

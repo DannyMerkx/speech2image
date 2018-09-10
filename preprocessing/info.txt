@@ -7,7 +7,6 @@ I did not try to create a catch all preparation file for all datasets because th
 aud_feat_functions : functions to create the audio features e.g. filterbanks, mfcc etc.
 aud_features : main script to create the features and save them in the appropriate file. 
 aud_preproc : preprocessing of the audio
-dataset.json : file containing some data and metadata on the flickr database. Needed to split the data into the split used by Karpathy et al. and contains the written captions
 filters : functions to make the filters for the filterbank features
 melfreq : functions to convert hz to mel and vice versa
 places_cleanup : cleans up the places database (i.e. there are images without captions and empty speech files etc. it's a mess)
@@ -35,3 +34,5 @@ The structure is: file -> root -> node_1 -> feature_1(e.g. vgg16)-> caption 1
 Furthermore for places and coco the nodes (each node is an individual data sample with an image and its captions) are divided at the rootnode into subgroups because h5 recommends no more than 10 000 subnodes on the same root. 
 
 The names for the nodes are by my convention the name of the image file. This makes it easier to associate the data with the nodes and makes sure a list of image and audio file locations are enough to find all data and add it to the right node (as is the case in flickr). In mscoco the captions in the caption file contain an image id making it easy to associate with the node. 
+
+After creating the features use the scripts in the dictionaries folder to make the appropriate dictionaries for token based networks.

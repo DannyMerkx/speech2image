@@ -38,10 +38,6 @@ def word_2_index(batch, batch_size, dict_loc):
     w_dict = load_obj(dict_loc)
     # filter words that do not occur in the dictionary
     batch = [[word if word in w_dict else '<oov>' for word in sent] for sent in batch]
-    # If a sentence has no words occuring in the dictionary replace it with the end of sentence token
-    for x in range(len(batch)):
-        if batch[x] == []:
-            batch[x] = ['</s>']
     max_sent_len = max([len(x) for x in batch])
     index_batch = np.zeros([batch_size, max_sent_len])
     lengths = []

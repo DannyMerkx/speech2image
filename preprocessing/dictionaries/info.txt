@@ -1,8 +1,10 @@
-this folder holds scripts to make dictionaries and save the dictionaries in this folder. Several dictionaries are needed for the project for example as a list of all the words that occur in each dataset and their frequency in order to exclude words that do not occur in the training set. You also need a dictionary with indices instead of frequency counts for each word for the embedding layers. 
+this folder holds scripts to make dictionaries for the word embedding layer. First make a dictionary of the frequencies of each token in the training set, so we can exclude low occurence words from the embedding layer. Then make a dictionary mapping each token to an index of the embedding layer. I made an attempt at spelling correction for mscoco but by default do not use it.  
 
-make_coco_dict : make a dictionary for mscoco and a dictionary of suggested spelling corrections.
-spell_correct : functions to make a spelling correction dictionary. 
-text_cleanup : functions to remove and replace tokens from the captions e.g. replace digit with <num> tokens and misspelled words with <oov> tokens
-flickr_dict : make a dictionary of all words in the flickr train set.
-contractions : dictionary of common contractions and  their expanded form. 
-
+coco_frequency: mscoco dictionary of the frequency of each token in the training set.
+coco_index: mscoco dictionary of indices for the embeding layer. also create a dictionary with spelling corrections which can be used to map misspelled words to a suggested correction.
+combine_dictionaries: combine two dictionaries. Usefull when for instance training on both mscoco and flickr.
+contractions: list of common contractions, used in conjunction with spelling correction
+flickr_frequency: flickr dictionary of the frequency of each token in the training set.
+flickr_index: flickr dictionary of indices for the embeding layer.
+spell_correct: create a dictionary of spelling corrections based on edit distance to correct words.
+text_cleanup: functions to clean the captions e.g. by removing low occurence words.
