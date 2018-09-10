@@ -24,13 +24,12 @@ import sys
 import numpy as np
 import sklearn.linear_model
 import scipy.spatial
-from torch.autograd import Variable
 
 sys.path.append('/data/speech2image/PyTorch/functions')
 
-from minibatchers import iterate_raw_text_5fold, iterate_raw_text
+from trainer import flickr_trainer
 from evaluate import evaluate
-from encoders import img_encoder, char_gru_encoder
+from encoders import img_encoder, text_gru_encoder
 from data_split import split_data
 ##################################### parameter settings ##############################################
 
@@ -89,13 +88,9 @@ def iterate_flickr(h5_file):
         yield x
 
 if args.data_base == 'coco':
-    f_nodes = [node for node in iterate_large_dataset(data_file)]
-    # define the batcher type to use.
-    batcher = iterate_raw_text_5fold    
+    f_nodes = [node for node in iterate_large_dataset(data_file)]   
 elif args.data_base == 'flickr':
     f_nodes = [node for node in iterate_flickr(data_file)]
-    # define the batcher type to use.
-    batcher = iterate_raw_text_5fold
 elif args.data_base == 'places':
     print('places has no written captions')
 else:
@@ -110,12 +105,7 @@ train, test, val = split_data(f_nodes, args.split_loc)
 
 # network modules
 img_net = img_encoder(image_config)
-cap_net = char_gru_encoder(char_config)
-
-# move graph to gpu if cuda is availlable
-if cuda:
-    img_net.cuda()
-    cap_net.cuda()
+cap_net = text_gru_encoder(char_config)
 
 # list all the trained model parameters
 models = os.listdir(args.results_loc)
@@ -128,33 +118,31 @@ caption_models.sort()
 caps = torch.autograd.Variable(dtype(np.zeros((5000, out_size)))).data
 imgs = torch.autograd.Variable(dtype(np.zeros((5000, out_size)))).data
 
-evaluator = evaluate(dtype, img_net, cap_net)
-evaluator.set_n([1,5,10])
-
 a = []
 b = []
 encode = False
+
+# create a trainer with just the evaluator for the purpose of testing a pretrained model
+trainer = flickr_trainer(img_net, cap_net, args.visual, args.cap)
+trainer.set_raw_text_batcher()
+if cuda:
+    trainer.set_cuda()
+trainer.set_evaluator([1, 5, 10])
 
 if encode == True:
  
     for img, cap in zip(img_models, caption_models) :
         epoch = img.split('.')[1]
-        img_state = torch.load(args.results_loc + img)
-        caption_state = torch.load(args.results_loc + cap)
-    
-        img_net.load_state_dict(img_state)
-        cap_net.load_state_dict(caption_state)
-        iterator = batcher(test, args.batch_size, args.visual, args.cap, max_chars= 200, shuffle = False)
+
+        # load the pretrained embedders
+        trainer.load_cap_embedder(args.results_loc + cap)
+        trainer.load_img_embedder(args.results_loc + img)
         
-        evaluator.embed_data(iterator)
-        caption =  evaluator.return_caption_embeddings()
-        image = evaluator.return_image_embeddings()
-        print("Epoch " + epoch)
-        #print the per epoch results
+        trainer.recall_at_n(val, args.batch_size, prepend = 'val')
         
-        evaluator.print_caption2image('test')
-        evaluator.print_image2caption('test')
-        
+        caption =  trainer.evaluator.return_caption_embeddings()
+        image = trainer.evaluator.return_image_embeddings()
+
         caps += caption
         imgs += image
         a.append(caption)
@@ -197,9 +185,9 @@ while prev_disp - disp >= 0.00001:
 caps = z[:5000]
 imgs = z[5000:10000]
 
-evaluator.set_image_embeddings(imgs)
-evaluator.set_caption_embeddings(caps)
+trainer.evaluator.set_image_embeddings(imgs)
+trainer.set_caption_embeddings(caps)
 
 # print the results of the ensemble
-evaluator.print_caption2image('test ensemble')
-evaluator.print_image2caption('test ensemble')
+trainer.evaluator.print_caption2image('test ensemble')
+trainer.evaluator.print_image2caption('test ensemble')

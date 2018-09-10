@@ -5,7 +5,7 @@ Created on Tue Aug  7 15:45:31 2018
 
 @author: danny
 """
-from minibatchers import iterate_tokens_5fold, iterate_raw_text_5fold, iterate_audio_5fold, iterate_snli_tokens, iterate_snli
+from minibatchers import iterate_tokens_5fold, iterate_char_5fold, iterate_audio_5fold, iterate_snli_tokens, iterate_snli
 from grad_tracker import gradient_clipping
 from evaluate import evaluate
 
@@ -41,7 +41,7 @@ class flickr_trainer():
     def audio_batcher(self, data, batch_size, shuffle):
         return iterate_audio_5fold(data, batch_size, self.vis, self.cap, shuffle)
     def raw_text_batcher(self, data, batch_size, shuffle):
-        return iterate_raw_text_5fold(data, batch_size, self.vis, self.cap, shuffle)    
+        return iterate_char_5fold(data, batch_size, self.vis, self.cap, shuffle)    
 
 ################## functions to set class values and attributes ###############
     # functions to set which minibatcher to use. Needs to be called as no default is set.
@@ -200,6 +200,7 @@ class flickr_trainer():
         self.evaluator.print_caption2image(prepend, self.epoch)
         self.evaluator.print_image2caption(prepend, self.epoch)
     def fivefold_recall_at_n(self, prepend):
+        # calculates the average recall@n over 5 folds (for mscoco). 
         self.evaluator.fivefold_c2i('1k ' + prepend +  self.epoch)
         self.evaluator.fivefold_i2c('1k ' + prepend +  self.epoch)
     # function to save parameters in a results folder

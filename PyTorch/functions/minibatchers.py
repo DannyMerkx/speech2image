@@ -10,7 +10,7 @@ The batchers also return the lenghts of the captions in the batch so it can be u
 pack_padded_sequence.
 """
 import numpy as np
-from prep_text import char_2_1hot, char_2_index, word_2_index
+from prep_text import char_2_index, word_2_index
 # minibatcher which takes a list of nodes and returns the visual and audio features, possibly resized.
 # visual and audio should contain a string of the names of the visual and audio features nodes in the h5 file.
 #frames is the desired length of the time sequence, the batcher pads or truncates.
@@ -48,7 +48,7 @@ def iterate_audio(f_nodes, batchsize, visual, audio, frames = 2048, shuffle=True
 
 # visual and text should be the names of the feature nodes in the h5 file, chars is the maximum sentence length in characters.
 # default is 260, to accomodate the max lenght found in mscoco. The max lenght in flickr is 200 
-def iterate_raw_text(f_nodes, batchsize, visual, text, shuffle=True):
+def iterate_char(f_nodes, batchsize, visual, text, shuffle=True):
     if shuffle:
         # optionally shuffle the input
         np.random.shuffle(f_nodes)
@@ -138,7 +138,7 @@ def iterate_audio_5fold(f_nodes, batchsize, visual, audio, shuffle = True):
 
 # iterate over text input. the value for chars indicates the max sentence lenght in characters. Keeps track 
 # of the unpadded senctence lengths to use with pytorch's pack_padded_sequence.
-def iterate_raw_text_5fold(f_nodes, batchsize, visual, text, shuffle=True):
+def iterate_char_5fold(f_nodes, batchsize, visual, text, shuffle=True):
     if shuffle:
         # optionally shuffle the input
         np.random.shuffle(f_nodes)

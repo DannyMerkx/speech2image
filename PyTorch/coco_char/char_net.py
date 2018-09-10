@@ -18,7 +18,7 @@ sys.path.append('/data/speech2image/PyTorch/functions')
 
 from trainer import flickr_trainer
 from costum_loss import batch_hinge_loss, ordered_loss, attention_loss
-from encoders import img_encoder, char_gru_encoder
+from encoders import img_encoder, text_gru_encoder
 from data_split import split_data_coco
 ##################################### parameter settings ##############################################
 
@@ -94,7 +94,7 @@ train = train[:-5000]
 ############################### Neural network setup #################################################
 # network modules
 img_net = img_encoder(image_config)
-cap_net = char_gru_encoder(char_config)
+cap_net = text_gru_encoder(char_config)
 # Adam optimiser. I found SGD to work terribly and could not find appropriate parameter settings for it.
 optimizer = torch.optim.Adam(list(img_net.parameters())+list(cap_net.parameters()), 1)
 

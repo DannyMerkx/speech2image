@@ -18,8 +18,7 @@ import sys
 sys.path.append('/data/speech2image/PyTorch/functions')
 
 from trainer import flickr_trainer
-from minibatchers import iterate_raw_text_5fold, iterate_raw_text
-from encoders import img_encoder, char_gru_encoder
+from encoders import img_encoder, text_gru_encoder
 from data_split import split_data
 ##################################### parameter settings ##############################################
 
@@ -39,7 +38,6 @@ parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, defa
 parser.add_argument('-data_base', type = str, default = 'flickr', help = 'database to train on, default: flickr')
 parser.add_argument('-visual', type = str, default = 'resnet', help = 'name of the node containing the visual features, default: resnet')
 parser.add_argument('-cap', type = str, default = 'raw_text', help = 'name of the node containing the audio features, default: raw_text')
-parser.add_argument('-gradient_clipping', type = bool, default = True, help ='use gradient clipping, default: True')
 
 args = parser.parse_args()
 
@@ -51,7 +49,6 @@ char_config = {'embed':{'num_chars': 100, 'embedding_dim': 20, 'sparse': False, 
 # automatically adapt the image encoder output size to the size of the caption encoder
 out_size = char_config['gru']['hidden_size'] * 2**char_config['gru']['bidirectional'] * char_config['att']['heads']
 image_config = {'linear':{'in_size': 2048, 'out_size': out_size}, 'norm': True}
-
 
 # open the data file
 data_file = tables.open_file(args.data_loc, mode='r+') 
@@ -75,15 +72,9 @@ def iterate_flickr(h5_file):
         yield x
 
 if args.data_base == 'coco':
-    f_nodes = [node for node in iterate_large_dataset(data_file)]
-    # define the batcher type to use.
-    batcher = iterate_raw_text_5fold    
+    f_nodes = [node for node in iterate_large_dataset(data_file)]   
 elif args.data_base == 'flickr':
     f_nodes = [node for node in iterate_flickr(data_file)]
-    # define the batcher type to use.
-    batcher = iterate_raw_text_5fold
-elif args.data_base == 'places':
-    print('places has no written captions')
 else:
     print('incorrect database option')
     exit()   
@@ -94,7 +85,7 @@ train, test, val = split_data(f_nodes, args.split_loc)
 #####################################################
 # network modules
 img_net = img_encoder(image_config)
-cap_net = char_gru_encoder(char_config)
+cap_net = text_gru_encoder(char_config)
 
 # list all the trained model parameters
 models = os.listdir(args.results_loc)
@@ -124,4 +115,3 @@ for img, cap in zip(img_models, caption_models):
     trainer.set_epoch(epoch)
     trainer.recall_at_n(val, args.batch_size, prepend = 'val')
     trainer.recall_at_n(test, args.batch_size, prepend = 'test')
-

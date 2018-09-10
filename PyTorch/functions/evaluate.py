@@ -6,7 +6,7 @@ Created on Tue Feb 13 10:36:08 2018
 @author: danny
 
 evaluation functions. contains only recall@n now. convenience functions for embedding
-the data and calculating the recall@n to keep your NN training script clean
+the data and calculating the recall@n. 
 """
 import numpy as np
 import torch
@@ -18,6 +18,7 @@ class evaluate():
         self.dtype = dtype
         self.embed_function_1 = embed_function_1
         self.embed_function_2 = embed_function_2
+        # set dist to cosine by default
         self.dist = self.cosine
     # embed the captions and images
     def embed_data(self, iterator):
@@ -56,7 +57,7 @@ class evaluate():
         return torch.matmul(emb_1, emb_2.t())
     def ordered(self, emb_1, emb_2):
         return  - torch.clamp(emb_1 - emb_2, min = 0).norm(1, dim = 1, keepdim = True)**2
-        
+    # calculate caption2image
     def c2i(self):
         # total number of the embeddings
         n_emb = self.image_embeddings.size()[0]
@@ -77,7 +78,7 @@ class evaluate():
 
         # concat the diagonals
         self.ranks = self.dtype(ranks)        
-
+    # calculate image2caption
     def i2c(self):
         # total number of the embeddings
         n_emb = self.image_embeddings.size()[0]
@@ -98,12 +99,13 @@ class evaluate():
 
         # concat the diagonals
         self.ranks = torch.cat(ranks,1)
-                
+    # calculate median rank            
     def median_rank(self, ranks):
         self.median = ranks.double().median()
-    
+    # calculate mean rank
     def mean_rank(self, ranks):
         self.mean = ranks.double().mean()
+    # extract r@n from the ranks
     def recall_at_n(self, ranks):
         if type(self.n) == int:
             r = ranks.le(self.n).double().mean()
@@ -112,15 +114,13 @@ class evaluate():
             for x in self.n:
                 r.append(ranks.le(x).double().mean())
         self.recall = r
-    
+    # combine all the function calls for convenience
     def caption2image(self):
-        # calculate the recall and median rank
         self.c2i()
         self.median_rank(self.ranks)
         self.mean_rank(self.ranks)
         self.recall_at_n(self.ranks)
     def image2caption(self):
-        # calculate the recall and median rank
         self.i2c()
         self.median_rank(self.ranks.min(0)[0])
         self.mean_rank(self.ranks.min(0)[0])
@@ -230,6 +230,7 @@ class evaluate():
         # set a new model as embedder 1
         self.embed_function_1 = embedder
     def set_embedder_2(self, embedder):
+        # set a new model as embedder 2
         self.embed_function_2 = embedder
     def set_cosine(self):
         # set the distance function for recall to cosine

@@ -11,34 +11,10 @@ from load_embeddings import load_word_embeddings
 import torch
 import torch.nn as nn
 
-import time
-
-# audio encoder as described by Harwath and Glass(2016)
-class Harwath_audio_encoder(nn.Module):
-    def __init__(self):
-        super(Harwath_audio_encoder, self).__init__()
-        self.Conv1d_1 = nn.Conv1d(in_channels = 40, out_channels = 64, kernel_size = 5, 
-                                 stride = 1, padding = 0, groups = 1)
-        self.Pool1 = nn.MaxPool1d(kernel_size = 4, stride = 2, padding = 0, dilation = 1, 
-                                  return_indices = False, ceil_mode = False)
-        self.Conv1d_2 = nn.Conv1d(in_channels = 64, out_channels = 512, kernel_size = 25,
-                                  stride = 1, padding = 0, groups = 1)
-        self.Conv1d_3 = nn.Conv1d(in_channels = 512, out_channels = 1024, kernel_size = 25,
-                                  stride = 1, padding = 0, groups = 1)
-        self.Pool2 = nn.AdaptiveMaxPool1d(output_size = 1, return_indices=False)
-        self.relu = nn.ReLU()
-
-    def forward(self, input):
-        x = self.relu(self.Pool1(self.Conv1d_1(input)))
-        x = self.relu(self.Pool1(self.Conv1d_2(x)))
-        x = self.relu(self.Pool2(self.Conv1d_3(x)))
-        x = torch.squeeze(x)
-        return nn.functional.normalize(x, p = 2, dim = 1)
-
 # gru encoder for characters and tokens
-class char_gru_encoder(nn.Module):
+class text_gru_encoder(nn.Module):
     def __init__(self, config):
-        super(char_gru_encoder, self).__init__()
+        super(text_gru_encoder, self).__init__()
         embed = config['embed']
         gru= config['gru']
         att = config ['att'] 
@@ -65,25 +41,8 @@ class char_gru_encoder(nn.Module):
     def load_embeddings(self, dict_loc, embedding_loc):
         # optionally load pretrained word embeddings. takes the dictionary of words occuring in the training data
         # and the location of the embeddings.
-        load_word_embeddings(dict_loc, embedding_loc, self.embed.weight.data) 
-
-class bow_encoder(nn.Module):
-    def __init__(self, config):
-        super(bow_encoder, self).__init__()
-        embed = config['embed']
-        self.embed = nn.Embedding(num_embeddings = embed['num_chars'], 
-                                  embedding_dim = embed['embedding_dim'], sparse = embed['sparse'],
-                                  padding_idx = embed['padding_idx'])
-    def forward(self, input, l):
-        # embedding layers expect Long tensors
-        x = self.embed(input.long())
-        print(x.size())
-        return x
-    
-    def load_embeddings(self, dict_loc, embedding_loc):
-        # optionally load pretrained word embeddings. takes the dictionary of words occuring in the training data
-        # and the location of the embeddings.
         load_word_embeddings(dict_loc, embedding_loc, self.embed.weight.data)         
+
 # gru encoder for audio
 class audio_gru_encoder(nn.Module):
     def __init__(self, config):
@@ -144,8 +103,49 @@ class snli(nn.Module):
         return self.softmax(x)
 
 ######################################################################################################
-# network concepts and experiments
+# network concepts and experiments and networks by others
 ######################################################################################################
+
+# audio encoder as described by Harwath and Glass(2016)
+class Harwath_audio_encoder(nn.Module):
+    def __init__(self):
+        super(Harwath_audio_encoder, self).__init__()
+        self.Conv1d_1 = nn.Conv1d(in_channels = 40, out_channels = 64, kernel_size = 5, 
+                                 stride = 1, padding = 0, groups = 1)
+        self.Pool1 = nn.MaxPool1d(kernel_size = 4, stride = 2, padding = 0, dilation = 1, 
+                                  return_indices = False, ceil_mode = False)
+        self.Conv1d_2 = nn.Conv1d(in_channels = 64, out_channels = 512, kernel_size = 25,
+                                  stride = 1, padding = 0, groups = 1)
+        self.Conv1d_3 = nn.Conv1d(in_channels = 512, out_channels = 1024, kernel_size = 25,
+                                  stride = 1, padding = 0, groups = 1)
+        self.Pool2 = nn.AdaptiveMaxPool1d(output_size = 1, return_indices=False)
+        self.relu = nn.ReLU()
+
+    def forward(self, input):
+        x = self.relu(self.Pool1(self.Conv1d_1(input)))
+        x = self.relu(self.Pool1(self.Conv1d_2(x)))
+        x = self.relu(self.Pool2(self.Conv1d_3(x)))
+        x = torch.squeeze(x)
+        return nn.functional.normalize(x, p = 2, dim = 1)
+    
+# simple encoder that just sums the word embeddings of the tokens
+class bow_encoder(nn.Module):
+    def __init__(self, config):
+        super(bow_encoder, self).__init__()
+        embed = config['embed']
+        self.embed = nn.Embedding(num_embeddings = embed['num_chars'], 
+                                  embedding_dim = embed['embedding_dim'], sparse = embed['sparse'],
+                                  padding_idx = embed['padding_idx'])
+    def forward(self, input, l):
+        # embedding layers expect Long tensors
+        x = self.embed(input.long())
+        print(x.size())
+        return x
+    
+    def load_embeddings(self, dict_loc, embedding_loc):
+        # optionally load pretrained word embeddings. takes the dictionary of words occuring in the training data
+        # and the location of the embeddings.
+        load_word_embeddings(dict_loc, embedding_loc, self.embed.weight.data) 
 
 # combination of a convolutional network topped by a GRU for audio
 class RCNN_audio_encoder(nn.Module):
@@ -174,7 +174,7 @@ class RCNN_audio_encoder(nn.Module):
         x = nn.functional.normalize(self.att(x), p=2, dim=1)
         return x
 
-# Recurrent highway network audio encoder.
+# Recurrent highway network audio encoder described by chrupala et al.
 class RHN_audio_encoder(nn.Module):
     def __init__(self, batch_size):
         super(RHN_audio_encoder, self).__init__()
@@ -218,18 +218,3 @@ class conv_encoder(nn.Module):
         x = self.relu(self.Conv1d_3(x))
         x = self.linear(self.Pool(x).squeeze())
         return nn.functional.normalize(x, p = 2, dim = 1)
-
-# code for simple testing of encoders and timing
-
-#config = {'conv':{'in_channels': 39, 'out_channels': 64, 'kernel_size': 6, 'stride': 2,
-#               'padding': 0, 'bias': False}, 'gru':{'input_size': 64, 'hidden_size': 1024, 
-#               'num_layers': 1, 'batch_first': True, 'bidirectional': True, 'dropout': 0}, 
-#               'att':{'in_size': 2048, 'hidden_size': 128}}
-
-##start_time = time.time()
-#gru = audio_gru_encoder(config)
-#input = torch.autograd.Variable(torch.rand(8, 39, 2048))
-#output = gru(input, l)
-
-#time = time.time() - start_time
-#print(time)

@@ -13,10 +13,9 @@ import os
 import json
 import pickle
 from nltk.tokenize.nist import NISTTokenizer
-from nltk.corpus import stopwords
 from collections import defaultdict 
-from contractions import contractions
 from spell_correct import create_spell_check_dict
+import string
 #path to the annotations files
 text_path = os.path.join('/data/mscoco/annotations')
 # folder to save the resulting dictionaries
@@ -24,10 +23,6 @@ dict_loc = os.path.join('/data/speech2image/preprocessing/dictionaries/')
 # file containg a large corpus of english words, used to spot spelling mistakes
 corpus_loc = os.path.join('/data/speech2image/preprocessing/dictionaries/large.txt')
 
-# load the list of common contractions
-contract = contractions()
-# load the list of english stop words
-stop_words = stopwords.words('english')
 # save dictionary
 def save_obj(obj, loc):
     with open(loc + '.pkl', 'wb') as f:
@@ -67,32 +62,26 @@ for x in val_cap:
        key = '0' + key
    val_dict[key] = val_dict[key] + [x]
 
-coco_dict = defaultdict(int)
-captions = []
-sent_len = []
-for x in val_dict.keys():
-    for y in val_dict[x]:
-        caption = y['caption'].lower()
-        caption = rep_contractions(caption, contract)
-        caption = caption.replace(' ave.', ' avenue').replace(' ave ', ' avenue ').replace('&', 'and').replace('=', '')
-        caption = nist.tokenize(caption)
-        captions.append(''.join([x+' ' for x in caption]))
-        sent_len.append(len(caption))
-        for z in caption:
-            coco_dict[z] += 1
+#coco_dict = defaultdict(int)
+#for x in val_dict.keys():
+#    for y in val_dict[x]:
+#        caption = y['caption'].lower()
+#        caption = nist.tokenize(caption)
+#        for z in caption:
+#            z = ''.join([x for x in z if not x in string.punctuation])
+#            if not z == []:
+#                coco_dict[z] += 1
            
 for x in train_dict.keys():
     for y in train_dict[x]:
         caption = y['caption'].lower()
-        caption = rep_contractions(caption, contract)
-        caption = caption.replace(' ave.', ' avenue').replace(' ave ', ' avenue ').replace('&', 'and').replace('=', '')
         caption = nist.tokenize(caption)
-        captions.append(''.join([x+' ' for x in caption]))
-        sent_len.append(len(caption))
         for z in caption:
-            coco_dict[z] += 1
+            z = ''.join([x for x in z if not x in string.punctuation])
+            if not z == []:
+                coco_dict[z] += 1
 # create a dictionary of spelling corrections. I.e. for words not occuring in wordnet, 
 dictionary = create_spell_check_dict(coco_dict, corpus_loc)
 
 save_obj(dictionary, os.path.join('spell_dict'))
-save_obj(coco_dict, os.path.join(dict_loc, 'coco_dict'))
+save_obj(coco_dict, os.path.join(dict_loc, 'coco_frequency'))

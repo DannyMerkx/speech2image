@@ -24,8 +24,7 @@ import sys
 import numpy as np
 sys.path.append('/data/speech2image/PyTorch/functions')
 
-from minibatchers import iterate_audio_5fold, iterate_audio
-from evaluate import evaluate
+from trainer import flickr_trainer
 from encoders import img_encoder, audio_gru_encoder
 from data_split import split_data
 ##################################### parameter settings ##############################################
@@ -68,11 +67,8 @@ data_file = tables.open_file(args.data_loc, mode='r+')
 cuda = args.cuda and torch.cuda.is_available()
 if cuda:
     print('using gpu')
-    # if cuda cast all variables as cuda tensor
-    dtype = torch.cuda.FloatTensor
 else:
     print('using cpu')
-    dtype = torch.FloatTensor
 
 # get a list of all the nodes in the file. h5 format takes at most 10000 leaves per node, so big
 # datasets are split into subgroups at the root node 
@@ -86,16 +82,9 @@ def iterate_flickr(h5_file):
         yield x
 
 if args.data_base == 'coco':
-    f_nodes = [node for node in iterate_large_dataset(data_file)]
-    # define the batcher type to use.
-    batcher = iterate_audio_5fold    
+    f_nodes = [node for node in iterate_large_dataset(data_file)]   
 elif args.data_base == 'flickr':
     f_nodes = [node for node in iterate_flickr(data_file)]
-    # define the batcher type to use.
-    batcher = iterate_audio_5fold
-elif args.data_base == 'places':
-    f_nodes = [node for node in iterate_large_dataset(data_file)]
-    batcher = iterate_audio
 else:
     print('incorrect database option')
     exit()  
@@ -110,10 +99,13 @@ train, test, val = split_data(f_nodes, args.split_loc)
 img_net = img_encoder(image_config)
 cap_net = audio_gru_encoder(audio_config)
 
-# move graph to gpu if cuda is availlable
+# create a trainer with just the evaluator for the purpose of testing a pretrained model
+trainer = flickr_trainer(img_net, cap_net, args.visual, args.cap)
+trainer.set_audio_batcher()
+# optionally use cuda
 if cuda:
-    img_net.cuda()
-    cap_net.cuda()
+    trainer.set_cuda()
+trainer.set_evaluator([1, 5, 10])
 
 # list all the trained model parameters
 models = os.listdir(args.results_loc)
@@ -123,34 +115,27 @@ img_models = [x for x in models if 'image' in x]
 # run the image and caption retrieval and create an ensemble
 img_models.sort()
 caption_models.sort()
-caps = torch.autograd.Variable(dtype(np.zeros((5000, out_size)))).data
-imgs = torch.autograd.Variable(dtype(np.zeros((5000, out_size)))).data
+caps = torch.autograd.Variable(trainer.dtype(np.zeros((5000, out_size)))).data
+imgs = torch.autograd.Variable(trainer.dtype(np.zeros((5000, out_size)))).data
 
-evaluator = evaluate(dtype, img_net, cap_net)
-evaluator.set_n([1,5,10])
-for img, cap in zip(img_models, caption_models) :
-    
-    img_state = torch.load(args.results_loc + img)
-    caption_state = torch.load(args.results_loc + cap)
-    
-    img_net.load_state_dict(img_state)
-    cap_net.load_state_dict(caption_state)
-    iterator = batcher(test, args.batch_size, args.visual, args.cap, frames = 2048, shuffle = False)
-    
-    evaluator.embed_data(iterator)
-    caption =  evaluator.return_caption_embeddings()
-    image = evaluator.return_image_embeddings()
+for img, cap in zip(img_models, caption_models) :    
+    epoch = img.split('.')[1]
+    # load the pretrained embedders
+    trainer.load_cap_embedder(args.results_loc + cap)
+    trainer.load_img_embedder(args.results_loc + img)   
+    # calculate the recall@n
+    trainer.set_epoch(epoch)
+    trainer.recall_at_n(val, args.batch_size, prepend = 'val')
+    trainer.recall_at_n(test, args.batch_size, prepend = 'test')
 
-    print("Epoch " + img.split('.')[1])
-    #print the per epoch results
-    evaluator.print_caption2image('test')
-    evaluator.print_image2caption('test')
-        
+    caption =  trainer.evaluator.return_caption_embeddings()
+    image = trainer.evaluator.return_image_embeddings()
+
     caps += caption
     imgs += image
 # print the results of the ensemble
-evaluator.set_image_embeddings(imgs)
-evaluator.set_caption_embeddings(caps)
+trainer.evaluator.set_image_embeddings(imgs)
+trainer.evaluator.set_caption_embeddings(caps)
 
-evaluator.print_caption2image('test ensemble')
-evaluator.print_image2caption('test ensemble')
+trainer.evaluator.print_caption2image('test ensemble')
+trainer.evaluator.print_image2caption('test ensemble')

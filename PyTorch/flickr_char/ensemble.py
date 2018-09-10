@@ -25,8 +25,7 @@ import numpy as np
 sys.path.append('/data/speech2image/PyTorch/functions')
 
 from trainer import flickr_trainer
-from minibatchers import iterate_raw_text_5fold, iterate_raw_text
-from encoders import img_encoder, char_gru_encoder
+from encoders import img_encoder, text_gru_encoder
 from data_split import split_data
 ##################################### parameter settings ##############################################
 
@@ -81,15 +80,9 @@ def iterate_flickr(h5_file):
         yield x
 
 if args.data_base == 'coco':
-    f_nodes = [node for node in iterate_large_dataset(data_file)]
-    # define the batcher type to use.
-    batcher = iterate_raw_text_5fold    
+    f_nodes = [node for node in iterate_large_dataset(data_file)]  
 elif args.data_base == 'flickr':
     f_nodes = [node for node in iterate_flickr(data_file)]
-    # define the batcher type to use.
-    batcher = iterate_raw_text_5fold
-elif args.data_base == 'places':
-    print('places has no written captions')
 else:
     print('incorrect database option')
     exit()   
@@ -97,21 +90,10 @@ else:
 # split the database into train test and validation sets. default settings uses the json file
 # with the karpathy split
 train, test, val = split_data(f_nodes, args.split_loc)
-
 #####################################################
-
 # network modules
 img_net = img_encoder(image_config)
-cap_net = char_gru_encoder(char_config)
-
-# list all the trained model parameters
-models = os.listdir(args.results_loc)
-caption_models = [x for x in models if 'caption' in x]
-img_models = [x for x in models if 'image' in x]
-
-# run the image and caption retrieval and create an ensemble
-img_models.sort()
-caption_models.sort()
+cap_net = text_gru_encoder(char_config)
 
 # create a trainer with just the evaluator for the purpose of testing a pretrained model
 trainer = flickr_trainer(img_net, cap_net, args.visual, args.cap)
@@ -121,6 +103,14 @@ if cuda:
     trainer.set_cuda()
 trainer.set_evaluator([1, 5, 10])
 
+# list all the trained model parameters
+models = os.listdir(args.results_loc)
+caption_models = [x for x in models if 'caption' in x]
+img_models = [x for x in models if 'image' in x]
+
+# run the image and caption retrieval and create an ensemble
+img_models.sort()
+caption_models.sort()
 caps = torch.autograd.Variable(trainer.dtype(np.zeros((5000, out_size)))).data
 imgs = torch.autograd.Variable(trainer.dtype(np.zeros((5000, out_size)))).data
 

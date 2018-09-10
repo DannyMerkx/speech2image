@@ -14,13 +14,12 @@ import os
 import tables
 import argparse
 import torch
-import sys
 import pickle
+import sys
 sys.path.append('/data/speech2image/PyTorch/functions')
 
-from minibatchers import iterate_text_5fold, iterate_text
-from evaluate import calc_recall
-from encoders import img_encoder, char_gru_encoder
+from trainer import flickr_trainer
+from encoders import img_encoder, text_gru_encoder
 from data_split import split_data_coco
 ##################################### parameter settings ##############################################
 
@@ -50,7 +49,7 @@ def load_obj(loc):
 dict_size = len(load_obj(args.dict_loc)) + 1
 
 # create config dictionaries with all the parameters for your encoders
-char_config = {'embed':{'num_chars': dict_size, 'embedding_dim': 300, 'sparse': False, 'padding_idx': 0},
+token_config = {'embed':{'num_chars': dict_size, 'embedding_dim': 300, 'sparse': False, 'padding_idx': 0},
                'gru':{'input_size': 300, 'hidden_size': 1024, 'num_layers': 1, 'batch_first': True,
                'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 2047, 'hidden_size': 128, 'heads': 1}}
 
@@ -63,11 +62,8 @@ data_file = tables.open_file(args.data_loc, mode='r+')
 cuda = args.cuda and torch.cuda.is_available()
 if cuda:
     print('using gpu')
-    # if cuda cast all variables as cuda tensor
-    dtype = torch.cuda.FloatTensor
 else:
     print('using cpu')
-    dtype = torch.FloatTensor
 
 # get a list of all the nodes in the file. h5 format takes at most 10000 leaves per node, so big
 # datasets are split into subgroups at the root node 
@@ -81,13 +77,9 @@ def iterate_flickr(h5_file):
         yield x
 
 if args.data_base == 'coco':
-    f_nodes = [node for node in iterate_large_dataset(data_file)]
-    # define the batcher type to use.
-    batcher = iterate_text_5fold    
+    f_nodes = [node for node in iterate_large_dataset(data_file)]   
 elif args.data_base == 'flickr':
     f_nodes = [node for node in iterate_flickr(data_file)]
-    # define the batcher type to use.
-    batcher = iterate_text_5fold
 elif args.data_base == 'places':
     print('places has no written captions')
 else:
@@ -97,30 +89,10 @@ else:
 # split the database into train test and validation sets. default settings uses the json file
 # with the karpathy split
 train, test, val = split_data_coco(f_nodes, args.split_loc)
-
-def recall(data, evaluator, c2i, i2c, epoch, prepend):
-    # calculate the recall@n. Arguments are a set of nodes, the @n values, whether to do caption2image, image2caption or both
-    # and a prepend string (e.g. to print validation or test in front of the results)
-    # create a minibatcher over the validation set
-    iterator = batcher(data, args.batch_size, args.visual, args.cap, args.dict_loc, max_chars= 60, shuffle = False)
-    # the calc_recall function calculates and prints the recall.
-    evaluator.embed_data(iterator)
-    if c2i:
-        evaluator.print_caption2image(prepend, epoch)
-        evaluator.evaluator.fivefold_c2i('1k ' + prepend, epoch)
-    if i2c:
-        evaluator.print_image2caption(prepend, epoch)
-        evaluator.evaluator.fivefold_i2c('1k ' + prepend, epoch)
 #####################################################
-
 # network modules
 img_net = img_encoder(image_config)
-cap_net = char_gru_encoder(char_config)
-
-# move graph to gpu if cuda is availlable
-if cuda:
-    img_net.cuda()
-    cap_net.cuda()
+cap_net = text_gru_encoder(token_config)
 
 # list all the trained model parameters
 models = os.listdir(args.results_loc)
@@ -131,19 +103,24 @@ img_models = [x for x in models if 'image' in x]
 img_models.sort()
 caption_models.sort()
 
-# create an evaluator and set the recall@n
-evaluator = evaluate(dtype, img_net, cap_net)
-evaluator.set_n([1,5,10])
+# create a trainer with just the evaluator for the purpose of testing a pretrained model
+trainer = flickr_trainer(img_net, cap_net, args.visual, args.cap)
+trainer.set_raw_text_batcher()
+# optionally use cuda
+if cuda:
+    trainer.set_cuda()
+trainer.set_evaluator([1, 5, 10])
+trainer.set_dict_loc(args.dict_loc)
 
 for img, cap in zip(img_models, caption_models) :
     epoch = img.split('.')[1]
-    img_state = torch.load(args.results_loc + img)
-    caption_state = torch.load(args.results_loc + cap)
+    # load the pretrained embedders
+    trainer.load_cap_embedder(args.results_loc + cap)
+    trainer.load_img_embedder(args.results_loc + img)
     
-    img_net.load_state_dict(img_state)
-    cap_net.load_state_dict(caption_state)
     # calculate the recall@n
-    # create a minibatcher over the validation set
-    print("Epoch " + epoch)
-    recall(val, evaluator, c2i = True, i2c = True, epoch, prepend = 'validation')
-    recall(test, evaluator, c2i = True, i2c = True, epoch, prepend = 'test')
+    trainer.set_epoch(epoch)
+    trainer.recall_at_n(val, args.batch_size, prepend = 'validation')
+    trainer.fivefold_recall_at_n('validation')
+    trainer.recall_at_n(test, args.batch_size, prepend = 'test')    
+    trainer.fivefold_recall_at_n('test')

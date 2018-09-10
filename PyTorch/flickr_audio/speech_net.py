@@ -17,7 +17,7 @@ import sys
 sys.path.append('/data/speech2image/PyTorch/functions')
 
 from trainer import flickr_trainer
-from costum_loss import batch_hinge_loss, ordered_loss
+from costum_loss import batch_hinge_loss, ordered_loss, attention_loss
 from encoders import img_encoder, audio_gru_encoder
 from data_split import split_data
 ##################################### parameter settings ##############################################
@@ -122,6 +122,7 @@ trainer.set_loss(batch_hinge_loss)
 trainer.set_optimizer(optimizer)
 trainer.set_audio_batcher()
 trainer.set_lr_scheduler(cyclic_scheduler, 'cyclic')
+trainer.set_att_loss(attention_loss)
 # optionally use cuda, gradient clipping and pretrained glove vectors
 if cuda:
     trainer.set_cuda()

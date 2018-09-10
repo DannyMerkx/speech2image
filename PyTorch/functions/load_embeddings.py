@@ -2,17 +2,17 @@
 # -*- coding: utf-8 -*-
 """
 Created on Tue Jul 31 16:12:05 2018
-
+load pretrained word embeddings (GloVe) and use them to initialise an embedding layer
 @author: danny
 """
 import pickle
 import torch
 from collections import defaultdict
-
+# load dictionary
 def load_obj(loc):
     with open(loc + '.pkl', 'rb') as f:
         return pickle.load(f)
-
+# make a dictionary of the glove vectors for words occuring in the training data
 def make_glove_dict(glove, index_dict):
     glove_dict = defaultdict(str)
     for line in glove:
@@ -26,9 +26,9 @@ def load_word_embeddings(dict_loc, embedding_loc, embeddings):
     # load the dictionary containing the indices of the words in the training data
     index_dict = load_obj(dict_loc)
     # load the file with the pretraind glove embeddings
-    pretrained_embs = open(embedding_loc)
+    glove = open(embedding_loc)
     # make the dictionary of words in the training data that have a glove vector
-    glove_dict = make_glove_dict(pretrained_embs, index_dict)
+    glove_dict = make_glove_dict(glove, index_dict)
     # print for how many words we could load pretrained vectors
     print('found ' + str(len(glove_dict)) + ' glove vectors')
     index_dict = load_obj(dict_loc)

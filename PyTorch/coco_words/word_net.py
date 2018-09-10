@@ -19,7 +19,7 @@ sys.path.append('/data/speech2image/PyTorch/functions')
 
 from trainer import flickr_trainer
 from costum_loss import batch_hinge_loss, ordered_loss, attention_loss
-from encoders import img_encoder, char_gru_encoder
+from encoders import img_encoder, text_gru_encoder
 from data_split import split_data_coco
 ##################################### parameter settings ##############################################
 
@@ -54,7 +54,7 @@ def load_obj(loc):
 dict_size = len(load_obj(args.dict_loc))
 
 # create config dictionaries with all the parameters for your encoders
-char_config = {'embed':{'num_chars': dict_size, 'embedding_dim': 300, 'sparse': False, 'padding_idx': 0}, 
+token_config = {'embed':{'num_chars': dict_size, 'embedding_dim': 300, 'sparse': False, 'padding_idx': 0}, 
                'gru':{'input_size': 300, 'hidden_size': 1024, 'num_layers': 1, 'batch_first': True,
                'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1}}
 # automatically adapt the image encoder output size to the size of the caption encoder
@@ -86,8 +86,6 @@ if args.data_base == 'coco':
     f_nodes = [node for node in iterate_large_dataset(data_file)]   
 elif args.data_base == 'flickr':
     f_nodes = [node for node in iterate_flickr(data_file)]
-elif args.data_base == 'places':
-    print('places has no written captions')
 else:
     print('incorrect database option')
     exit()  
@@ -98,11 +96,10 @@ train, val = split_data_coco(f_nodes)
 # set aside 5000 images as test set
 test = train[-5000:]
 train = train[:-5000]
-
 ############################### Neural network setup #################################################
 # network modules
 img_net = img_encoder(image_config)
-cap_net = char_gru_encoder(char_config)
+cap_net = text_gru_encoder(token_config)
     
 # Adam optimiser. I found SGD to work terribly and could not find appropriate parameter settings for it.
 optimizer = torch.optim.Adam(list(img_net.parameters())+list(cap_net.parameters()), 1)
@@ -129,9 +126,11 @@ trainer.set_optimizer(optimizer)
 trainer.set_token_batcher()
 trainer.set_dict_loc(args.dict_loc)
 trainer.set_lr_scheduler(cyclic_scheduler, 'cyclic')
+trainer.set_att_loss(attention_loss)
 # optionally use cuda, gradient clipping and pretrained glove vectors
 if cuda:
     trainer.set_cuda()
+trainer.set_evaluator([1, 5, 10])
 # load pretrained glove vectors and freeze the embedding layer
 if args.glove:
     trainer.load_glove_embeddings(args.glove_loc)
@@ -143,7 +142,6 @@ if args.glove:
 # can help stabilise training in the first epoch.
 if args.gradient_clipping:
     trainer.set_gradient_clipping(0.0025, 0.05)
-    
 ################################# training/test loop #####################################
 
 # run the training loop for the indicated amount of epochs 
