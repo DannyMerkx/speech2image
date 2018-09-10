@@ -1,2 +1,0 @@
-The Theano implementation is abandoned in favour of PyTorch. Theano is no longer supported by devs and
-some point in the future I will scrap this from my project too. 
