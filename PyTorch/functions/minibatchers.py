@@ -14,7 +14,8 @@ from prep_text import char_2_index, word_2_index
 # minibatcher which takes a list of nodes and returns the visual and audio features, possibly resized.
 # visual and audio should contain a string of the names of the visual and audio features nodes in the h5 file.
 #frames is the desired length of the time sequence, the batcher pads or truncates.
-def iterate_audio(f_nodes, batchsize, visual, audio, frames = 2048, shuffle=True):  
+def iterate_audio(f_nodes, batchsize, visual, audio, shuffle=True):  
+    frames = 2048
     if shuffle:
         # optionally shuffle the input
         np.random.shuffle(f_nodes)
@@ -102,7 +103,7 @@ def iterate_tokens(f_nodes, batchsize, visual, text, dict_loc, shuffle=True):
 
 # the 5fold minibatchers are for the datasets with 5 captions per image (mscoco, flickr). It returns all 5 captions per image.
 def iterate_audio_5fold(f_nodes, batchsize, visual, audio, shuffle = True):
-    frames = 2048,
+    frames = 2048
     if shuffle:
         # optionally shuffle the input
         np.random.shuffle(f_nodes)
