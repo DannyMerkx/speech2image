@@ -101,18 +101,18 @@ class evaluate():
         self.ranks = torch.cat(ranks,1)
     # calculate median rank            
     def median_rank(self, ranks):
-        self.median = ranks.double().median()
+        self.median = ranks.double().median().cpu().data.numpy()
     # calculate mean rank
     def mean_rank(self, ranks):
-        self.mean = ranks.double().mean()
+        self.mean = ranks.double().mean().cpu().data.numpy()
     # extract r@n from the ranks
     def recall_at_n(self, ranks):
         if type(self.n) == int:
-            r = ranks.le(self.n).double().mean()
+            r = ranks.le(self.n).double().mean().cpu().data.numpy()
         elif type(self.n) == list:
             r = []
             for x in self.n:
-                r.append(ranks.le(x).double().mean())
+                r.append(ranks.le(x).double().mean().cpu().data.numpy())
         self.recall = r
     # combine all the function calls for convenience
     def caption2image(self):
@@ -154,9 +154,9 @@ class evaluate():
             mean_rank.append(self.mean)
             recall.append(self.recall)
         # calculate the average metrics over all folds
-        self.median = torch.FloatTensor(median_rank).mean()
-        self.mean = torch.FloatTensor(mean_rank).mean()
-        self.recall = torch.FloatTensor(recall).mean(0)
+        self.median = torch.FloatTensor(median_rank).mean().cpu().data.numpy()
+        self.mean = torch.FloatTensor(mean_rank).mean().cpu().data.numpy()
+        self.recall = torch.FloatTensor(recall).mean(0).cpu().data.numpy()
         # reset the embedding variables to the full set
         self.set_caption_embeddings(capts)
         self.set_image_embeddings(imgs)
@@ -193,9 +193,9 @@ class evaluate():
             mean_rank.append(self.mean)
             recall.append(self.recall)
         # calculate the average metrics over all folds
-        self.median = torch.FloatTensor(median_rank).mean()
-        self.mean = torch.FloatTensor(mean_rank).mean()
-        self.recall = torch.FloatTensor(recall).mean(0)
+        self.median = torch.FloatTensor(median_rank).mean().cpu().data.numpy()
+        self.mean = torch.FloatTensor(mean_rank).mean().cpu().data.numpy()
+        self.recall = torch.FloatTensor(recall).mean(0).cpu().data.numpy()
         # reset the embedding variables to the full set
         self.set_caption_embeddings(capts)
         self.set_image_embeddings(imgs)
