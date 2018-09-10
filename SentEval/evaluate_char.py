@@ -20,7 +20,7 @@ from encoders import text_gru_encoder
 
 # Set PATHs
 PATH_TO_SENTEVAL = '/data/SentEval'
-PATH_TO_DATA = 'data/SentEval/data'
+PATH_TO_DATA = '/data/SentEval/data'
 # path to the pretrained encoder model
 PATH_TO_ENC = '/data/speech2image/PyTorch/flickr_char/results/caption_model.20'
 
@@ -78,6 +78,8 @@ text_config = {'embed':{'num_chars': 100, 'embedding_dim': 20, 'sparse': False, 
                'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1}}
 # create encoder
 encoder = text_gru_encoder(text_config)
+for p in encoder.parameters():
+    p.requires_grad = False
 encoder.cuda()
 # load pretrained model
 encoder_state = torch.load(PATH_TO_ENC)

@@ -52,7 +52,8 @@ dict_size = len(load_obj(args.dict_loc)) + 1
 token_config = {'embed':{'num_chars': dict_size, 'embedding_dim': 300, 'sparse': False, 'padding_idx': 0},
                'gru':{'input_size': 300, 'hidden_size': 1024, 'num_layers': 1, 'batch_first': True,
                'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 2047, 'hidden_size': 128, 'heads': 1}}
-
+# automatically adapt the image encoder output size to the size of the caption encoder
+out_size = char_config['gru']['hidden_size'] * 2**token_config['gru']['bidirectional'] * char_config['att']['heads']
 image_config = {'linear':{'in_size': 2048, 'out_size': 2048}, 'norm': True}
 
 # open the data file

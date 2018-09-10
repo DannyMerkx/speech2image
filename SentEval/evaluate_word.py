@@ -81,6 +81,8 @@ text_config = {'embed':{'num_chars': dict_len, 'embedding_dim': 300, 'sparse': F
                'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 4096, 'hidden_size': 128, 'heads': 1}}
 # create encoder
 encoder = text_gru_encoder(text_config)
+for p in encoder.parameters():
+    p.requires_grad = False
 encoder.cuda()
 # load pretrained netowrk
 encoder_state = torch.load(PATH_TO_ENC)
