@@ -36,6 +36,11 @@ def load_obj(loc):
 
 def word_2_index(word_list, batch_size, dict_loc):
     global all_dictionary
+    # add words to the Senteval dictionary
+    for i, words in enumerate(word_list):
+        for j, word in enumerate(words):
+            if all_dictionary[word] == 0:
+                all_dictionary[word] = len(all_dictionary)
     w_dict = load_obj(dict_loc)
     # filter words that do not occur in the dictionary
     word_list = [[word if word in w_dict else '<oov>' for word in sent] for sent in word_list]
@@ -46,8 +51,6 @@ def word_2_index(word_list, batch_size, dict_loc):
         lengths.append(len(words))
         for j, word in enumerate(words):
             text_batch[i][j] = w_dict[word]
-            if all_dictionary[word] == 0:
-                all_dictionary[word] = len(all_dictionary)
     return text_batch, lengths
 
 # SentEval prepare and batcher
@@ -87,7 +90,7 @@ encoder.cuda()
 # load pretrained netowrk
 encoder_state = torch.load(PATH_TO_ENC)
 encoder.load_state_dict(encoder_state)
-# load glove embeddings
+# load glove embeddings if needed
 encoder.load_embeddings(dict_loc, glove_loc)
 
 # Set params for SentEval
@@ -110,5 +113,5 @@ if __name__ == "__main__":
                       ]
     results = se.eval(transfer_tasks)
     print(results)
-    #save_obj(the_one_dictionary, 'the_one_dictionary')
+    save_obj(the_one_dictionary, 'the_one_dictionary')
 
