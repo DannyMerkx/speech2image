@@ -15,7 +15,7 @@ import tables
 # path to the flickr audio, caption and image files 
 audio_path = os.path.join('/data/flickr/flickr_audio/wavs')
 img_path = os.path.join('/data/flickr/Flickr8k_Dataset/Flicker8k_Dataset')
-text_path = os.path.join('/data/speech2image/preprocessing/dataset.json')
+text_path = os.path.join('/data/flickr/dataset.json')
 # save the resulting feature file here
 data_loc = os.path.join('/prep_data/flickr_features.h5')
 # path to the word frequency dictionary

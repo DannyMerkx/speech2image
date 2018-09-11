@@ -59,6 +59,8 @@ def vis_feats(img_path, output_file, append_name, img_audio, node_list, net):
 
     # set the model to use cuda and to evaluation mode
     model = model.cuda()
+    for p in model.parameters():
+    	p.requires_grad = False
     model.eval()
 
     # atom defining the type of the image features that will be appended to the output file    

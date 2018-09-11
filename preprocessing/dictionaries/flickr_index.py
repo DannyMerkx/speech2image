@@ -54,9 +54,9 @@ for cap in captions:
     # replace tokens with numerical values and low occurence tokens by oov 
     cap = remove_low_occurence(remove_numerical(cap, '<oov>'), freq_dict, 5, 'oov')
     for word in cap:
-        flickr_dict[cap]
-        if flickr_dict[cap] == 0:
-            flickr_dict[cap] = index
+        flickr_dict[word]
+        if flickr_dict[word] == 0:
+            flickr_dict[word] = index
             index += 1
 
 flickr_dict[''] = 0

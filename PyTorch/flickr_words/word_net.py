@@ -32,7 +32,7 @@ parser.add_argument('-split_loc', type = str, default = '/data/flickr/dataset.js
                     help = 'location of the json file containing the data split information')
 parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/flickr_words/results/',
                     help = 'location to save the results and network parameters')
-parser.add_argument('-dict_loc', type = str, default = '/data/speech2image/preprocessing/dictionaries/flickr_indices')
+parser.add_argument('-dict_loc', type = str, default = '/data/speech2image/PyTorch/flickr_words/flickr_indices')
 parser.add_argument('-glove_loc', type = str, default = '/data/glove.840B.300d.txt', help = 'location of pretrained glove embeddings')
 # args concerning training settings
 parser.add_argument('-batch_size', type = int, default = 32, help = 'batch size, default: 32')
