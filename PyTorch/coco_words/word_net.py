@@ -133,10 +133,14 @@ if cuda:
 trainer.set_evaluator([1, 5, 10])
 # load pretrained glove vectors and freeze the embedding layer
 if args.glove:
+    # if we load glove vectors we need to freeze the embedding layer and reset the 
+    # optimizer and lr scheduler
     trainer.load_glove_embeddings(args.glove_loc)
     trainer.cap_embedder.embed.weight.requires_grad = False
     parameters = filter(lambda p: p.requires_grad, trainer.cap_embedder.parameters())
     optimizer = torch.optim.Adam(list(img_net.parameters())+list(parameters), 1)
+    cyclic_scheduler = create_cyclic_scheduler(max_lr = args.lr, min_lr = 1e-6, stepsize = (int(len(train)/args.batch_size)*5)*4)
+    trainer.set_lr_scheduler(cyclic_scheduler, 'cyclic')
     trainer.set_optimizer(optimizer)
 # gradient clipping with these parameters (based the avg gradient norm for the first epoch)
 # can help stabilise training in the first epoch.

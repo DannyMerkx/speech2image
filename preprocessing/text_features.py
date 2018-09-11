@@ -11,7 +11,7 @@ sys.path.append('/data/speech2image/preprocessing/dictionaries')
 
 from text_cleanup import tokenise
 
-def text_features_flickr(text_dict, output_file, append_name, node_list, freq_dict): 
+def text_features_flickr(text_dict, output_file, append_name, node_list): 
     count = 1
     for node in node_list:
         print('processing file: ' + str(count))
@@ -31,7 +31,7 @@ def text_features_flickr(text_dict, output_file, append_name, node_list, freq_di
             output_file.create_array(raw_text_node, append_name + base_name + '_' + str(x['sentid']), bytes(raw, 'utf-8'))
             output_file.create_array(token_node, append_name +  base_name + '_' + str(x['sentid']), tokens) 
             
-def text_features_coco(text_dict, output_file, append_name, node_list, spell_dict, freq_dict):     
+def text_features_coco(text_dict, output_file, append_name, node_list):     
     count = 1
     for node in node_list:
         print('processing file: ' + str(count))

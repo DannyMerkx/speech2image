@@ -19,9 +19,6 @@ val_img_path = os.path.join('/data/mscoco/val2017')
 text_path = os.path.join('/data/mscoco/annotations')
 # save the resulting feature file here
 data_loc = os.path.join('/prep_data/coco_features.h5')
-# path to the word frequency dictionary and the spelling correction dictionary
-spell_dict_loc = os.path.join('/data/speech2image/preprocessing/dictionaries/spell_dict')  
-freq_dict_loc = os.path.join('/data/speech2image/preprocessing/dictionaries/coco_dict')
 
 def batcher(batch_size, dictionary):
     keys = [x for x in dictionary]
@@ -39,10 +36,7 @@ def batcher(batch_size, dictionary):
 def load_obj(loc):
     with open(loc + '.pkl', 'rb') as f:
         return pickle.load(f)
-# load the dictionaries
-spell_dict = load_obj(spell_dict_loc)
-freq_dict = load_obj(freq_dict_loc)
-
+    
 # list the image and annotations directory
 train_imgs = os.listdir(train_img_path)
 val_imgs = os.listdir(val_img_path)
@@ -122,7 +116,7 @@ vis_feats(val_img_path, output_file, append_name, val_img, val_node_list, 'resne
 vis_feats(train_img_path, output_file, append_name, train_img, train_node_list, 'resnet') 
 
 # add text features for all captions
-text_features_coco(train_dict, output_file, append_name, train_node_list, spell_dict, freq_dict)
-text_features_coco(val_dict, output_file, append_name, val_node_list, spell_dict, freq_dict)
+text_features_coco(train_dict, output_file, append_name, train_node_list)
+text_features_coco(val_dict, output_file, append_name, val_node_list)
 # close the output files
 output_file.close()

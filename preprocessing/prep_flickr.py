@@ -18,8 +18,6 @@ img_path = os.path.join('/data/flickr/Flickr8k_Dataset/Flicker8k_Dataset')
 text_path = os.path.join('/data/flickr/dataset.json')
 # save the resulting feature file here
 data_loc = os.path.join('/prep_data/flickr_features.h5')
-# path to the word frequency dictionary
-freq_dict_loc = os.path.join('/data/speech2image/preprocessing/dictionaries/flickr_frequency') 
 # some bools in case only some new features needs to be added
 vis = True
 speech = True
@@ -120,6 +118,6 @@ for x in txt:
     text_dict[x['filename'].split('.')[0]] = x
 # add text features for all captions
 if text:
-    text_features_flickr(text_dict, output_file, append_name, node_list, freq_dict)
+    text_features_flickr(text_dict, output_file, append_name, node_list)
 # close the output files
 output_file.close()
