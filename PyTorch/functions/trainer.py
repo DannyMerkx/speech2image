@@ -193,8 +193,8 @@ class flickr_trainer():
         self.evaluator.set_n(n)
     # calculate the recall@n. Arguments are a set of nodes and a prepend string 
     # (e.g. to print validation or test in front of the results)
-    def recall_at_n(self, data, 5, prepend):        
-        iterator = self.batcher(data, batch_size, shuffle = False)
+    def recall_at_n(self, data, batch_size, prepend):        
+        iterator = self.batcher(data, 5, shuffle = False)
         # the calc_recall function calculates and prints the recall.
         self.evaluator.embed_data(iterator)
         self.evaluator.print_caption2image(prepend, self.epoch)
