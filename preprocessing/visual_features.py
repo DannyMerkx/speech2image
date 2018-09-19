@@ -100,8 +100,8 @@ def vis_feats(img_path, output_file, append_name, img_audio, node_list, net):
         # get the shape of the image features for the output file
         feature_shape= activations.shape[0]
         # create a new node 
-        vgg_node = output_file.create_group(node, net)
+        vis_node = output_file.create_group(node, net)
         # create a pytable array at the current image node. Remove file extension from filename as dots arent allowed in pytable names
-        vgg_array = output_file.create_earray(vgg_node, append_name + node_name, img_atom, (0,feature_shape), expectedrows=1)
+        vis_array = output_file.create_earray(vis_node, append_name + node_name, img_atom, (0,feature_shape), expectedrows=1)
         # append the vgg features to the array
-        vgg_array.append(activations.unsqueeze(0).data.cpu().numpy())
+        vis_array.append(activations.unsqueeze(0).data.cpu().numpy())

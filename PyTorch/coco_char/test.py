@@ -101,8 +101,7 @@ img_models = [x for x in models if 'image' in x]
 
 # create a trainer with just the evaluator for the purpose of testing a pretrained model
 trainer = flickr_trainer(img_net, cap_net, args.visual, args.cap)
-trainer.set_token_batcher()
-trainer.set_dict_loc(args.dict_loc)
+trainer.set_raw_text_batcher()
 # optionally use cuda
 if cuda:
     trainer.set_cuda()

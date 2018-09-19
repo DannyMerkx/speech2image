@@ -131,11 +131,12 @@ class evaluate():
         # get the embeddings for the full test set
         capts = (self.caption_embeddings)
         imgs = (self.image_embeddings)
+        n = len(capts)
         # get indices for the full test set, shuffle them and reshape them to
         # create 5 random folds
-        x = np.array([x for x in range(5000)])
+        x = np.array([x for x in range(int(n/5))])
         np.random.shuffle(x)
-        x = np.reshape(x, (5,1000))
+        x = np.reshape(x, (5, int(n/25)))
         # variables to save the evaluation metrics 
         median_rank = []
         mean_rank = []
@@ -143,20 +144,24 @@ class evaluate():
         for y in range(5):
             # for the current fold get the indices of the embeddings. Add 5 increments of 5000 to the indices
             # in order to retrieve all 5 captions for each image in the fold.
-            fold = torch.cuda.LongTensor(np.concatenate([x[y] + z  for z in range(0,25000,5000)]))
+            fold = torch.cuda.LongTensor(np.concatenate([x[y] + z  for z in range(0, n, int(n/5))]))
             # overwrite the embeddings variables with the current fold
             self.set_caption_embeddings(capts[fold])
             self.set_image_embeddings(imgs[fold])
             # perform the caption2image calculations
             self.caption2image()
             # retrieve the calculated metrics
+            self.median_rank(self.ranks)
+            self.mean_rank(self.ranks)
+            self.recall_at_n(self.ranks)
+
             median_rank.append(self.median)
             mean_rank.append(self.mean)
             recall.append(self.recall)
         # calculate the average metrics over all folds
-        self.median = torch.FloatTensor(median_rank).mean().cpu().data.numpy()
-        self.mean = torch.FloatTensor(mean_rank).mean().cpu().data.numpy()
-        self.recall = torch.FloatTensor(recall).mean(0).cpu().data.numpy()
+        self.median = torch.FloatTensor(np.array(median_rank)).mean().cpu().data.numpy()
+        self.mean = torch.FloatTensor(np.array(mean_rank)).mean().cpu().data.numpy()
+        self.recall = torch.FloatTensor(np.array(recall)).mean(0).cpu().data.numpy()
         # reset the embedding variables to the full set
         self.set_caption_embeddings(capts)
         self.set_image_embeddings(imgs)
@@ -164,17 +169,18 @@ class evaluate():
         r = 'recall :'
         for x in range(len(self.recall)):
             r += (' @' + str(self.n[x]) + ': ' + str(np.round(self.recall[x] * 100,2)))
-        print(prepend + ' c2i,' + ' epoch:' + str(epoch) + ' ' + r + ' median: ' + str(self.median) + ' mean: ' + str(np.round(self.mean,2)))  
+        print(prepend + ' c2i,' + ' epoch:' + str(epoch) + ' ' + r + ' median: ' + str(self.median) + ' mean: ' + str(np.round(self.mean,2)))
 
     def fivefold_i2c(self, prepend, epoch = 0):
         # get the embeddings for the full test set
         capts = (self.caption_embeddings)
         imgs = (self.image_embeddings)
+        n = len(capts)
         # get indices for the full test set, shuffle them and reshape them to
         # create 5 random folds
-        x = np.array([x for x in range(5000)])
+        x = np.array([x for x in range(int(n/5))])
         np.random.shuffle(x)
-        x = np.reshape(x, (5,1000))
+        x = np.reshape(x, (5, int(n/25)))
         # variables to save the evaluation metrics 
         median_rank = []
         mean_rank = []
@@ -182,20 +188,24 @@ class evaluate():
         for y in range(5):
             # for the current fold get the indices of the embeddings. Add 5 increments of 5000 to the indices
             # in order to retrieve all 5 captions for each image in the fold.
-            fold = torch.cuda.LongTensor(np.concatenate([x[y] + z  for z in range(0,25000,5000)]))
+            fold = torch.cuda.LongTensor(np.concatenate([x[y] + z  for z in range(0, n, int(n/5))]))
             # overwrite the embeddings variables with the current fold
             self.set_caption_embeddings(capts[fold])
             self.set_image_embeddings(imgs[fold])
             # perform the image2caption calculations
             self.image2caption()
             # retrieve the calculated metrics
+            self.median_rank(self.ranks.min(0)[0])
+            self.mean_rank(self.ranks.min(0)[0])
+            self.recall_at_n(self.ranks.min(0)[0])
+
             median_rank.append(self.median)
             mean_rank.append(self.mean)
             recall.append(self.recall)
         # calculate the average metrics over all folds
-        self.median = torch.FloatTensor(median_rank).mean().cpu().data.numpy()
-        self.mean = torch.FloatTensor(mean_rank).mean().cpu().data.numpy()
-        self.recall = torch.FloatTensor(recall).mean(0).cpu().data.numpy()
+        self.median = torch.FloatTensor(np.array(median_rank)).mean().cpu().data.numpy()
+        self.mean = torch.FloatTensor(np.array(mean_rank)).mean().cpu().data.numpy()
+        self.recall = torch.FloatTensor(np.array(recall)).mean(0).cpu().data.numpy()
         # reset the embedding variables to the full set
         self.set_caption_embeddings(capts)
         self.set_image_embeddings(imgs)

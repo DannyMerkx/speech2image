@@ -193,7 +193,7 @@ class flickr_trainer():
         self.evaluator.set_n(n)
     # calculate the recall@n. Arguments are a set of nodes and a prepend string 
     # (e.g. to print validation or test in front of the results)
-    def recall_at_n(self, data, batch_size, prepend):        
+    def recall_at_n(self, data, 5, prepend):        
         iterator = self.batcher(data, batch_size, shuffle = False)
         # the calc_recall function calculates and prints the recall.
         self.evaluator.embed_data(iterator)
@@ -201,8 +201,8 @@ class flickr_trainer():
         self.evaluator.print_image2caption(prepend, self.epoch)
     def fivefold_recall_at_n(self, prepend):
         # calculates the average recall@n over 5 folds (for mscoco). 
-        self.evaluator.fivefold_c2i('1k ' + prepend +  self.epoch)
-        self.evaluator.fivefold_i2c('1k ' + prepend +  self.epoch)
+        self.evaluator.fivefold_c2i('1k ' + prepend, self.epoch)
+        self.evaluator.fivefold_i2c('1k ' + prepend, self.epoch)
     # function to save parameters in a results folder
     def save_params(self, loc):
         torch.save(self.cap_embedder.state_dict(), os.path.join(loc, 'caption_model' + '.' +str(self.epoch)))
