@@ -33,14 +33,12 @@ parser.add_argument('-results_loc', type = str, default = '/data/speech2image/Py
 parser.add_argument('-batch_size', type = int, default = 100, help = 'batch size, default: 100')
 parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, default: True')
 # args concerning the database and which features to load
-parser.add_argument('-data_base', type = str, default = 'coco', help = 'database to train on, default: coco')
 parser.add_argument('-visual', type = str, default = 'resnet', help = 'name of the node containing the visual features, default: resnet')
 parser.add_argument('-cap', type = str, default = 'raw_text', help = 'name of the node containing the audio features, default: raw_text')
 
 args = parser.parse_args()
 
 # create config dictionaries with all the parameters for your encoders
-
 char_config = {'embed':{'num_chars': 100, 'embedding_dim': 20, 'sparse': False, 'padding_idx': 0},
                'rnn':{'input_size': 20, 'hidden_size': 1024, 'num_layers': 1, 'batch_first': True,
                'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1}}
@@ -61,26 +59,12 @@ else:
     print('using cpu')
     dtype = torch.FloatTensor
 
-# get a list of all the nodes in the file. h5 format takes at most 10000 leaves per node, so big
-# datasets are split into subgroups at the root node 
-def iterate_large_dataset(h5_file):
+# get a list of all the nodes in the file.
+def iterate_data(h5_file):
     for x in h5_file.root:
         for y in x:
             yield y
-# flickr doesnt need to be split at the root node
-def iterate_flickr(h5_file):
-    for x in h5_file.root:
-        yield x
-
-if args.data_base == 'coco':
-    f_nodes = [node for node in iterate_large_dataset(data_file)]  
-elif args.data_base == 'flickr':
-    f_nodes = [node for node in iterate_flickr(data_file)]
-elif args.data_base == 'places':
-    print('places has no written captions')
-else:
-    print('incorrect database option')
-    exit()   
+f_nodes = [node for node in iterate_data(data_file)]
     
 # split the database into train test and validation sets. default settings uses the json file
 # with the karpathy split

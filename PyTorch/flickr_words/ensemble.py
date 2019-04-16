@@ -44,7 +44,6 @@ parser.add_argument('-dict_loc', type = str, default = '/data/speech2image/prepr
 parser.add_argument('-batch_size', type = int, default = 100, help = 'batch size, default: 100')
 parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, default: True')
 # args concerning the database and which features to load
-parser.add_argument('-data_base', type = str, default = 'flickr', help = 'database to train on, default: flickr')
 parser.add_argument('-visual', type = str, default = 'resnet', help = 'name of the node containing the visual features, default: resnet')
 parser.add_argument('-cap', type = str, default = 'tokens', help = 'name of the node containing the caption features, default: tokens')
 
@@ -76,24 +75,11 @@ if cuda:
 else:
     print('using cpu')
 
-# get a list of all the nodes in the file. h5 format takes at most 10000 leaves per node, so big
-# datasets are split into subgroups at the root node 
-def iterate_large_dataset(h5_file):
-    for x in h5_file.root:
-        for y in x:
-            yield y
 # flickr doesnt need to be split at the root node
-def iterate_flickr(h5_file):
+def iterate_data(h5_file):
     for x in h5_file.root:
         yield x
-
-if args.data_base == 'coco':
-    f_nodes = [node for node in iterate_large_dataset(data_file)]  
-elif args.data_base == 'flickr':
-    f_nodes = [node for node in iterate_flickr(data_file)]
-else:
-    print('incorrect database option')
-    exit()  
+f_nodes = [node for node in iterate_data(data_file)]
 
 # split the database into train test and validation sets. default settings uses the json file
 # with the karpathy split
