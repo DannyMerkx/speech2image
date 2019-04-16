@@ -6,7 +6,7 @@ Script with all the different encoder models.
 @author: danny
 """
 
-from costum_layers import RHN, multi_attention, transformer_encoder, transformer_decoder, transformer_super
+from costum_layers import RHN, multi_attention, transformer_encoder, transformer_decoder, transformer
 from load_embeddings import load_word_embeddings
 
 import torch
@@ -95,7 +95,7 @@ class img_encoder(nn.Module):
 
 # transformer model which takes aligned input in two languages and learns
 # to translate from language to the other. 
-class translator_transformer(transformer_super):
+class translator_transformer(transformer):
     def __init__(self, config):
         super(translator_transformer, self).__init__()
         embed = config['embed']
@@ -127,7 +127,7 @@ class translator_transformer(transformer_super):
         return candidates, preds, targs
 
 # transformer for image-caption retrieval
-class text_transformer(transformer_super):
+class text_transformer(transformer):
     def __init__(self, config):
         super(text_transformer, self).__init__()
         embed = config['embed']

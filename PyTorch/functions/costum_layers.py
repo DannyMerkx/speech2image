@@ -263,7 +263,7 @@ class transformer_decoder(nn.Module):
         return(input)
 
 # super class with some functions that are useful for multiple transformer based architectures.  
-class transformer_super(nn.Module):
+class transformer(nn.Module):
     def __init__(self):
         super(transformer, self).__init__()
         pass    
@@ -293,7 +293,7 @@ class transformer_super(nn.Module):
         seq_len = input.size(1)
         # create a mask which masks the padding indices
         mask = (input != 0).unsqueeze(1)
-        # create a mask which masks for each time-step the futuru time-steps
+        # create a mask which masks for each time-step the future time-steps
         triu = (np.triu(np.ones([1, seq_len, seq_len]), k = 1) == 0).astype('uint8')
         # combine the two masks
         if self.is_cuda == True:
@@ -326,10 +326,7 @@ class transformer_super(nn.Module):
         decoded = self.TF_dec(d_emb + self.pos_emb[:dec_input.size(1), :],
                               dec_mask = d_mask, enc_mask = e_mask, enc_input = encoded)
 
-        # apply the linear classification layer to the decoder output
-        out = self.linear(decoded)
-
-        return out, targs
+        return decoded, targs
 
     # Function used for a transformer with an encoder only without additional context input
     # e.g. for next word prediction
@@ -346,10 +343,7 @@ class transformer_super(nn.Module):
         # apply the (stacked) encoder transformer
         encoded = self.TF_enc(e_emb + self.pos_emb[:enc_input.size(1), :], mask = e_mask)
         
-        # apply the linear layer to the last decoder output (we don't want to use
-        # the final version of pred because this can't be used in a cross entropy loss function)
-        out = self.linear(encoded)
-        return out, targs 
+        return decoded, targs 
    
     # function to generate translations from an encoded sentence. if translations are availlable
     # they can be used as targets for evaluating but also works for unknown sentences. 
