@@ -4,69 +4,66 @@
 Created on Wed Feb 14 13:08:28 2018
 
 @author: danny
-Costum loss functions for use with theano. Currently includes hinge loss functions using the 
-Dot product and cosine similarity as similarity measures for the embeddings
-
-L2norm is somewhat in between cosine and dot product. It normalises the magnitude of 1 of the 2 embeddings, like in the original paper by Harwath and Glass where only the speech embeddings are l2 normalised. According to them this gave better results than the dot product or normalising both embeddings (i.e. cosine similarity)
-
+Loss functions for image-caption retrieval
 """
-
-
 import torch
 
 # hinge loss function based on a symmetric distance measure. The loss function uses the dot product,
 # you get the cosine similarity by normalising your embeddings at the output layer of the encoders.
-def batch_hinge_loss(embeddings_1, embeddings_2, dtype):
+# Optionally only use the top n negative samples (neg_sample)
+def batch_hinge_loss(embeddings_1, embeddings_2, dtype, neg_sample = False):
     # batch size
     batch_size = embeddings_1.size(0)   
-
+    if neg_sample == False:
+        neg_sample = batch_size
     # calculate the similarity score
     error = - torch.matmul(embeddings_1, embeddings_2.t())
 
     # get the similarity of the correct image-caption pairs (the diagonal of the similarity matrix)
-    I = torch.autograd.Variable(dtype(torch.eye(batch_size).numpy()), requires_grad = True)
+    I = dtype(torch.eye(batch_size).numpy())
     diag = (error * I).sum(dim=0)
     
-    # calculate the image to text and text to image cost.
+    # calculate the image to text and text to image cost. remove the diagonal for the cost matrix 
+    #(i.e. count no costs for correct pairs)
+    I_2 = dtype(torch.eye(batch_size).numpy())
     cost_1 = torch.clamp(.2 - error + diag, min = 0)
+    cost_1 = ((1 - I_2) * cost_1).sort(0)[0][-neg_sample:, :]
     cost_2 = torch.clamp(.2 - error + diag.view(-1, 1), min = 0)
-    cost = cost_1 + cost_2
-    
-    # remove the diagonal for the cost matrix (i.e. count no costs for correct pairs)
-    I_2 = torch.autograd.Variable(dtype(torch.eye(batch_size).numpy()), requires_grad = True)
+    cost_2 = ((1 - I_2) * cost_2).sort(1)[0][:, -neg_sample:]
 
-    cost = (1 - I_2) * cost
+    cost = cost_1 + cost_2.t()
     return cost.mean()
 
-#implements the ordered embeddings loss function proposed by vendrov et all.
-def ordered_loss(embeddings_1, embeddings_2, dtype):
+
+#implements the ordered embeddings loss function proposed by vendrov et all. Optionally only
+# use the top n negative samples (neg_sample)
+def ordered_loss(embeddings_1, embeddings_2, dtype, neg_sample = False):
     # batch size
     batch_size = embeddings_1.size(0)   
-
+    if neg_sample == False:
+        neg_sample = batch_size
     # calculate the similarity score as described by vendrov et al. the partial order is image < caption, 
     # i.e. the captions are abstractions of the images (the wrong order results in worse results). 
-    err = - (torch.clamp(embeddings_1 - embeddings_2[0], min = 0).norm(1, dim = 1, keepdim = True)**2)
-    for x in range(1, embeddings_2.size(0)):
-        e =  - (torch.clamp(embeddings_1 - embeddings_2[x], min = 0).norm(1, dim = 1, keepdim = True)**2)
-        err = torch.cat((err, e), 1)
+    err = (torch.clamp(torch.cat([embeddings_1 - x for x in embeddings_2]), min = 0).norm(1, dim = 1, keepdim = True)**2)
+    err = err.reshape(batch_size,-1)
 
     # get the similarity of the correct image-caption pairs    
-    I = torch.autograd.Variable(dtype(torch.eye(batch_size).numpy()), requires_grad = True)
-
-    diag_1 = (err * I).sum(dim=0)
+    I = dtype(torch.eye(batch_size).numpy())
+    diag = (err * I).sum(dim=0)
 
     # calculate the image to text and text to image cost.
-    cost_1 = torch.clamp(.2 - diag_1 + err, min = 0)
-    cost_2 = torch.clamp(.2 - diag_1.view(-1, 1) + err, min = 0)    
-    cost = cost_1 + cost_2
-    
-    # remove the diagonal for the cost matrix (i.e. count no costs for correct pairs)
-    I_2 = torch.autograd.Variable(dtype(torch.eye(batch_size).numpy()), requires_grad = True)
-    
-    cost = (1 - I_2) * cost
-    
+    I_2 = dtype(torch.eye(batch_size).numpy())
+    cost_1 = torch.clamp(.05 - err + diag, min = 0)
+    cost_1 = ((1 - I_2) * cost_1).sort(0)[0][-neg_sample:, :]
+
+    cost_2 = torch.clamp(.05 - err + diag.view(-1, 1), min = 0)
+    cost_2 = ((1 - I_2) * cost_2).sort(1)[0][:, -neg_sample:]
+
+    cost = cost_1 + cost_2.t()
+
     return cost.mean()
 
+#################################################################################################################
 # loss function forcing the weights of the attention heads, the resulting 
 # attention matrices and the resulting embeddings to be different by a margin
 def attention_loss(att_layer, emb, margin = 1):

@@ -26,8 +26,6 @@ text = True
 def load_obj(loc):
     with open(loc + '.pkl', 'rb') as f:
         return pickle.load(f)
-# load the word frequency dictionary    
-freq_dict = load_obj(freq_dict_loc)
 
 # list the img and audio directories
 audio = os.listdir(audio_path)

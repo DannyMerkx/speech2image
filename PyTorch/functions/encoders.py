@@ -2,28 +2,30 @@
 # -*- coding: utf-8 -*-
 """
 Created on Mon Mar 26 17:54:07 2018
-
+Script with all the different encoder models.
 @author: danny
 """
 
-from costum_layers import RHN, attention, multi_attention
+from costum_layers import RHN, multi_attention, transformer_encoder, transformer_decoder, transformer_super
 from load_embeddings import load_word_embeddings
+
 import torch
 import torch.nn as nn
+######################################image_caption_retrieval######################################
 
-# gru encoder for characters and tokens
-class text_gru_encoder(nn.Module):
+# rnn encoder for characters and tokens
+class text_rnn_encoder(nn.Module):
     def __init__(self, config):
-        super(text_gru_encoder, self).__init__()
+        super(text_rnn_encoder, self).__init__()
         embed = config['embed']
-        gru= config['gru']
+        rnn= config['rnn']
         att = config ['att'] 
         self.embed = nn.Embedding(num_embeddings = embed['num_chars'], 
                                   embedding_dim = embed['embedding_dim'], sparse = embed['sparse'],
                                   padding_idx = embed['padding_idx'])
-        self.GRU = nn.GRU(input_size = gru['input_size'], hidden_size = gru['hidden_size'], 
-                          num_layers = gru['num_layers'], batch_first = gru['batch_first'],
-                          bidirectional = gru['bidirectional'], dropout = gru['dropout'])
+        self.RNN = nn.GRU(input_size = rnn['input_size'], hidden_size = rnn['hidden_size'], 
+                          num_layers = rnn['num_layers'], batch_first = rnn['batch_first'],
+                          bidirectional = rnn['bidirectional'], dropout = rnn['dropout'])
         self.att = multi_attention(in_size = att['in_size'], hidden_size = att['hidden_size'], n_heads = att['heads'])
         
     def forward(self, input, l):
@@ -32,47 +34,46 @@ class text_gru_encoder(nn.Module):
         # create a packed_sequence object. The padding will be excluded from the update step
         # thereby training on the original sequence length only
         x = torch.nn.utils.rnn.pack_padded_sequence(x, l, batch_first=True)
-        x, hx = self.GRU(x)
+        x, hx = self.RNN(x)
         # unpack again as at the moment only rnn layers except packed_sequence objects
         x, lens = nn.utils.rnn.pad_packed_sequence(x, batch_first = True)
-        x = nn.functional.normalize(self.att(x), p=2, dim=1)
+        x = nn.functional.normalize(self.att(x), p=2, dim=1)    
         return x
-    
+
     def load_embeddings(self, dict_loc, embedding_loc):
         # optionally load pretrained word embeddings. takes the dictionary of words occuring in the training data
         # and the location of the embeddings.
-        load_word_embeddings(dict_loc, embedding_loc, self.embed.weight.data)         
+        load_word_embeddings(dict_loc, embedding_loc, self.embed.weight.data)      
 
-# gru encoder for audio
-class audio_gru_encoder(nn.Module):
+# rnn encoder for audio (mfcc, mbn etc.)
+class audio_rnn_encoder(nn.Module):
     def __init__(self, config):
-        super(audio_gru_encoder, self).__init__()
+        super(audio_rnn_encoder, self).__init__()
         conv = config['conv']
-        gru = config['gru']
-        att = config['att']
-        self.Conv1d = nn.Conv1d(in_channels = conv['in_channels'], out_channels = conv['out_channels'], 
-                                kernel_size = conv['kernel_size'], stride = conv['stride'], 
-                                padding = conv['padding'], groups = 1, bias = conv['bias'])
-        nn.init.xavier_uniform(self.Conv1d.weight.data)
-        self.GRU = nn.GRU(input_size = gru['input_size'], hidden_size = gru['hidden_size'], 
-                          num_layers = gru['num_layers'], batch_first = gru['batch_first'],
-                          bidirectional = gru['bidirectional'], dropout = gru['dropout'])
+        rnn= config['rnn']
+        att = config ['att'] 
+        self.Conv = nn.Conv1d(in_channels = conv['in_channels'], 
+                                  out_channels = conv['out_channels'], kernel_size = conv['kernel_size'],
+                                  stride = conv['stride'], padding = conv['padding'])
+        self.RNN = nn.GRU(input_size = rnn['input_size'], hidden_size = rnn['hidden_size'], 
+                          num_layers = rnn['num_layers'], batch_first = rnn['batch_first'],
+                          bidirectional = rnn['bidirectional'], dropout = rnn['dropout'])
         self.att = multi_attention(in_size = att['in_size'], hidden_size = att['hidden_size'], n_heads = att['heads'])
         
     def forward(self, input, l):
-        x = self.Conv1d(input)
+        x = self.Conv(input)
         x = x.permute(0, 2, 1)
-        # update the lengths to compensate for the convolution (N.B. hard coded for stride 2 and size 6)
-        l = [int((y-4)/2) for y in l]
+        # update the lengths to compensate for the convolution subsampling
+        l = [int((y-(self.Conv.kernel_size[0]-self.Conv.stride[0]))/self.Conv.stride[0]) for y in l]
         # create a packed_sequence object. The padding will be excluded from the update step
         # thereby training on the original sequence length only
-        x = torch.nn.utils.rnn.pack_padded_sequence(x, l, batch_first=True)
-        x, hx = self.GRU(x)
+        x = torch.nn.utils.rnn.pack_padded_sequence(x.transpose(2,1), l, batch_first=True)
+        x, hx = self.RNN(x)
         # unpack again as at the moment only rnn layers except packed_sequence objects
         x, lens = nn.utils.rnn.pad_packed_sequence(x, batch_first = True)
-        x = nn.functional.normalize(self.att(x), p=2, dim=1)
+        x = nn.functional.normalize(self.att(x), p=2, dim=1)    
         return x
-
+    
 # the network for embedding the visual features
 class img_encoder(nn.Module):
     def __init__(self, config):
@@ -88,46 +89,70 @@ class img_encoder(nn.Module):
         else:
             return x
 
-# classifier layer to use on top of sentence encoders. Predicts snli labels for sentence pairs
-class snli(nn.Module):
+
+
+###################################transformer architectures#########################################
+
+# transformer model which takes aligned input in two languages and learns
+# to translate from language to the other. 
+class translator_transformer(transformer_super):
     def __init__(self, config):
-        super(snli, self).__init__()
-        self.hidden = nn.Linear(in_features = config['in_feats'], out_features = config['hidden'])
-        self.linear_transform = nn.Linear(in_features = config['hidden'], out_features = config['class'])
-        nn.init.xavier_uniform(self.hidden.weight.data)
-        nn.init.xavier_uniform(self.linear_transform.weight.data)
-        self.softmax = nn.Softmax()
+        super(translator_transformer, self).__init__()
+        embed = config['embed']
+        tf = config['tf']
+        self.is_cuda = config['cuda']
+        self.max_len = tf['max_len']
+        # create the embedding layer
+        self.embed = nn.Embedding(num_embeddings = embed['num_chars'], 
+                                  embedding_dim = embed['embedding_dim'], sparse = embed['sparse'],
+                                  padding_idx = embed['padding_idx'])
+        # create the positional embeddings
+        self.pos_emb = self.pos_embedding(tf['max_len'], embed['embedding_dim'])
+        # create the (stacked) transformer
+        self.TF_enc = transformer_encoder(in_size = tf['input_size'], fc_size = tf['fc_size'], 
+                              n_layers = tf['n_layers'], h = tf['h'])
+        self.TF_dec = transformer_decoder(in_size = tf['input_size'], fc_size = tf['fc_size'], 
+                              n_layers = tf['n_layers'], h = tf['h'])
+        self.linear = nn.Linear(embed['embedding_dim'], embed['num_chars'])
+    # forward, during training give the transformer both languages
+    def forward(self, enc_input, dec_input):
+        out, targs = self.encoder_decoder_train(enc_input, dec_input)
+        return out, targs
+    # translate, during test time translate from one language to the other, works without decoder input
+    # from the target language. 
+    def translate(self, enc_input, dec_input = None, beam_width = 1):
+        # inherited function encoder_decoder_test implements beam search to create translations of the encoder
+        # input. caution! only works on one sentence at a time, set batch size to 1 during test time. 
+        candidates, preds, targs = self.encoder_decoder_test(enc_input, dec_input, self.max_len, beam_width)
+        return candidates, preds, targs
+
+# transformer for image-caption retrieval
+class text_transformer(transformer_super):
+    def __init__(self, config):
+        super(text_transformer, self).__init__()
+        embed = config['embed']
+        tf= config['tf']
+        self.is_cuda = config['cuda']
+        # create the embedding layer
+        self.embed = nn.Embedding(num_embeddings = embed['num_chars'], 
+                                  embedding_dim = embed['embedding_dim'], sparse = embed['sparse'],
+                                  padding_idx = embed['padding_idx'])
+        # create the positional embeddings
+        self.pos_emb = self.pos_embedding(tf['max_len'],embed['embedding_dim'])
+        # create the (stacked) transformer
+        self.TF = transformer_decoder(in_size = tf['input_size'], fc_size = tf['fc_size'], 
+                              n_layers = tf['n_layers'], h = tf['h'])
     def forward(self, input):
-        x = self.hidden(input)
-        x = self.linear_transform(x)
-        return self.softmax(x)
+        # encode the sentence using the transformer
+        encoded = self.encoder_train(input)
+        # sum over the time axis and normalise the l2 norm of the embedding
+        x = nn.functional.normalize(encoded.sum(1), p = 2, dim = 1)
+        return x
 
 ######################################################################################################
 # network concepts and experiments and networks by others
 ######################################################################################################
 
-# audio encoder as described by Harwath and Glass(2016)
-class Harwath_audio_encoder(nn.Module):
-    def __init__(self):
-        super(Harwath_audio_encoder, self).__init__()
-        self.Conv1d_1 = nn.Conv1d(in_channels = 40, out_channels = 64, kernel_size = 5, 
-                                 stride = 1, padding = 0, groups = 1)
-        self.Pool1 = nn.MaxPool1d(kernel_size = 4, stride = 2, padding = 0, dilation = 1, 
-                                  return_indices = False, ceil_mode = False)
-        self.Conv1d_2 = nn.Conv1d(in_channels = 64, out_channels = 512, kernel_size = 25,
-                                  stride = 1, padding = 0, groups = 1)
-        self.Conv1d_3 = nn.Conv1d(in_channels = 512, out_channels = 1024, kernel_size = 25,
-                                  stride = 1, padding = 0, groups = 1)
-        self.Pool2 = nn.AdaptiveMaxPool1d(output_size = 1, return_indices=False)
-        self.relu = nn.ReLU()
-
-    def forward(self, input):
-        x = self.relu(self.Pool1(self.Conv1d_1(input)))
-        x = self.relu(self.Pool1(self.Conv1d_2(x)))
-        x = self.relu(self.Pool2(self.Conv1d_3(x)))
-        x = torch.squeeze(x)
-        return nn.functional.normalize(x, p = 2, dim = 1)
-    
 # simple encoder that just sums the word embeddings of the tokens
 class bow_encoder(nn.Module):
     def __init__(self, config):
@@ -139,62 +164,12 @@ class bow_encoder(nn.Module):
     def forward(self, input, l):
         # embedding layers expect Long tensors
         x = self.embed(input.long())
-        print(x.size())
-        return x
+        return x.sum(2)
     
     def load_embeddings(self, dict_loc, embedding_loc):
         # optionally load pretrained word embeddings. takes the dictionary of words occuring in the training data
         # and the location of the embeddings.
         load_word_embeddings(dict_loc, embedding_loc, self.embed.weight.data) 
-
-# combination of a convolutional network topped by a GRU for audio
-class RCNN_audio_encoder(nn.Module):
-    def __init__(self):
-        super(RCNN_audio_encoder, self).__init__()
-        self.Conv2d_1 = nn.Conv1d(in_channels = 40, out_channels = 64, kernel_size = 5, 
-                                 stride = 1, padding = 2, groups = 1, bias = False)
-        self.Pool1 = nn.MaxPool1d(kernel_size = 4, stride = 2, padding = 0, dilation = 1, 
-                                  return_indices = False, ceil_mode = False)
-        self.Conv1d_1 = nn.Conv1d(in_channels = 64, out_channels = 512, kernel_size = 25,
-                                  stride = 1, padding = 12, groups = 1)
-        self.Conv1d_2 = nn.Conv1d(in_channels = 512, out_channels = 1024, kernel_size = 25,
-                                  stride = 1, padding = 12, groups = 1)
-        self.Pool2 = nn.AdaptiveMaxPool1d(output_size = 1, return_indices=False)
-        self.GRU = nn.GRU(1024, 1024, num_layers = 1, batch_first = True)
-        self.att = attention(1024, 128)
-        self.norm1 = nn.BatchNorm1d(64)
-        self.norm2 = nn.BatchNorm1d(512)
-        self.norm3 = nn.BatchNorm1d(1024)
-    def forward(self, input):
-        x = self.norm1(self.Conv2d_1(input))
-        x = self.norm2(self.Conv1d_1(x))
-        x = self.norm3(self.Conv1d_2(x))
-        x = x.permute(0,2,1)
-        x, hx = self.GRU(x)
-        x = nn.functional.normalize(self.att(x), p=2, dim=1)
-        return x
-
-# Recurrent highway network audio encoder described by chrupala et al.
-class RHN_audio_encoder(nn.Module):
-    def __init__(self, batch_size):
-        super(RHN_audio_encoder, self).__init__()
-        self.Conv2d = nn.Conv2d(in_channels = 1, out_channels = 64, kernel_size = (40,6), 
-                                 stride = (1,2), padding = 0, groups = 1)
-        self.RHN = RHN(64, 1024, 2, batch_size)
-        self.RHN_2 = RHN(1024, 1024, 2, batch_size)
-        self.RHN_3 = RHN(1024, 1024, 2, batch_size)
-        self.RHN_4 = RHN(1024, 1024, 2, batch_size)
-        self.att = attention(1024, 128, 1024)
-        
-    def forward(self, input):
-        x = self.Conv2d(input)
-        x = x.squeeze().permute(2,0,1).contiguous()
-        x = self.RHN(x)
-        x = self.RHN_2(x)
-        x = self.RHN_3(x)
-        x = self.RHN_4(x)
-        x = self.att(x)
-        return x
 
 # the convolutional character encoder described by Wehrmann et al. 
 class conv_encoder(nn.Module):

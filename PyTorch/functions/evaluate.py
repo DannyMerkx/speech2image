@@ -10,7 +10,6 @@ the data and calculating the recall@n.
 """
 import numpy as np
 import torch
-from torch.autograd import Variable
 
 # class to evaluate image to caption models with mean and median rank and recall@n
 class evaluate():
@@ -32,8 +31,8 @@ class evaluate():
             cap = cap[sort]
             img = img[sort]
             lens = np.array(lengths)[sort]      
-            # convert data to pytorch variables
-            img, cap = Variable(self.dtype(img), requires_grad=False), Variable(self.dtype(cap),requires_grad=False)
+            # convert data to the right pytorch type
+            img, cap = self.dtype(img), self.dtype(cap)
             # embed the data
             img = self.embed_function_1(img)
             cap = self.embed_function_2(cap, lens)
@@ -125,8 +124,10 @@ class evaluate():
         self.median_rank(self.ranks.min(0)[0])
         self.mean_rank(self.ranks.min(0)[0])
         self.recall_at_n(self.ranks.min(0)[0])
-    # functions to run caption2image and image2caption on a 5 fold test set.
-    # creates 5 random folds and accumulates, averages and prints the results 
+
+    # functions to run caption2image and image2caption on a 5 fold test set for MSCOCO.
+    # creates 5 random folds of 1000 samples and accumulates, averages and prints the results.
+    # the code still is a messy patch job but it works. 
     def fivefold_c2i(self, prepend, epoch = 0):
         # get the embeddings for the full test set
         capts = (self.caption_embeddings)

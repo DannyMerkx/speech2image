@@ -51,10 +51,10 @@ args = parser.parse_args()
 # create config dictionaries with all the parameters for your encoders
 
 char_config = {'embed':{'num_chars': 100, 'embedding_dim': 20, 'sparse': False, 'padding_idx': 0},
-               'gru':{'input_size': 20, 'hidden_size': 1024, 'num_layers': 1, 'batch_first': True,
+               'rnn':{'input_size': 20, 'hidden_size': 1024, 'num_layers': 1, 'batch_first': True,
                'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1}}
 # automatically adapt the image encoder output size to the size of the caption encoder
-out_size = char_config['gru']['hidden_size'] * 2**char_config['gru']['bidirectional'] * char_config['att']['heads']
+out_size = char_config['rnn']['hidden_size'] * 2**char_config['rnn']['bidirectional'] * char_config['att']['heads']
 image_config = {'linear':{'in_size': 2048, 'out_size': out_size}, 'norm': True}
 
 

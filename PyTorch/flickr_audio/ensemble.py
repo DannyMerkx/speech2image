@@ -26,7 +26,7 @@ sys.path.append('/data/speech2image/PyTorch/functions')
 
 from trainer import flickr_trainer
 from encoders import img_encoder, audio_gru_encoder
-from data_split import split_data
+from data_split import split_data_flickr
 ##################################### parameter settings ##############################################
 
 parser = argparse.ArgumentParser(description='Create and run an articulatory feature classification DNN')
@@ -52,11 +52,11 @@ args = parser.parse_args()
 # create config dictionaries with all the parameters for your encoders
 
 audio_config = {'conv':{'in_channels': 39, 'out_channels': 64, 'kernel_size': 6, 'stride': 2,
-               'padding': 0, 'bias': False}, 'gru':{'input_size': 64, 'hidden_size': 1024, 
+               'padding': 0, 'bias': False}, 'rnn':{'input_size': 64, 'hidden_size': 1024, 
                'num_layers': 4, 'batch_first': True, 'bidirectional': True, 'dropout': 0}, 
                'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1}}
 # automatically adapt the image encoder output size to the size of the caption encoder
-out_size = audio_config['gru']['hidden_size'] * 2**audio_config['gru']['bidirectional'] * audio_config['att']['heads']
+out_size = audio_config['rnn']['hidden_size'] * 2**audio_config['rnn']['bidirectional'] * audio_config['att']['heads']
 image_config = {'linear':{'in_size': 2048, 'out_size': out_size}, 'norm': True}
 
 
@@ -72,7 +72,7 @@ else:
 
 # get a list of all the nodes in the file. h5 format takes at most 10000 leaves per node, so big
 # datasets are split into subgroups at the root node 
-def iterate_large_dataset(h5_file):
+def iterate_mscoco(h5_file):
     for x in h5_file.root:
         for y in x:
             yield y
@@ -91,13 +91,12 @@ else:
 
 # split the database into train test and validation sets. default settings uses the json file
 # with the karpathy split
-train, test, val = split_data(f_nodes, args.split_loc)
-
+train, test, val = split_data_flickr(f_nodes, args.split_loc)
 #####################################################
 
 # network modules
 img_net = img_encoder(image_config)
-cap_net = audio_gru_encoder(audio_config)
+cap_net = audio_rnn_encoder(audio_config)
 
 # create a trainer with just the evaluator for the purpose of testing a pretrained model
 trainer = flickr_trainer(img_net, cap_net, args.visual, args.cap)

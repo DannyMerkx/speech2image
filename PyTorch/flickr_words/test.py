@@ -32,7 +32,7 @@ parser.add_argument('-split_loc', type = str, default = '/data/flickr/dataset.js
                     help = 'location of the json file containing the data split information')
 parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/flickr_words/results/',
                     help = 'location to save the results and network parameters')
-parser.add_argument('-dict_loc', type = str, default = '/data/speech2image/PyTorch/flickr_words/word_dict')
+parser.add_argument('-dict_loc', type = str, default = '/data/speech2image/PyTorch/flickr_words/flickr_indices')
 # args concerning training settings
 parser.add_argument('-batch_size', type = int, default = 100, help = 'batch size, default: 32')
 parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, default: True')
@@ -48,15 +48,15 @@ def load_obj(loc):
         return pickle.load(f)
 # get the size of the dictionary for the embedding layer (pytorch crashes if the embedding layer is not correct for the dictionary size)
 # add 1 for the zero or padding embedding
-dict_size = len(load_obj(args.dict_loc)) + 1
+dict_size = len(load_obj(args.dict_loc))
 
 # create config dictionaries with all the parameters for your encoders
 
 token_config = {'embed':{'num_chars': dict_size, 'embedding_dim': 300, 'sparse': False, 'padding_idx': 0},
-               'gru':{'input_size': 300, 'hidden_size': 1024, 'num_layers': 1, 'batch_first': True,
-               'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 2047, 'hidden_size': 128, 'heads': 1}}
+               'rnn':{'input_size': 300, 'hidden_size': 1024, 'num_layers': 1, 'batch_first': True,
+               'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1}}
 # automatically adapt the image encoder output size to the size of the caption encoder
-out_size = token_config['gru']['hidden_size'] * 2**token_config['gru']['bidirectional'] * token_config['att']['heads']
+out_size = token_config['rnn']['hidden_size'] * 2**token_config['rnn']['bidirectional'] * token_config['att']['heads']
 image_config = {'linear':{'in_size': 2048, 'out_size': out_size}, 'norm': True}
 
 

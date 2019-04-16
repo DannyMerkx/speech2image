@@ -31,7 +31,10 @@ import senteval
 def find_index(char):
     # define the set of valid characters.
     valid_chars = string.printable
-    return valid_chars.find(char)
+    idx = valid_chars.find(char)
+    if idx != -1:
+        idx += 1
+    return idx
 
 # convert characters to indices
 def char_2_index(raw_text, batch_size):
@@ -73,7 +76,7 @@ def batcher(params, batch):
     return embeddings
 
 # create config dictionaries with all the parameters for your encoders
-text_config = {'embed':{'num_chars': 100, 'embedding_dim': 20, 'sparse': False, 'padding_idx': 0}, 
+text_config = {'embed':{'num_chars': 101, 'embedding_dim': 20, 'sparse': False, 'padding_idx': 0}, 
                'gru':{'input_size': 20, 'hidden_size': 1024, 'num_layers': 1, 'batch_first': True,
                'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1}}
 # create encoder
