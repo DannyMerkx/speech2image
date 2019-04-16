@@ -6,7 +6,7 @@ Trainer classes for caption-image retrieval, so that all DNN parts
 can be combined in one trainer object. 
 @author: danny
 """
-from minibatchers import iterate_tokens_5fold, iterate_char_5fold
+from minibatchers import iterate_tokens_5fold, iterate_char_5fold, iterate_audio_5fold
 from grad_tracker import gradient_clipping
 from evaluate import evaluate
 
