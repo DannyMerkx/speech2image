@@ -62,7 +62,6 @@ class audio_rnn_encoder(nn.Module):
         
     def forward(self, input, l):
         x = self.Conv(input)
-        x = x.permute(0, 2, 1)
         # update the lengths to compensate for the convolution subsampling
         l = [int((y-(self.Conv.kernel_size[0]-self.Conv.stride[0]))/self.Conv.stride[0]) for y in l]
         # create a packed_sequence object. The padding will be excluded from the update step
