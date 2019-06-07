@@ -27,7 +27,7 @@ sys.path.append('/data/speech2image/PyTorch/functions')
 
 from trainer import flickr_trainer
 from encoders import img_encoder, text_rnn_encoder
-from data_split import split_data
+from data_split import split_data_flickr
 ##################################### parameter settings ##############################################
 
 parser = argparse.ArgumentParser(description='Create and run an articulatory feature classification DNN')
