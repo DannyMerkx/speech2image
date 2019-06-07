@@ -75,7 +75,7 @@ f_nodes = [node for node in iterate_data(data_file)]
     
 # split the database into train test and validation sets. default settings uses the json file
 # with the karpathy split
-train, test, val = split_data(f_nodes, args.split_loc)
+train, test, val = split_data_flickr(f_nodes, args.split_loc)
 #####################################################
 # network modules
 img_net = img_encoder(image_config)
