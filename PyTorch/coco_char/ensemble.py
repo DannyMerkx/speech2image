@@ -26,7 +26,7 @@ import numpy as np
 sys.path.append('/data/speech2image/PyTorch/functions')
 
 from trainer import flickr_trainer
-from encoders import img_encoder, text_gru_encoder
+from encoders import img_encoder, text_rnn_encoder
 from data_split import split_data_coco
 ##################################### parameter settings ##############################################
 
