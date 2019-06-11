@@ -89,7 +89,7 @@ test_size = len(test) * 5
 #####################################################
 # network modules
 img_net = img_encoder(image_config)
-cap_net = text_gru_encoder(token_config)
+cap_net = text_rnn_encoder(token_config)
 
 # create a trainer with just the evaluator for the purpose of testing a pretrained model
 trainer = flickr_trainer(img_net, cap_net, args.visual, args.cap)

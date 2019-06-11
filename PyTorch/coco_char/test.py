@@ -76,7 +76,7 @@ train = train[:-5000]
 #####################################################
 # network modules
 img_net = img_encoder(image_config)
-cap_net = text_gru_encoder(char_config)
+cap_net = text_rnn_encoder(char_config)
 
 # list all the trained model parameters
 models = os.listdir(args.results_loc)

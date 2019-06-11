@@ -73,7 +73,7 @@ train, test, val = split_data_flickr(f_nodes, args.split_loc)
 ############################### Neural network setup #################################################
 # network modules
 img_net = img_encoder(image_config)
-cap_net = text_gru_encoder(char_config)
+cap_net = text_rnn_encoder(char_config)
 # Adam optimiser. I found SGD to work terribly and could not find appropriate parameter settings for it.
 optimizer = torch.optim.Adam(list(img_net.parameters())+list(cap_net.parameters()), 1)
 

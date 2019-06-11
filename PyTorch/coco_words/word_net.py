@@ -86,7 +86,7 @@ train = train[:-5000]
 ############################### Neural network setup #################################################
 # network modules
 img_net = img_encoder(image_config)
-cap_net = text_gru_encoder(token_config)
+cap_net = text_rnn_encoder(token_config)
     
 # Adam optimiser. I found SGD to work terribly and could not find appropriate parameter settings for it.
 optimizer = torch.optim.Adam(list(img_net.parameters())+list(cap_net.parameters()), 1)

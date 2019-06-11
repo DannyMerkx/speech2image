@@ -79,7 +79,7 @@ train, test, val = split_data_flickr(f_nodes, args.split_loc)
 #####################################################
 # network modules
 img_net = img_encoder(image_config)
-cap_net = text_gru_encoder(char_config)
+cap_net = text_rnn_encoder(char_config)
 
 # create a trainer with just the evaluator for the purpose of testing a pretrained model
 trainer = flickr_trainer(img_net, cap_net, args.visual, args.cap)

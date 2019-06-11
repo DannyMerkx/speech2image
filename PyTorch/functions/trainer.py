@@ -147,13 +147,13 @@ class flickr_trainer():
             self.train_loss += loss.data
             # optionally print loss every n batches
             if num_batches%100 == 0:
-                print(self.train_loss.cpu()[0].data.numpy()/num_batches)
+                print(self.train_loss.cpu().data.numpy()/num_batches)
             # if there is a lr scheduler, take a step in the scheduler. The 'cyclic' scheduler requires 
             # updates every minibatch, this option could also be used for step schedulers.
             if self.scheduler == 'cyclic':
                 self.lr_scheduler.step()
                 self.iteration +=1
-        self.train_loss = self.train_loss.cpu()[0].data.numpy()/num_batches
+        self.train_loss = self.train_loss.cpu().data.numpy()/num_batches
     # test epoch
     def test_epoch(self, data, batch_size):
         # set to evaluation mode to disable dropout
@@ -175,7 +175,7 @@ class flickr_trainer():
                 loss += self.att_loss(self.cap_embedder.att, cap_embedding)
             # add loss to the running average
             self.test_loss += loss.data 
-        self.test_loss = self.test_loss.cpu()[0].data.numpy()/test_batches
+        self.test_loss = self.test_loss.cpu().data.numpy()/test_batches
         # if there is a lr scheduler, take a step in the scheduler. The 'plateau' scheduler updates the lr
         # if the validation loss stagnates.                 
         if self.scheduler == 'plateau':
