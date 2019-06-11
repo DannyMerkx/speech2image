@@ -56,6 +56,45 @@ def resnet_truncated():
     model = nn.Sequential(*list(model.children())[:-3])
     return model
 
+# resize and take ten crops of the image. Then return the average activations over the crops
+def prep_tencrop(im, model):
+    # some functions such as taking the ten crop (four corners, center and horizontal flip) normalise and resize.
+    tencrop = transforms.TenCrop(224)
+    tens = transforms.ToTensor()
+    normalise = transforms.Normalize(mean = [0.485,0.456,0.406], 
+                                     std = [0.229, 0.224, 0.225])
+    resize = transforms.Resize(256, PIL.Image.ANTIALIAS)
+    
+    im = tencrop(resize(im))
+    im = torch.cat([normalise(tens(x)).unsqueeze(0) for x in im])
+    if torch.cuda.is_available():
+        im = im.cuda()
+    # there are some grayscale images in mscoco that the vgg and resnet networks
+    # wont take
+    if not im.size()[1] == 3:
+        im = im.expand(im.size()[0], 3, im.size()[2], im.size()[3])
+    activations = model(im)
+    return activations.mean(0).squeeze()
+
+# only resize the image and get the model activations for a single image
+def prep_resize(im, model):
+    # some functions such as taking the ten crop (four corners, center and horizontal flip) normalise and resize.
+    tens = transforms.ToTensor()
+    normalise = transforms.Normalize(mean = [0.485,0.456,0.406], 
+                                     std = [0.229, 0.224, 0.225])
+    resize = transforms.Resize(224, PIL.Image.ANTIALIAS)
+    
+    im = resize(im)
+    im = normalise(tens(im))
+    if torch.cuda.is_available():
+        im = im.cuda()
+    # there are some grayscale images in mscoco that the vgg and resnet networks
+    # wont take
+    if not im.size()[0] == 3:
+        im = im.expand(3, im.size()[2], im.size()[3])
+    activations = model(im)
+    return activations
+
 def vis_feats(img_path, output_file, append_name, img_audio, node_list, net):
     # prepare the pretrained model
     if net == 'vgg19':
@@ -72,14 +111,12 @@ def vis_feats(img_path, output_file, append_name, img_audio, node_list, net):
 
     # atom defining the type of the image features that will be appended to the output file    
     img_atom= tables.Float32Atom()
-    
-    # some functions such as taking the ten crop (four corners, center and horizontal flip) normalise and resize.
-    tencrop = transforms.TenCrop(224)
-    tens = transforms.ToTensor()
-    normalise = transforms.Normalize(mean = [0.485,0.456,0.406], 
-                                     std = [0.229, 0.224, 0.225])
-    resize = transforms.Resize(256, PIL.Image.ANTIALIAS)
-
+    # if we use a truncated version of resnet, do not use the tencrop method. 
+    if net == 'resnet_trunc':
+        get_activations = prep_resize
+    else:
+        get_activations = prep_tencrop
+        
     count = 1
     # loop through all nodes (the main function creates a h5 file with an empty node for each image file)
     for node in node_list:
@@ -93,20 +130,9 @@ def vis_feats(img_path, output_file, append_name, img_audio, node_list, net):
         node_name = img_file.split('.')[0]
         if '/' in node_name:
                 node_name = node_name.split('/')[-1]
-
-        # read the image and apply the necessary transformations and crops
-        im = tencrop(resize(PIL.Image.open(os.path.join(img_path, img_file))))
-        im = torch.cat([normalise(tens(x)).unsqueeze(0) for x in im])
-        im = torch.autograd.Variable(im).cuda()
-        # there are some grayscale images in mscoco that the vgg and resnet networks
-        # wont take
-        if not im.size()[1] == 3:
-            im = im.expand(im.size()[0], 3, im.size()[2], im.size()[3])
-        # get the activations of the penultimate layer and take the mean over the 10 crops
-        if net == 'resnet_trunc'
-            activations = model(im)
-        else:
-            activations = model(im).mean(0).squeeze()
+        
+        im = PIL.Image.open(os.path.join(img_path, img_file))
+        activations = get_activations(im, model)
         # get the shape of the image features for the output file
         feature_shape= activations.shape[0]
         # create a new node 
