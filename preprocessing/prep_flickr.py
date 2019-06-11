@@ -56,15 +56,14 @@ for im in imgs_base:
     else:
         # keep track of images without captions
         no_cap.append(im)
+# we need to append something to the flickr files names because pytable group names cannot start
+# with integers.
+append_name = 'flickr_'
+
 # if the output file does not exist yet, create it
 if not Path(data_loc).is_file():
     # create h5 output file for preprocessed images and audio
-    output_file = tables.open_file(data_loc, mode='a')
-    
-    # we need to append something to the flickr files names because pytable group names cannot start
-    # with integers.
-    append_name = 'flickr_'
-    
+    output_file = tables.open_file(data_loc, mode='a')    
     # create the h5 file to hold all image and audio features. This will fail if they already excist such
     # as when you run this file to append new features to an excisting feature file
     for x in img_audio:
