@@ -92,8 +92,8 @@ def prep_resize(im, model):
     # wont take
     if not im.size()[0] == 3:
         im = im.expand(3, im.size()[2], im.size()[3])
-    activations = model(im)
-    return activations
+    activations = model(im.unsqueeze(0))
+    return activations.squeeze()
 
 def vis_feats(img_path, output_file, append_name, img_audio, node_list, net):
     # prepare the pretrained model
