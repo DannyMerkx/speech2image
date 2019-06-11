@@ -11,6 +11,7 @@ import pickle
 from visual_features import vis_feats
 from audio_features import audio_features
 from text_features import text_features_flickr
+from pathlib import Path
 import tables
 # path to the flickr audio, caption and image files 
 audio_path = os.path.join('/data/flickr/flickr_audio/wavs')
@@ -19,8 +20,8 @@ text_path = os.path.join('/data/flickr/dataset.json')
 # save the resulting feature file here
 data_loc = os.path.join('/prep_data/flickr_features.h5')
 # some bools in case only some new features needs to be added
-vis = True
-speech = True
+vis = ['resnet', 'resnet_trunc']
+speech = ['fbanks', 'mfcc']
 text = True
 
 def load_obj(loc):
@@ -55,33 +56,37 @@ for im in imgs_base:
     else:
         # keep track of images without captions
         no_cap.append(im)
-
-# create h5 output file for preprocessed images and audio
-output_file = tables.open_file(data_loc, mode='a')
-
-# we need to append something to the flickr files names because pytable group names cannot start
-# with integers.
-append_name = 'flickr_'
-
-# create the h5 file to hold all image and audio features. This will fail if they already excist such
-# as when you run this file to append new features to an excisting feature file
-for x in img_audio:
-    try:        
-        # one group for each image file which will contain its vgg16 features and audio captions 
-        output_file.create_group("/", append_name + x.split('.')[0])    
-    except:
-        continue
+# if the output file does not exist yet, create it
+if not Path(data_loc).is_file():
+    # create h5 output file for preprocessed images and audio
+    output_file = tables.open_file(data_loc, mode='a')
+    
+    # we need to append something to the flickr files names because pytable group names cannot start
+    # with integers.
+    append_name = 'flickr_'
+    
+    # create the h5 file to hold all image and audio features. This will fail if they already excist such
+    # as when you run this file to append new features to an excisting feature file
+    for x in img_audio:
+        try:        
+            # one group for each image file which will contain its vgg16 features and audio captions 
+            output_file.create_group("/", append_name + x.split('.')[0])    
+        except:
+            continue
+# else load an existing file to append new features to      
+else:
+    output_file = tables.open_file(data_loc, mode='a')
+    
 #list all the nodes
 node_list = output_file.root._f_list_nodes()
     
-# create the visual features for all images 
-if vis: 
-    vis_feats(img_path, output_file, append_name, img_audio, node_list, 'resnet') 
+# create the visual features for all images
+for x in vis: 
+    vis_feats(img_path, output_file, append_name, img_audio, node_list, x) 
 
 ######### parameter settings for the audio preprocessing ###############
-
 # option for which audio feature to create (options are mfcc, fbanks, freq_spectrum and raw)
-feat = 'mfcc'
+feat = ''
 params = []
 # set alpha for the preemphasis
 alpha = 0.97
@@ -106,7 +111,8 @@ params.append(use_energy)
 #############################################################################
 
 # create the audio features for all captions
-if speech:
+for ftype in speech:
+    params[4] = x
     audio_features(params, img_audio, audio_path, append_name, node_list)
 
 # load all the captions

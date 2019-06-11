@@ -27,8 +27,7 @@ import tables
 # this script uses a pretrained vgg16 model to extract the penultimate layer activations
 # for images
 
-# pretrained vgg_16 model
-
+# creates features from the vgg19 model minus the penultimate classificaton layer
 def vgg19():
     # initialise a pretrained model, see torch docs for the availlable pretrained models. Torch will download
     # the weights automatically
@@ -40,6 +39,7 @@ def vgg19():
     model.classifier = new_classifier
     return model
 
+# creates features from the resnet model minus the penultimate classificaton layer
 def resnet():
     # initialise a pretrained model, see torch docs for the availlable pretrained models. Torch will download
     # the weights automatically
@@ -50,13 +50,20 @@ def resnet():
     model = nn.Sequential(*list(model.children())[:-1])
     return model
 
+# creates features from the resnet model minus the penultimate classificaton layer, maxpool layer and final convolutional layers
+def resnet_truncated():
+    model = models.resnet152(pretrained = True)
+    model = nn.Sequential(*list(model.children())[:-3])
+    return model
+
 def vis_feats(img_path, output_file, append_name, img_audio, node_list, net):
     # prepare the pretrained model
     if net == 'vgg19':
         model = vgg19()
     if net == 'resnet':
         model = resnet()
-
+    if net == 'resnet_trunc':
+        model = resnet_truncated()
     # set the model to use cuda and to evaluation mode
     model = model.cuda()
     for p in model.parameters():
@@ -96,7 +103,10 @@ def vis_feats(img_path, output_file, append_name, img_audio, node_list, net):
         if not im.size()[1] == 3:
             im = im.expand(im.size()[0], 3, im.size()[2], im.size()[3])
         # get the activations of the penultimate layer and take the mean over the 10 crops
-        activations = model(im).mean(0).squeeze()
+        if net == 'resnet_trunc'
+            activations = model(im)
+        else:
+            activations = model(im).mean(0).squeeze()
         # get the shape of the image features for the output file
         feature_shape= activations.shape[0]
         # create a new node 

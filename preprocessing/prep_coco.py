@@ -76,7 +76,7 @@ val_img = {}
 for im in val_imgs_base:
     val_img[im.split('_')[-1][-6:]] = [im + '.jpg']
 
-# create h5 output file for preprocessed images and audio
+# create h5 output file for preprocessed images and text
 output_file = tables.open_file(data_loc, mode='a')
 
 # we need to append something to the flickr files names because pytable group names cannot start
