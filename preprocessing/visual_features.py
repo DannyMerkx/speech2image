@@ -93,7 +93,7 @@ def prep_resize(im, model):
     if not im.size()[0] == 3:
         im = im.expand(3, im.size()[2], im.size()[3])
     activations = model(im.unsqueeze(0))
-    return activations
+    return activations.squeeze()
 
 def vis_feats(img_path, output_file, append_name, img_audio, node_list, net):
     # prepare the pretrained model
@@ -133,11 +133,8 @@ def vis_feats(img_path, output_file, append_name, img_audio, node_list, net):
         
         im = PIL.Image.open(os.path.join(img_path, img_file))
         activations = get_activations(im, model)
-        # get the shape of the image features for the output file
-        feature_shape= activations.shape[0]
+
         # create a new node 
         vis_node = output_file.create_group(node, net)
         # create a pytable array at the current image node. Remove file extension from filename as dots arent allowed in pytable names
-        vis_array = output_file.create_earray(vis_node, append_name + node_name, img_atom, (0, activations.shape[0],activations.shape[1],activations.shape[2]), expectedrows=1)
-        # append the vgg features to the array
-        vis_array.append(activations.unsqueeze(0).data.cpu().numpy())
+        vis_array = output_file.create_array(vis_node, append_name + node_name, activations.unsqueeze(0).data.cpu().numpy())
