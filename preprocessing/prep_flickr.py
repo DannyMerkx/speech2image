@@ -14,9 +14,9 @@ from text_features import text_features_flickr
 from pathlib import Path
 import tables
 # path to the flickr audio, caption and image files 
-audio_path = os.path.join('/data/flickr/flickr_audio/wavs')
-img_path = os.path.join('/data/flickr/Flickr8k_Dataset/Flicker8k_Dataset')
-text_path = os.path.join('/data/flickr/dataset.json')
+audio_path = os.path.join('/data/databases/flickr/flickr_audio/wavs')
+img_path = os.path.join('/data/databases/flickr/Flickr8k_Dataset/Flicker8k_Dataset')
+text_path = os.path.join('/data/databases/flickr/dataset.json')
 # save the resulting feature file here
 data_loc = os.path.join('/prep_data/flickr_features.h5')
 # some bools in case only some new features needs to be added
