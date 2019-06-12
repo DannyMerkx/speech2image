@@ -82,7 +82,7 @@ def prep_resize(im, model):
     tens = transforms.ToTensor()
     normalise = transforms.Normalize(mean = [0.485,0.456,0.406], 
                                      std = [0.229, 0.224, 0.225])
-    resize = transforms.Resize(224, PIL.Image.ANTIALIAS)
+    resize = transforms.Resize((224,224), PIL.Image.ANTIALIAS)
     
     im = resize(im)
     im = normalise(tens(im))
@@ -95,27 +95,43 @@ def prep_resize(im, model):
     activations = model(im.unsqueeze(0))
     return activations.squeeze()
 
+def prep_raw(im, model):
+    # some functions such as taking the ten crop (four corners, center and horizontal flip) normalise and resize.
+    tencrop = transforms.TenCrop(224)
+    tens = transforms.ToTensor()
+    normalise = transforms.Normalize(mean = [0.485,0.456,0.406], 
+                                     std = [0.229, 0.224, 0.225])
+    resize = transforms.Resize(256, PIL.Image.ANTIALIAS)
+    
+    im = tencrop(resize(im))
+    im = torch.cat([normalise(tens(x)).unsqueeze(0) for x in im])
+    if torch.cuda.is_available():
+        im = im.cuda()
+    # there are some grayscale images in mscoco that the vgg and resnet networks
+    # wont take
+    if not im.size()[1] == 3:
+        im = im.expand(im.size()[0], 3, im.size()[2], im.size()[3])
+    return im
+
 def vis_feats(img_path, output_file, append_name, img_audio, node_list, net):
     # prepare the pretrained model
     if net == 'vgg19':
         model = vgg19()
+        get_activations = prep_tencrop
     if net == 'resnet':
         model = resnet()
+        get_activations = prep_tencrop
     if net == 'resnet_trunc':
         model = resnet_truncated()
+        get_activations = prep_resize
+    if net == 'raw':
+        get_activations = prep_raw
+        model = []
     # set the model to use cuda and to evaluation mode
     model = model.cuda()
     for p in model.parameters():
     	p.requires_grad = False
     model.eval()
-
-    # atom defining the type of the image features that will be appended to the output file    
-    img_atom= tables.Float32Atom()
-    # if we use a truncated version of resnet, do not use the tencrop method. 
-    if net == 'resnet_trunc':
-        get_activations = prep_resize
-    else:
-        get_activations = prep_tencrop
         
     count = 1
     # loop through all nodes (the main function creates a h5 file with an empty node for each image file)
@@ -137,4 +153,4 @@ def vis_feats(img_path, output_file, append_name, img_audio, node_list, net):
         # create a new node 
         vis_node = output_file.create_group(node, net)
         # create a pytable array at the current image node. Remove file extension from filename as dots arent allowed in pytable names
-        vis_array = output_file.create_array(vis_node, append_name + node_name, activations.unsqueeze(0).data.cpu().numpy())
+        vis_array = output_file.create_array(vis_node, append_name + node_name, activations.data.cpu().numpy())

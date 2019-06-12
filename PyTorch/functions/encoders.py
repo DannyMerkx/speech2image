@@ -8,6 +8,7 @@ Script with all the different encoder models.
 
 from costum_layers import RHN, multi_attention, transformer_encoder, transformer_decoder, transformer
 from load_embeddings import load_word_embeddings
+import torchvision.models as models
 
 import torch
 import torch.nn as nn
@@ -88,7 +89,27 @@ class img_encoder(nn.Module):
         else:
             return x
 
+# encoder which in conjunction with embedding the images also finetunes the final layers of resnet
+class resnet_encoder(nn.Module):
+    def __init__(self, config):
+        super(resnet_encoder, self).__init__()
+        linear = config['linear']
+        self.norm = config['norm']
+        self.linear_transform = nn.Linear(in_features = linear['in_size'], out_features = linear['out_size'])
+        nn.init.xavier_uniform(self.linear_transform.weight.data)
 
+        self.resnet_pretrained = nn.Sequential(*list(models.resnet152(pretrained = True).children())[:-3])
+        for p in self.resnet_pretrained.parameters():
+            p.requires_grad = False
+        self.resnet_tune = nn.Sequential(*list(models.resnet152(pretrained = True).children())[-3:-1])
+
+    def forward(self, input):
+        x = self.resnet_tune(self.resnet_pretrained(input)).squeeze()
+        x = self.linear_transform(x)
+        if self.norm:
+            return nn.functional.normalize(x, p=2, dim=1)
+        else:
+            return x
 
 ###################################transformer architectures#########################################
 

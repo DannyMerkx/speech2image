@@ -20,7 +20,7 @@ text_path = os.path.join('/data/databases/flickr/dataset.json')
 # save the resulting feature file here
 data_loc = os.path.join('/prep_data/flickr_features.h5')
 # some bools in case only some new features needs to be added
-vis = ['resnet', 'resnet_trunc']
+vis = ['resnet', 'resnet_trunc', 'raw']
 speech = ['fbanks', 'mfcc']
 text = True
 
