@@ -104,8 +104,13 @@ class resnet_encoder(nn.Module):
         self.resnet_tune = nn.Sequential(*list(models.resnet152(pretrained = True).children())[-3:-1])
 
     def forward(self, input):
+        size = input.size()
+        input = input.reshape(-1, size[2], size[3], size[4])
         x = self.resnet_tune(self.resnet_pretrained(input)).squeeze()
-        x = self.linear_transform(x)
+        print(x.size())
+        x = x.resize(size[0], size[1], -1)
+        print(x.size())
+        x = self.linear_transform(x.resize())
         if self.norm:
             return nn.functional.normalize(x, p=2, dim=1)
         else:

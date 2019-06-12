@@ -224,9 +224,8 @@ def iterate_char_5fold(f_nodes, batchsize, visual, text, shuffle=True):
                 caption.append(cap)
             # converts the sentence to character ids. 
             caption, lengths = char_2_index(caption, batchsize)
-            images_shape = np.shape(images)
             # images should be shape (batch_size, 1024). images_shape[1] is collapsed as the original features are of shape (1,1024) 
-            images = np.float64(np.reshape(images,(images_shape[0],images_shape[2])))
+            images = np.float64(images)
             yield images, caption, lengths
 
 # batcher for token input. Keeps track of the unpadded senctence lengths to use with 
