@@ -107,10 +107,8 @@ class resnet_encoder(nn.Module):
         size = input.size()
         input = input.reshape(-1, size[2], size[3], size[4])
         x = self.resnet_tune(self.resnet_pretrained(input)).squeeze()
-        print(x.size())
         x = x.reshape(size[0], size[1], -1)
-        print(x.size())
-        x = self.linear_transform(x)
+        x = self.linear_transform(x.mean(1))
         if self.norm:
             return nn.functional.normalize(x, p=2, dim=1)
         else:
