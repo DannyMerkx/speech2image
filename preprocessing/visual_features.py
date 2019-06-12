@@ -58,6 +58,10 @@ def resnet_truncated():
 
 # resize and take ten crops of the image. Then return the average activations over the crops
 def prep_tencrop(im, model):
+    for p in model.parameters():
+    	p.requires_grad = False
+    model.eval()
+        
     # some functions such as taking the ten crop (four corners, center and horizontal flip) normalise and resize.
     tencrop = transforms.TenCrop(224)
     tens = transforms.ToTensor()
@@ -78,6 +82,10 @@ def prep_tencrop(im, model):
 
 # only resize the image and get the model activations for a single image
 def prep_resize(im, model):
+    for p in model.parameters():
+    	p.requires_grad = False
+    model.eval()
+        
     # some functions such as taking the ten crop (four corners, center and horizontal flip) normalise and resize.
     tens = transforms.ToTensor()
     normalise = transforms.Normalize(mean = [0.485,0.456,0.406], 
@@ -127,13 +135,10 @@ def vis_feats(img_path, output_file, append_name, img_audio, node_list, net):
     if net == 'raw':
         get_activations = prep_raw
         model = []
-    # set the model to use cuda and to evaluation mode
+    # set the model to use cuda
     if torch.cuda.is_available() and model:
         model = model.cuda()
-    for p in model.parameters():
-    	p.requires_grad = False
-    model.eval()
-        
+    
     count = 1
     # loop through all nodes (the main function creates a h5 file with an empty node for each image file)
     for node in node_list:
