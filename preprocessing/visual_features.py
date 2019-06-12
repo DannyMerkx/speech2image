@@ -128,7 +128,8 @@ def vis_feats(img_path, output_file, append_name, img_audio, node_list, net):
         get_activations = prep_raw
         model = []
     # set the model to use cuda and to evaluation mode
-    model = model.cuda()
+    if torch.cuda.is_available() and model:
+        model = model.cuda()
     for p in model.parameters():
     	p.requires_grad = False
     model.eval()
