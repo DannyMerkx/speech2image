@@ -3,19 +3,9 @@
 """
 Created on Thu Feb 22 15:28:36 2018
 Cleanup the places images database by removing all the images for which no captions 
-exist.
+exist. Run once before creating features for the places database
 @author: danny
 """
-
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Feb 19 12:03:28 2018
-
-@author: danny
-"""
-
-import numpy as np
 import os
 
 import glob

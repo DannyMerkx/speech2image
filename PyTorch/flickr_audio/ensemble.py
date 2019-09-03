@@ -5,7 +5,13 @@ Created on Mon May  7 10:24:35 2018
 
 @author: danny
 
-Loads pretrained models and calculates the validation and test scores for both annotation and image retrieval. 
+Loads pretrained network parameters and combines their predictions into an ensemble.
+Works well with a cyclic learning rate because this lr causes the network to settle in 
+several disctinc local minima, while these networks then can have similar test scores
+they make different mistakes leading to a meaningfull ensemble. 
+
+for this script to work put the best scoring models in the results folder. With a cyclic learning
+rate cycle of 4 epochs this is every fourth epoch (except the first few)
 """
 #!/usr/bin/env python
 from __future__ import print_function
@@ -15,6 +21,7 @@ import tables
 import argparse
 import torch
 import sys
+import numpy as np
 sys.path.append('/data/speech2image/PyTorch/functions')
 
 from trainer import flickr_trainer
@@ -29,7 +36,7 @@ parser.add_argument('-data_loc', type = str, default = '/prep_data/flickr_featur
                     help = 'location of the feature file, default: /prep_data/flickr_features.h5')
 parser.add_argument('-split_loc', type = str, default = '/data/databases/flickr/dataset.json', 
                     help = 'location of the json file containing the data split information')
-parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/flickr_audio/results/',
+parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/flickr_audio/ensemble_results/',
                     help = 'location of the json file containing the data split information')
 # args concerning training settings
 parser.add_argument('-batch_size', type = int, default = 100, help = 'batch size, default: 100')
@@ -67,7 +74,7 @@ def iterate_data(h5_file):
     for x in h5_file.root:
         yield x
 f_nodes = [node for node in iterate_data(data_file)]
-    
+
 # split the database into train test and validation sets. default settings uses the json file
 # with the karpathy split
 train, test, val = split_data_flickr(f_nodes, args.split_loc)
@@ -77,15 +84,6 @@ train, test, val = split_data_flickr(f_nodes, args.split_loc)
 img_net = img_encoder(image_config)
 cap_net = audio_rnn_encoder(audio_config)
 
-# list all the trained model parameters
-models = os.listdir(args.results_loc)
-caption_models = [x for x in models if 'caption' in x]
-img_models = [x for x in models if 'image' in x]
-
-# run the image and caption retrieval
-img_models.sort()
-caption_models.sort()
-
 # create a trainer with just the evaluator for the purpose of testing a pretrained model
 trainer = flickr_trainer(img_net, cap_net, args.visual, args.cap)
 trainer.set_audio_batcher()
@@ -94,14 +92,35 @@ if cuda:
     trainer.set_cuda()
 trainer.set_evaluator([1, 5, 10])
 
-for img, cap in zip(img_models, caption_models):
+# list all the trained model parameters
+models = os.listdir(args.results_loc)
+caption_models = [x for x in models if 'caption' in x]
+img_models = [x for x in models if 'image' in x]
 
+# run the image and caption retrieval and create an ensemble
+img_models.sort()
+caption_models.sort()
+caps = torch.autograd.Variable(trainer.dtype(np.zeros((5000, out_size)))).data
+imgs = torch.autograd.Variable(trainer.dtype(np.zeros((5000, out_size)))).data
+
+for img, cap in zip(img_models, caption_models) :    
     epoch = img.split('.')[1]
     # load the pretrained embedders
     trainer.load_cap_embedder(args.results_loc + cap)
-    trainer.load_img_embedder(args.results_loc + img)
-    
+    trainer.load_img_embedder(args.results_loc + img)   
     # calculate the recall@n
     trainer.set_epoch(epoch)
     trainer.recall_at_n(val, args.batch_size, prepend = 'val')
     trainer.recall_at_n(test, args.batch_size, prepend = 'test')
+
+    caption =  trainer.evaluator.return_caption_embeddings()
+    image = trainer.evaluator.return_image_embeddings()
+
+    caps += caption
+    imgs += image
+# print the results of the ensemble
+trainer.evaluator.set_image_embeddings(imgs)
+trainer.evaluator.set_caption_embeddings(caps)
+
+trainer.evaluator.print_caption2image('test ensemble')
+trainer.evaluator.print_image2caption('test ensemble')

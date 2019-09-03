@@ -1,30 +1,37 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Spyder Editor
+Created on Thu May 17 11:49:51 2018
 
-Make a dictionary that pairs all the flickr8k images with their 5 captions
-
+@author: danny
 """
-
-import numpy as np
-import tables
 import os
-
-
-from vgg16 import vgg
+import json
+import pickle
+from visual_features import vis_feats
 from audio_features import audio_features
-from text_features import text_features
-# path to the flickr audio and image files
-audio_path = os.path.join('/data/flickr/flickr_audio/wavs')
-#audio_path = os.path.join('C:\\','Users', 'Beheerder','Documents','PhD','Flickr','flickr_audio', 'wavs')
+from text_features import text_features_flickr
+from pathlib import Path
+import tables
+# path to the flickr audio, caption and image files 
+audio_path = os.path.join('/data/databases/flickr/flickr_audio/wavs')
+img_path = os.path.join('/data/databases/flickr/Flickr8k_Dataset/Flicker8k_Dataset')
+text_path = os.path.join('/data/databases/flickr/dataset.json')
+# save the resulting feature file here
+data_loc = os.path.join('/prep_data/flickr_features.h5')
+# some bools in case only some new features needs to be added
+vis = ['resnet', 'resnet_trunc', 'raw']
+speech = ['fbanks', 'mfcc']
+text = True
 
-img_path = os.path.join('/data/flickr/Flickr8k_Dataset/Flicker8k_Dataset')
+def load_obj(loc):
+    with open(loc + '.pkl', 'rb') as f:
+        return pickle.load(f)
 
-text_path = os.path.join('/data/speech2image/PyTorch/dataset.json')
-#img_path = os.path.join('C:\\','Users', 'Beheerder','Documents','PhD','Flickr','Flickr8k_Dataset','Flicker8k_Dataset')
 # list the img and audio directories
 audio = os.listdir(audio_path)
 imgs = os.listdir(img_path)
+
 # strip the files to their basename and remove file extension
 imgs_base = [x.split('.')[0] for x in imgs]
 audio_base = [x.split('.')[0] for x in audio]
@@ -49,28 +56,36 @@ for im in imgs_base:
     else:
         # keep track of images without captions
         no_cap.append(im)
-# create h5 output file for preprocessed images and audio
-output_file = tables.open_file('/prep_data/flickr_features.h5', mode='a')
-
-#output_file = tables.open_file(os.path.join('C:\\','Users', 'Beheerder','Documents','PhD','Flickr','features.h5'), mode='a')
 # we need to append something to the flickr files names because pytable group names cannot start
 # with integers.
 append_name = 'flickr_'
 
-# create the h5 file to hold all image and audio features
-#for x in img_audio:
-    # one group for each image file which will contain its vgg16 features and audio captions 
-#    output_file.create_group("/", append_name + x.split('.')[0])    
-
+# if the output file does not exist yet, create it
+if not Path(data_loc).is_file():
+    # create h5 output file for preprocessed images and audio
+    output_file = tables.open_file(data_loc, mode='a')    
+    # create the h5 file to hold all image and audio features. This will fail if they already excist such
+    # as when you run this file to append new features to an excisting feature file
+    for x in img_audio:
+        try:        
+            # one group for each image file which will contain its vgg16 features and audio captions 
+            output_file.create_group("/", append_name + x.split('.')[0])    
+        except:
+            continue
+# else load an existing file to append new features to      
+else:
+    output_file = tables.open_file(data_loc, mode='a')
+    
+#list all the nodes
 node_list = output_file.root._f_list_nodes()
     
-# create the vgg16 features for all images  
-#vgg(img_path, output_file, append_name, img_audio, node_list) 
+# create the visual features for all images
+for x in vis: 
+    vis_feats(img_path, output_file, append_name, img_audio, node_list, x) 
 
 ######### parameter settings for the audio preprocessing ###############
-
-# option for which audio feature to create
-feat = 'mfcc'
+# option for which audio feature to create (options are mfcc, fbanks, freq_spectrum and raw)
+feat = ''
 params = []
 # set alpha for the preemphasis
 alpha = 0.97
@@ -95,10 +110,17 @@ params.append(use_energy)
 #############################################################################
 
 # create the audio features for all captions
+for ftype in speech:
+    params[4] = x
+    audio_features(params, img_audio, audio_path, append_name, node_list)
 
-#audio_features(params, img_audio, audio_path, append_name, node_list)
-
+# load all the captions
+text_dict = {}
+txt = json.load(open(text_path))['images']
+for x in txt:
+    text_dict[x['filename'].split('.')[0]] = x
 # add text features for all captions
-text_features(text_path, output_file, append_name, node_list )
+if text:
+    text_features_flickr(text_dict, output_file, append_name, node_list)
 # close the output files
 output_file.close()
