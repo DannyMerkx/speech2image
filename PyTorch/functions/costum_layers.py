@@ -263,6 +263,12 @@ class transformer_decoder(nn.Module):
         return(input)
 
 # super class with some functions that are useful for multiple transformer based architectures.  
+# This class contains functions that serve as the 'forward' function of the Transformer. This 
+# brings together the encoder and decoder parts, differentiate between training and test time
+# situations and provides as 'forward' function for situations where you just use the Transformer
+# as an encoder. Furthermore this script contains functions to load pre-trained embeddings, create 
+# the encoder and decoder masks, create the positional embeddings and perform beam search on predicted
+# sequences. 
 class transformer(nn.Module):
     def __init__(self):
         super(transformer, self).__init__()
