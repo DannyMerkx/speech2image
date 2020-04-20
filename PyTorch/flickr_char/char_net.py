@@ -11,7 +11,6 @@ from __future__ import print_function
 import tables
 import argparse
 import torch
-import numpy as np
 from torch.optim import lr_scheduler
 import sys
 sys.path.append('/data/speech2image/PyTorch/functions')
@@ -20,6 +19,7 @@ from trainer import flickr_trainer
 from costum_loss import batch_hinge_loss, ordered_loss, attention_loss
 from encoders import img_encoder, text_rnn_encoder
 from data_split import split_data_flickr
+from costum_scheduler import cyclic_scheduler
 ##################################### parameter settings ##############################################
 
 parser = argparse.ArgumentParser(description='Create and run an articulatory feature classification DNN')
@@ -82,17 +82,11 @@ optimizer = torch.optim.Adam(list(img_net.parameters())+list(cap_net.parameters(
 
 #step_scheduler = lr_scheduler.StepLR(optimizer, 1000, gamma=0.1, last_epoch=-1)
 
-def create_cyclic_scheduler(max_lr, min_lr, stepsize):
-    lr_lambda = lambda iteration: (max_lr - min_lr)*(0.5 * (np.cos(np.pi * (1 + (3 - 1) / stepsize * iteration)) + 1))+min_lr
-    cyclic_scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda, last_epoch=-1)
-    # lambda function which uses the cosine function to cycle the learning rate between the given min and max rates
-    # the function operates between 1 and 3 (so the cos cycles from -1 to -1 ) normalise between 0 and 1 and then press between
-    # min and max lr   
-    return(cyclic_scheduler)
+cyclic_scheduler = cyclic_scheduler(max_lr = args.lr, min_lr = 1e-6, 
+                                    stepsize = (int(len(train)/args.batch_size)*5)*4)
 
-cyclic_scheduler = create_cyclic_scheduler(max_lr = args.lr, min_lr = 1e-6, stepsize = (int(len(train)/args.batch_size)*5)*4)
-
-# create a trainer setting the loss function, optimizer, minibatcher, lr_scheduler and the r@n evaluator
+# create a trainer setting the loss function, optimizer, minibatcher, 
+# lr_scheduler and the r@n evaluator
 trainer = flickr_trainer(img_net, cap_net, args.visual, args.cap)
 trainer.set_loss(batch_hinge_loss)
 trainer.set_optimizer(optimizer)
@@ -103,8 +97,8 @@ trainer.set_att_loss(attention_loss)
 if cuda:
     trainer.set_cuda()
 trainer.set_evaluator([1, 5, 10])
-# gradient clipping with these parameters (based the avg gradient norm for the first epoch)
-# can help stabilise training in the first epoch.
+# gradient clipping with these parameters (based the avg gradient norm for 
+# the first epoch) can help stabilise training in the first epoch.
 if args.gradient_clipping:
     trainer.set_gradient_clipping(0.0025, 0.05)
 ################################# training/test loop #####################################

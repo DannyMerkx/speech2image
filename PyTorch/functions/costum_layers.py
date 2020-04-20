@@ -13,61 +13,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-############################# Costum implementation of Recurrent Highway Networks #####################
-# Rather slow, not much better than regular gru/lstms 
-
-# implementation of recurrent highway networks using existing PyTorch layers
-class RHN(nn.Module):
-    def __init__(self, in_size, hidden_size, n_steps, batch_size):
-        super(RHN, self).__init__()
-        self.n_steps = n_steps
-        self.initial_state = torch.autograd.Variable(torch.rand(1, batch_size, hidden_size)).gpu()
-        # create 3 linear layers serving as the hidden, transform and carry gate,
-        # one each for each microstep. 
-        self.H, self.T, self.C = nn.ModuleList(), nn.ModuleList(), nn.ModuleList()
-        # linear layers for the input in the first microstep
-        self.init_h = (nn.Linear(in_size, hidden_size))
-        self.init_t = (nn.Linear(in_size, hidden_size))
-        self.init_c = (nn.Linear(in_size, hidden_size))
-        self.tan = nn.Tanh()
-        self.sig = nn.Sigmoid()
-        # linear layers for the history in the microsteps
-        layer_list = [self.H, self.T, self.C]
-        for steps in range(self.n_steps):
-            for layers, lists in zip(self.create_microstep(hidden_size), layer_list):
-                lists.append(layers)
-                
-    # initialise linear layers for the microsteps
-    def create_microstep(self, n_nodes):       
-        H = nn.Linear(n_nodes,n_nodes)
-        T = nn.Linear(n_nodes,n_nodes)
-        C = nn.Linear(n_nodes,n_nodes)
-        return(H,T,C)
-    # the input is only used in the first microstep. For the first step the history is a random initial state.
-    def calc_htc(self, x, hx, step, non_linearity):
-        if step == 0:
-            return non_linearity(((step+1)//1 * self.init_h(x)) + self.H[step](hx))
-        else:
-            return non_linearity(self.H[step](hx))
-                                 
-    def perform_microstep(self, x, hx, step):
-        output = self.calc_htc(x, hx, step, self.tan) * self.calc_htc(x, hx, step, self.sig) + hx * (1 - self.calc_htc(x, hx, step,self.sig))
-        return(output)
-        
-    def forward(self, input):
-        # list to append the output of each time step to
-        output = []
-        hx = self.initial_state
-        # loop through all time steps
-        for x in input:
-            # apply the microsteps to the hidden state of the GRU
-            for step in range(self.n_steps):
-                hx = self.perform_microstep(x, hx, step)
-            # append the hidden state of time step n to the output. 
-            output.append(hx)
-        return torch.cat(output)
-
-###############################################################################
+#########################attention layer for rnns##############################
         
 # class for making multi headed attenders. 
 class multi_attention(nn.Module):
@@ -81,7 +27,8 @@ class multi_attention(nn.Module):
         for head in self.att_heads:
             o = head(input)
             out.append(o) 
-            # save the attention matrices to be able to use them in a loss function
+            # save the attention matrices to be able to use them in a loss 
+            # function
             self.alpha.append(head.alpha)
         # return the resulting embedding 
         return torch.cat(out, 1)
@@ -102,21 +49,50 @@ class attention(nn.Module):
         x = torch.sum(self.alpha * input, 1)
         # return the resulting embedding
         return x   
-    
-################################ Transformer Layers ###########################
-# the transformers consist of an encoder and a decoder, which can also be instantiated
-# and used seperately (e.g. in next word prediction). Both consist of blocks of attention layers
-# and fully connected layers, with residual connections. This script implements encoder and decoder
-# cells, their attention and linear layer blocks and classes for stacking multiple 
-# encoder/decoder layers.  Finally there is a superclass, if your neural network class inherits this class
-# it will have some useful functions for creating the masks, positional embeddings and combining the encoder
-# with the decoder
 
-# single encoder transformer cell with h attention heads fully connected layer block and residual connections
+class quantization_layer(nn.Module):
+    def __init__(self, num_emb, emb_dim, sparse = False):
+        super(quantization_layer, self).__init__()
+        self.embed = nn.Embedding(num_embeddings = num_emb, 
+                                  embedding_dim = emb_dim, 
+                                  sparse = sparse)
+        
+    def forward(self, input):
+        # get the distance and the index of the closest embedding
+        dims = input.size()
+        dists = -self.pwd(input.view(-1, dims[-1]), 
+                     self.embed.weight).view(dims[0], dims[1], -1)
+        topk = torch.topk(dists, k = 1)
+        top_dists = topk[0].squeeze()
+        top_idx = topk[1].squeeze()
+        
+        emb = self.embed(top_idx)
+        
+        return emb, top_dists
+
+    def pwd(self, x, y):
+        # function to calculate the pointwise distance between the input
+        # and the embedding weights
+        x_norm = (x**2).sum(1).view(-1, 1)
+        y_norm = (y**2).sum(1).view(1, -1)
+
+        dist = x_norm + y_norm - 2.0 * torch.mm(x, torch.transpose(y, 0, 1))
+        
+        return dist
+
+################################ Transformer Layers ###########################
+# costum implementation of the Transformer. Implements the Decoder and Encoder
+# cells, transformer attention and costum forward functions for training 
+# transformer models. Encoders should inherit the Transformer superclass 
+# for acces to useful functions such as creating the masks and positional 
+# embeddings
+
+# single encoder transformer cell with h attention heads fully connected layer
+# block and residual connections
 class transformer_encoder_cell(nn.Module):
     def __init__(self, in_size, fc_size, h):
         super(transformer_encoder_cell, self).__init__()
-        # assert the input size is compatible with the number of attention heads
+        # assert input size is compatible with the number of attention heads
         assert in_size % h == 0
         # create the attention layer
         self.att_heads = transformer_att(in_size, h)
@@ -130,19 +106,19 @@ class transformer_encoder_cell(nn.Module):
     def forward(self, input, mask = None):
         # apply the attention block to the input. In an encoder q=k=v
         att = self.att_heads(input, input, input, mask)
-        # apply the residual connection to the input and apply layer normalisation
+        # apply the residual connection and layer normalisation
         norm_att = self.norm_att(self.dropout(att) + input)        
         # apply the linear layer block
         lin = self.ff(norm_att)
-        # apply the residual connection to the att block and apply layer normalisation
+        # apply  residual connection and layer normalisation
         out = self.norm_ff(self.dropout(lin) + norm_att)
         return out
 
-# decoder cell, has an extra attention block which recieves encoder output as its input
+# decoder cell, has an extra attention block which looks at encoder cell output
 class transformer_decoder_cell(nn.Module):
     def __init__(self, in_size, fc_size, h):
         super(transformer_decoder_cell, self).__init__()
-        # assert the input size is compatible with the number of attention heads
+        # assert input size is compatible with the number of attention heads
         assert in_size % h == 0
         # create the two attention layers
         self.att_one = transformer_att(in_size, h)
@@ -154,28 +130,28 @@ class transformer_decoder_cell(nn.Module):
         self.norm_att_two = nn.LayerNorm(in_size)
         self.norm_ff = nn.LayerNorm(in_size)
         self.dropout = nn.Dropout(0.1)
-    # the decoder has different masks for the first and second attention layer.
-    # furthermore encoder input is optional. If not provided the decoder acts basically
-    # as an encoder with two attention layers.
-    def forward(self, input, dec_mask = None, enc_mask = None, enc_input = None):
-        # apply the first attention block to the input, in the first layer q=k=v
-        att = self.att_one(input, input, input, dec_mask)
-        # apply the residual connection to the input and apply layer normalisation
+    # decoders have a mask for each attention layer i.e. for translation tasks
+    # to allow full access to encoder output but restricted access to decoder 
+    # input 
+    def forward(self, input, mask_1 = None, mask_2 = None, enc_output = None):
+        # apply first attention block, in the first layer q=k=v
+        att = self.att_one(input, input, input, mask_1)
+        # apply residual connection and layer normalisation
         norm_att = self.norm_att_one(self.dropout(att) + input)
-        # apply the second attention block to the input. in the second layer, q is
-        # the intermediate decoder output, and k and v are the final states of the encoder.
-        if enc_input is None:
-            enc_input = norm_att
-            enc_mask = dec_mask
-        att_2 = self.att_two(norm_att, enc_input, enc_input, enc_mask)
+        # apply second attention block. q is the intermediate decoder output
+        # k and v are the encoder output. If endocer output is not given act 
+        # like an encoder with 2 attention layers.  
+        if enc_output is None:
+            enc_output = norm_att
+            mask_2 = mask_1
+        att_2 = self.att_two(norm_att, enc_output, enc_output, mask_2)
 
-        # apply the residual connection and layer normalisation
+        # apply residual connection and layer normalisation
         norm_att_2 = self.norm_att_two(self.dropout(att_2) + norm_att)
         # apply the linear layer block
         lin = self.ff(norm_att_2)
-        # apply the residual connection to the att block and apply layer normalisation
+        # apply residual connection and layer normalisation
         out = self.norm_ff(self.dropout(lin) + norm_att_2)
-        #out = lin + norm_att_2
         return out
     
 # the linear layer block of the transformer
@@ -191,8 +167,8 @@ class transformer_ff(nn.Module):
         output = self.ff_2(self.relu(self.ff_1(input)))
         return output
     
-# transformer attention head with in_size equal to transformer input size and hidden size equal to
-# in_size/h (number of attention heads) 
+# transformer attention head with in_size equal to transformer input size and
+# hidden size equal to in_size/h (number of attention heads) 
 class transformer_att(nn.Module):
     def __init__(self, in_size, h):
         super(transformer_att, self).__init__()
@@ -206,17 +182,20 @@ class transformer_att(nn.Module):
         self.softmax = nn.Softmax(dim = -1)
         self.h = h
         self.dropout = nn.Dropout(0.1)
-    # in encoding q=k=v . In decoding, the second attention layer, k=v (encoder output) and q is the decoder 
-    # intermediate output
+    # in encoding q=k=v . In decoding, the second attention layer, k=v (encoder 
+    # output) and q is the decoder intermediate output
     def forward(self, q, k, v, mask = None):
         # scaling factor for the attention scores
         scale = torch.sqrt(torch.FloatTensor([self.h])).item() 
         batch_size = q.size(0)
-        # apply the linear transform to the query, key and value and reshape the result into
-        # h attention heads
-        Q = self.Q(q).view(batch_size, -1, self.h, self.att_size).transpose(1,2)
-        K = self.K(k).view(batch_size, -1, self.h, self.att_size).transpose(1,2)
-        V = self.V(v).view(batch_size, -1, self.h, self.att_size).transpose(1,2)
+        # apply the linear transform to the query, key and value and reshape 
+        # the result into h attention heads
+        Q = self.Q(q).view(batch_size, -1, self.h, 
+                           self.att_size).transpose(1,2)
+        K = self.K(k).view(batch_size, -1, self.h, 
+                           self.att_size).transpose(1,2)
+        V = self.V(v).view(batch_size, -1, self.h, 
+                           self.att_size).transpose(1,2)
         # multiply and scale q and v to get the attention scores
         self.alpha = torch.matmul(Q,K.transpose(-2,-1))/scale
         # apply mask if needed
@@ -227,12 +206,14 @@ class transformer_att(nn.Module):
         self.alpha = self.softmax(self.alpha)
         # apply the att scores to the value v
         att_applied = torch.matmul(self.dropout(self.alpha), V)    
-        # reshape the attention heads and finally pass through a fully connected layer
-        att = att_applied.transpose(1, 2).reshape(batch_size, -1, self.att_size * self.h)
+        # reshape the attention heads and finally pass through a fully 
+        # connected layer
+        att = att_applied.transpose(1, 2).reshape(batch_size, -1, 
+                                                  self.att_size * self.h)
         output = self.fc(att)   
         return output
 
-# the transformer encoder layer capable of stacking multiple transformer cells. 
+# the transformer encoder layer for stacking multiple encoder cells. 
 class transformer_encoder(nn.Module):
     def __init__(self, in_size, fc_size, n_layers, h):
         super(transformer_encoder, self).__init__()
@@ -240,14 +221,17 @@ class transformer_encoder(nn.Module):
         self.transformers = nn.ModuleList()
         self.dropout = nn.Dropout(0.1)
         for x in range(n_layers):
-            self.transformers.append(transformer_encoder_cell(in_size, fc_size, h))
+            self.transformers.append(transformer_encoder_cell(in_size, fc_size, 
+                                                              h
+                                                              )
+                                     )
     def forward(self, input, mask = None):
         # apply the (stacked) transformer
         for tf in self.transformers:
             input = tf(self.dropout(input), mask)
         return(input)
 
-# the transformer decoder layer capable of stacking multiple transformer cells. 
+# the transformer decoder layer for stacking multiple decoder cells. 
 class transformer_decoder(nn.Module):
     def __init__(self, in_size, fc_size, n_layers, h):
         super(transformer_decoder, self).__init__()
@@ -255,26 +239,24 @@ class transformer_decoder(nn.Module):
         self.transformers = nn.ModuleList()
         self.dropout = nn.Dropout(0.1)
         for x in range(n_layers):
-            self.transformers.append(transformer_decoder_cell(in_size, fc_size, h))
-    def forward(self, input, dec_mask = None, enc_mask = None, enc_input = None):
+            self.transformers.append(transformer_decoder_cell(in_size, 
+                                                              fc_size, h
+                                                              )
+                                     )
+    def forward(self, input, dec_mask = None, enc_mask = None, 
+                enc_input = None):
         # apply the (stacked) transformer
         for tf in self.transformers:
             input = tf(self.dropout(input), dec_mask, enc_mask, enc_input)
         return(input)
 
-# super class with some functions that are useful for multiple transformer based architectures.  
-# This class contains functions that serve as the 'forward' function of the Transformer. This 
-# brings together the encoder and decoder parts, differentiate between training and test time
-# situations and provides as 'forward' function for situations where you just use the Transformer
-# as an encoder. Furthermore this script contains functions to load pre-trained embeddings, create 
-# the encoder and decoder masks, create the positional embeddings and perform beam search on predicted
-# sequences. 
+# super class with some functions that are useful for Transformers 
 class transformer(nn.Module):
     def __init__(self):
         super(transformer, self).__init__()
         pass    
-    # option to load pretrained word embeddings. Takes the dictionary of words occuring in the training data
-    # add the file location of the embeddings.
+    # option to load pretrained word embeddings. Takes the dictionary of words 
+    # occuring in the training data add the file location of the embeddings.
     def load_embeddings(self, dict_loc, embedding_loc):
         load_word_embeddings(dict_loc, embedding_loc, self.embed.weight.data)
     
@@ -289,7 +271,7 @@ class transformer(nn.Module):
             pos_emb = pos_emb.cuda()
         return pos_emb
     
-    # create the encoder mask, which masks the padding indices 
+    # create the encoder mask, which masks only the padding indices 
     def create_enc_mask(self, input):
         return (input != 0).unsqueeze(1)
     
@@ -298,7 +280,7 @@ class transformer(nn.Module):
     def create_dec_mask(self, input):
         seq_len = input.size(1)
         # create a mask which masks the padding indices
-        mask = (input != 0).unsqueeze(1)
+        mask = (input != 0).unsqueeze(1).byte()
         # create a mask which masks for each time-step the future time-steps
         triu = (np.triu(np.ones([1, seq_len, seq_len]), k = 1) == 0).astype('uint8')
         # combine the two masks
@@ -306,91 +288,130 @@ class transformer(nn.Module):
             dtype = torch.cuda.ByteTensor
         else:
             dtype = torch.ByteTensor
-        return dtype(triu) & mask
+        return dtype(triu) & dtype(mask)
             
-    # Function used for training a transformer encoder-decoder, use in networks' your forward function
+    # Function used for training a transformer encoder-decoder, use 
+    # instead of forward
     def encoder_decoder_train(self, enc_input, dec_input):
-        # create the targets for the loss function (decoder input, shifted to the left, padded with a zero)
+        # create the targets for the loss function (decoder input, shifted to 
+        # the left, padded with a zero)
         targs = torch.nn.functional.pad(dec_input[:, 1:], [0, 1]).long()
 
-        # create the encoder mask which is 0 where the input is padded along the time dimension
+        # create the encoder mask which is 0 where the input is padded along 
+        # the time dimension
         e_mask = self.create_enc_mask(enc_input)
 
-        # retrieve embeddings for the sentence and scale the embeddings importance relative to the positional embeddings
-        e_emb = self.embed(enc_input.long()) * np.sqrt(self.embed.embedding_dim)
+        # retrieve embeddings for the sentence and scale the embeddings 
+        # importance relative to the positional embeddings
+        e_emb = self.embed(enc_input.long()) * \
+                np.sqrt(self.embed.embedding_dim)
 
         # apply the (stacked) encoder transformer
-        encoded = self.TF_enc(e_emb + self.pos_emb[:enc_input.size(1), :], mask = e_mask)  
+        encoded = self.TF_enc(e_emb + self.pos_emb[:enc_input.size(1), :], 
+                              mask = e_mask)  
 
-        # create the decoder mask for padding, which also prevents the decoder from looking into the future.
+        # create the decoder mask for padding, which also prevents the decoder 
+        # from looking into the future.
         d_mask = self.create_dec_mask(dec_input)
 
-        # retrieve embeddings for the sentence and scale the embeddings importance relative to the positional embeddings
-        d_emb = self.embed(dec_input.long()) * np.sqrt(self.embed.embedding_dim)
+        # retrieve embeddings for the sentence and scale the embeddings 
+        # importance relative to the positional embeddings
+        d_emb = self.embed(dec_input.long()) * \
+                np.sqrt(self.embed.embedding_dim)
 
         # apply the (stacked) decoder transformer
         decoded = self.TF_dec(d_emb + self.pos_emb[:dec_input.size(1), :],
-                              dec_mask = d_mask, enc_mask = e_mask, enc_input = encoded)
+                              dec_mask = d_mask, enc_mask = e_mask, 
+                              enc_input = encoded
+                              )
 
         return decoded, targs
 
-    # Function used for a transformer with an encoder only without additional context input
-    # e.g. for next word prediction
+    # Function used for a transformer with an encoder only without additional 
+    # context input e.g. for next word prediction. Use instead of forward
     def encoder_train(self, enc_input):
-        # create the targets (decoder input, shifted to the left, padded with a zero)
-        targs = torch.nn.functional.pad(enc_input[:,1:], [0,1]).long()
-        
-        # create a mask for the padding, which also prevents the encoder from looking into the future.
-        e_mask = self.create_dec_mask(enc_input)
-        
-        # retrieve embeddings for the sentence and scale the embeddings importance relative to the pos embeddings
-        e_emb = self.embed(enc_input.long()) * np.sqrt(self.embed.embedding_dim)
+        # create the targets (decoder input, shifted to the left, padded with 
+        #a zero)
+        targs = torch.nn.functional.pad(enc_input[:,1:], [0,1]).long()     
+        # create a mask for the padding, which also prevents the encoder from 
+        # looking into the future.
+        e_mask = self.create_dec_mask(enc_input)       
+        # retrieve embeddings for the sentence and scale the embeddings 
+        # importance relative to the pos embeddings
+        e_emb = self.embed(enc_input.long()) *\
+                np.sqrt(self.embed.embedding_dim)
         
         # apply the (stacked) encoder transformer
-        encoded = self.TF_enc(e_emb + self.pos_emb[:enc_input.size(1), :], mask = e_mask)
+        encoded = self.TF_enc(e_emb + self.pos_emb[:enc_input.size(1), :], 
+                              mask = e_mask)
         
-        return decoded, targs 
-   
-    # function to generate translations from an encoded sentence. if translations are availlable
-    # they can be used as targets for evaluating but also works for unknown sentences. 
-    # works only if batch size is set to 1 in the test loop.
-    def encoder_decoder_test(self, enc_input, dec_input = None, max_len = 64, beam_width = 1):
+        return encoded, targs 
+    
+    # training function for caption2image encoders. Use instead of forward
+    def cap2im_train(self, enc_input):
+        mask = self.create_enc_mask(enc_input)
+        # for encoders with an embedding layer, convert input to longtensor
+        if hasattr(self, 'embed'):
+            enc_input = self.embed(enc_input.long()) 
+        # scale the inputs importance relative to the pos embeddings
+        enc_input = enc_input * np.sqrt(self.embed.embedding_dim) 
+        encoded = self.TF_enc(enc_input + self.pos_emb[:enc_input.size(1), :],
+                              mask = mask)
+        
+        return encoded
+    
+    # function to generate translations from an encoded sentence. if 
+    # translations are available they can be used as targets for evaluating 
+    # but also works for unknown sentences. Works only if batch size is set to 
+    # 1 in the test loop.
+    def translate(self, enc_input, dec_input = None, max_len = 64, 
+                             beam_width = 1):
         if self.is_cuda == True:
             dtype = torch.cuda.FloatTensor
         else:
             dtype = torch.FloatTensor
         # create the targets if dec_input is given, decoder input is only used
-        # to create targets (e.g. for calculating a loss or comparing translation to golden standard)
+        # to create targets (e.g. for calculating a loss or comparing 
+        # translation to golden standard)
         if not dec_input is None:
-            targs = torch.nn.functional.pad(dec_input[:, 1:], [0, max_len - dec_input[:, 1:].size()[-1]]).long()
+            targs = torch.nn.functional.pad(dec_input[:, 1:], 
+                                            [0, max_len - dec_input[:, 1:].size()[-1]]).long()
         else:
             targs = dtype([0])
-        # create the encoder mask which is 0 where the input is padded along the time dimension
+        # create the encoder mask which is 0 where the input is padded along 
+        # the time dimension
         e_mask = self.create_enc_mask(enc_input)
-        # retrieve embeddings for the sentence and scale the embeddings importance relative to the pos embeddings
+        # retrieve embeddings for the sentence and scale the embeddings 
+        # importance relative to the pos embeddings
         emb = self.embed(enc_input.long()) * np.sqrt(self.embed.embedding_dim)
         # apply the (stacked) encoder transformer
-        encoded = self.TF_enc(emb + self.pos_emb[:enc_input.size(1), :], mask = e_mask)  
-        # set the decoder input to the <bos> token (i.e. predict the tranlation using only
-        # the encoder output and a <bos> token)      
+        encoded = self.TF_enc(emb + self.pos_emb[:enc_input.size(1), :], 
+                              mask = e_mask)  
+        # set the decoder input to the <bos> token (i.e. predict the 
+        # tranlation using only the encoder output and a <bos> token)      
         dec_input = enc_input[:,0:1]
-        # create the initial candidate consisting of <bos> and (negative) prob 1
+        # create the initial candidate consisting of <bos> and 0
         candidates = [[dec_input, 0]]
         # perform beam search
         for x in range(1, max_len + 1):
-            candidates = self.beam_search(candidates, encoded, e_mask, beam_width, dtype)
-        # create label predictions for the top candidate (e.g. to calculate a cross
-        # entropy loss)
+            candidates = self.beam_search(candidates, encoded, e_mask, 
+                                          beam_width, dtype)
+        # create label predictions for the top candidate (e.g. to calculate a 
+        # cross entropy loss)
         d_mask = self.create_dec_mask(candidates[0][0][:, :-1])
         # convert data to embeddings
-        emb = self.embed(candidates[0][0].long()) * np.sqrt(self.embed.embedding_dim)
+        emb = self.embed(candidates[0][0].long()) * \
+              np.sqrt(self.embed.embedding_dim)
         # pass the data through the decoder
-        decoded = self.TF_dec(emb[:, :-1, :] + self.pos_emb[:candidates[0][0].size(1), :], dec_mask = d_mask,
-                              enc_mask = e_mask, enc_input = encoded)
+        decoded = self.TF_dec(emb[:, :-1, :] + 
+                              self.pos_emb[:candidates[0][0].size(1), :], 
+                              dec_mask = d_mask, enc_mask = e_mask, 
+                              enc_input = encoded
+                              )
         top_pred = self.linear(decoded)
         return candidates, top_pred, targs   
     
-    # beam search algorithm for finding translations
+    # beam search algorithm for finding translation candidates
     def beam_search(self, candidates, encoded, e_mask, beam_width, dtype):
         new_candidates = []
         for input, score in candidates:
@@ -399,12 +420,15 @@ class transformer(nn.Module):
             # convert data to embeddings
             emb = self.embed(input.long()) * np.sqrt(self.embed.embedding_dim)
             # pass the data through the decoder
-            decoded = self.TF_dec(emb + self.pos_emb[:input.size(1), :], dec_mask = d_mask,
-                                  enc_mask = e_mask, enc_input = encoded)
+            decoded = self.TF_dec(emb + self.pos_emb[:input.size(1), :], 
+                                  dec_mask = d_mask, enc_mask = e_mask, 
+                                  enc_input = encoded)
             # pass the data through the prediction layer
-            pred = torch.nn.functional.softmax(self.linear(decoded), dim = -1).squeeze(0)
+            pred = torch.nn.functional.softmax(self.linear(decoded), 
+                                               dim = -1).squeeze(0)
             # get the top k predictions for the next word, calculate the new
-            # probability of the sentence and append to the list of new candidates
+            # probability of the sentence and append to the list of new 
+            # candidates
             for value, idx in zip(*pred[-1, :].cpu().data.topk(beam_width)):
                 new_candidates.append([torch.cat([input, dtype([idx.item()]).unsqueeze(0)], 1), -np.log(value) + score])
         sorted(new_candidates, key=lambda s: s[1])

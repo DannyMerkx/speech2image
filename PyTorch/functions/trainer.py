@@ -10,68 +10,67 @@ from minibatchers import iterate_tokens_5fold, iterate_char_5fold, iterate_audio
 from grad_tracker import gradient_clipping
 from evaluate import evaluate
 
-import numpy as np
 import torch
 import os
 import time
 
-# trainer for the flickr database. Combines all DNN parts (optimiser, lr_scheduler, 
-# image and caption encoder, batcher, gradient clipper, loss function), training and 
-# test loop functions, evaluation functions in one object. 
+# trainer for caption2image models. Combines all DNN parts (optimiser, 
+# lr_scheduler, image and caption encoder, batcher, gradient clipper, 
+# loss function), training and test loop functions, evaluation functions in one 
+# object. 
 class flickr_trainer():
     def __init__(self, img_embedder, cap_embedder, vis, cap):
-        # default datatype, change to cuda by calling set_cuda
+        # default datatype, change if using cuda by calling set_cuda
         self.dtype = torch.FloatTensor
-        # set the embedders. Set an empty scheduler to keep lr scheduling optional.
         self.img_embedder = img_embedder
         self.cap_embedder = cap_embedder
+        # lr scheduler, grad clipping and attention loss are optional 
         self.scheduler = False
-        # set gradient clipping to false by default
         self.grad_clipping = False
-        # set the attention loss to empty by default
         self.att_loss = False
         # names of the features to be loaded by the batcher
         self.vis = vis
         self.cap = cap
-        # keep track of an iteration for lr scheduling
+        # keep track of iteration nr for lr scheduling
         self.iteration = 0
         # keep track of the number of training epochs
         self.epoch = 1
-    # possible minibatcher types
-    def token_batcher(self, data, batch_size, shuffle):
-        return iterate_tokens_5fold(data, batch_size, self.vis, self.cap, self.dict_loc, shuffle)
-    def audio_batcher(self, data, batch_size, shuffle):
-        return iterate_audio_5fold(data, batch_size, self.vis, self.cap, shuffle)
-    def raw_text_batcher(self, data, batch_size, shuffle):
-        return iterate_char_5fold(data, batch_size, self.vis, self.cap, shuffle)    
+    # possible minibatcher types. Fkickr uses 5fold batchers since there are
+    # 5 captions per image
+    def token_batcher(self, data, batch_size, max_len, shuffle):
+        return iterate_tokens_5fold(data, batch_size, self.vis, self.cap, 
+                                    self.dict_loc, max_len, shuffle)
+    def audio_batcher(self, data, batch_size, max_len, shuffle):
+        return iterate_audio_5fold(data, batch_size, self.vis, self.cap, 
+                                   max_len, shuffle)
+    def raw_text_batcher(self, data, batch_size, max_len, shuffle):
+        return iterate_char_5fold(data, batch_size, self.vis, self.cap, 
+                                  max_len, shuffle)    
 
-######################### functions to set the class values and attributes ################################
-    # functions to set which minibatcher to use. Needs to be called before training as no default is given.
+############ functions to set the class values and attributes ################
+    # minibatcher type should match your input features, no default is set.
     def set_token_batcher(self):
         self.batcher = self.token_batcher
     def set_raw_text_batcher(self):
         self.batcher = self.raw_text_batcher
     def set_audio_batcher(self):
         self.batcher = self.audio_batcher
-    # function to set the learning rate scheduler, optional.
+    # lr scheduler and attention loss are optional
     def set_lr_scheduler(self, scheduler, s_type):
         self.lr_scheduler = scheduler  
         self.scheduler = s_type
-    # function to set the loss for training. Loss is not required e.g. when you only want to test a 
-    # pretrained model. You need to set a loss before calling the training loop though
-    def set_loss(self, loss):
-        self.loss = loss
-    # loss function on the attention layer for multihead attention, optional.
     def set_att_loss(self, att_loss):
         self.att_loss = att_loss
-    # set an optimizer, optional. Like the loss in case of using a pretrained model. You need to
-    # set an optimiser before calling the training loop though
+    # loss function and optimizer are required unless testing a pretrained 
+    # model
+    def set_loss(self, loss):
+        self.loss = loss    
     def set_optimizer(self, optim):
         self.optimizer = optim
-    # set a dictionary (only for models trained on tokens)
+    # set the dictionary with embedding indices (token based models only)
     def set_dict_loc(self, loc):
         self.dict_loc = loc
-    # set data type and the networks to cuda, optional.
+    # set data type and the networks to use the gpu if required.
     def set_cuda(self):
         self.dtype = torch.cuda.FloatTensor
         self.img_embedder.cuda()
@@ -82,23 +81,24 @@ class flickr_trainer():
         self.epoch = epoch
     def update_epoch(self):
         self.epoch += 1
-    # functions to reset the embedders, optional.
+    # functions to replace embedders
     def set_img_embedder(self, emb):
         self.img_embedder = emb
     def set_cap_embedder(self, emb):
         self.cap_embedder = emb
-    # functions to load pretrained models, optional.
+    # functions to load pretrained models
     def load_cap_embedder(self, loc):
         cap_state = torch.load(loc)
         self.cap_embedder.load_state_dict(cap_state)
     def load_img_embedder(self, loc):
         img_state = torch.load(loc)
         self.img_embedder.load_state_dict(img_state)
-    # Load glove embeddings for token based embedders, optional. The encoder needs to have 
-    # the load_embeddings function. 
+    # Load glove embeddings for token based embedders, optional. encoder needs
+    # to have a load_embeddings method
     def load_glove_embeddings(self, glove_loc):
         self.cap_embedder.load_embeddings(self.dict_loc, glove_loc)
-    # functions to enable/disable gradients on the networks. 
+    # functions to enable/disable gradients on the networks, useful to speed
+    # up testing
     def no_grads(self):
         for param in self.cap_embedder.parameters():
             param.requires_grad = False
@@ -114,7 +114,6 @@ class flickr_trainer():
     # training loop
     def train_epoch(self, data, batch_size):
         print('training epoch: ' + str(self.epoch))
-        # enable gradients
         # keep track of the runtime
         self.start_time = time.time()
         self.img_embedder.train()
@@ -122,10 +121,11 @@ class flickr_trainer():
         # for keeping track of the average loss over all batches
         self.train_loss = 0
         num_batches = 0
-        for batch in self.batcher(data, batch_size, shuffle = True):
+        for batch in self.batcher(data, batch_size, self.cap_embedder.max_len, 
+                                  shuffle = True):
             # retrieve a minibatch from the batcher
             img, cap, lengths = batch
-            num_batches +=1
+            num_batches += 1
             # embed the images and audio using the networks
             img_embedding, cap_embedding = self.embed(img, cap, lengths)
             # calculate the loss
@@ -139,8 +139,10 @@ class flickr_trainer():
             loss.backward()
             # optionally clip the gradients
             if self.grad_clipping:
-                torch.nn.utils.clip_grad_norm(self.img_embedder.parameters(), self.img_clipper.clip)
-                torch.nn.utils.clip_grad_norm(self.cap_embedder.parameters(), self.cap_clipper.clip)
+                torch.nn.utils.clip_grad_norm(self.img_embedder.parameters(), 
+                                              self.img_clipper.clip)
+                torch.nn.utils.clip_grad_norm(self.cap_embedder.parameters(), 
+                                              self.cap_clipper.clip)
             # update the network weights
             self.optimizer.step()
             # add loss to the running average
@@ -148,21 +150,22 @@ class flickr_trainer():
             # optionally print loss every n batches
             if num_batches%100 == 0:
                 print(self.train_loss.cpu().data.numpy()/num_batches)
-            # if there is a lr scheduler, take a step in the scheduler. The 'cyclic' scheduler requires 
-            # updates every minibatch, this option could also be used for step schedulers.
-            if self.scheduler == 'cyclic':
+            # cyclic and step schedulers require updating after every minibatch
+            if self.scheduler == 'cyclic' or self.scheduler == 'step':
                 self.lr_scheduler.step()
                 self.iteration +=1
+                
         self.train_loss = self.train_loss.cpu().data.numpy()/num_batches
     # test epoch
     def test_epoch(self, data, batch_size):
         # set to evaluation mode to disable dropout
         self.img_embedder.eval()
         self.cap_embedder.eval()
-        # for keeping track of the average loss
+        # keeping track of the average loss
         test_batches = 0
         self.test_loss = 0
-        for batch in self.batcher(data, batch_size, shuffle = False):
+        for batch in self.batcher(data, batch_size, self.cap_embedder.max_len,
+                                  shuffle = False):
             # retrieve a minibatch from the batcher
             img, cap, lengths = batch
             test_batches += 1      
@@ -176,18 +179,17 @@ class flickr_trainer():
             # add loss to the running average
             self.test_loss += loss.data 
         self.test_loss = self.test_loss.cpu().data.numpy()/test_batches
-        # if there is a lr scheduler, take a step in the scheduler. The 'plateau' scheduler updates the lr
-        # if the validation loss stagnates.                 
+        # The 'plateau' scheduler updates the lr if the validation loss 
+        # stagnates.                 
         if self.scheduler == 'plateau':
             self.lr_scheduler.step(self.test_loss)   
  
     # Function which combines embeddings the images and captions
     def embed(self, img, cap, lengths):
-        # sort the tensors based on the unpadded caption length so they can be used
-        # with the pack_padded_sequence function
-        cap = cap[np.argsort(- np.array(lengths))]
-        img = img[np.argsort(- np.array(lengths))]
-        lengths = np.array(lengths)[np.argsort(- np.array(lengths))]     
+        # cap = cap[np.argsort(- np.array(lengths))]
+        # img = img[np.argsort(- np.array(lengths))]
+        # lengths = np.array(lengths)[np.argsort(- np.array(lengths))]   
+        
         # convert data to the right pytorch tensor type
         img, cap = self.dtype(img), self.dtype(cap)      
         # embed the images and audio using the networks
@@ -199,7 +201,9 @@ class flickr_trainer():
     def report(self, max_epochs):
         # report on the time and train and val loss for the epoch
         print("Epoch {} of {} took {:.3f}s".format(
-                self.epoch, max_epochs, time.time() - self.start_time))
+                self.epoch, max_epochs, time.time() - self.start_time
+                                                   )
+              )
         self.print_train_loss()
         self.print_validation_loss()
     # print the loss values
@@ -211,7 +215,9 @@ class flickr_trainer():
         print("validation loss:\t\t{:.6f}".format(self.test_loss))
     # create and manipulate an evaluator object   
     def set_evaluator(self, n):
-        self.evaluator = evaluate(self.dtype, self.img_embedder, self.cap_embedder)
+        self.evaluator = evaluate(self.dtype, self.img_embedder, 
+                                  self.cap_embedder
+                                  )
         self.evaluator.set_n(n)
     # calculate the recall@n. Arguments are a set of nodes and a prepend string 
     # (e.g. to print validation or test in front of the results)
@@ -227,8 +233,12 @@ class flickr_trainer():
         self.evaluator.fivefold_i2c('1k ' + prepend, self.epoch)
     # function to save parameters in a results folder
     def save_params(self, loc):
-        torch.save(self.cap_embedder.state_dict(), os.path.join(loc, 'caption_model' + '.' +str(self.epoch)))
-        torch.save(self.img_embedder.state_dict(), os.path.join(loc, 'image_model' + '.' +str(self.epoch)))
+        torch.save(self.cap_embedder.state_dict(), 
+                   os.path.join(loc, 'caption_model' + '.' + str(self.epoch))
+                   )
+        torch.save(self.img_embedder.state_dict(), 
+                   os.path.join(loc, 'image_model' + '.' + str(self.epoch))
+                   )
 
 ############ functions to deal with the trainer's gradient clipper ############
     # create a gradient tracker/clipper
@@ -246,8 +256,8 @@ class flickr_trainer():
     def reset_grads(self):
         self.cap_clipper.reset_gradients()
         self.img_clipper.reset_gradients()
-    # update the clip value of the gradient clipper based on the previous epoch. Don't call after resetting
-    # the grads to 0
+    # update the clip value of the gradient clipper based on the previous epoch
+    # Don't call after resetting the grads to 0
     def update_clip(self):
         self.cap_clipper.update_clip_value()
         self.img_clipper.update_clip_value()
