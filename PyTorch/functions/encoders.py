@@ -56,7 +56,8 @@ class text_rnn_encoder(nn.Module):
         super(text_rnn_encoder, self).__init__()
         embed = config['embed']
         rnn= config['rnn']
-        att = config ['att'] 
+        att = config['att'] 
+        self.max_len = rnn['max_len']
         self.embed = nn.Embedding(num_embeddings = embed['num_chars'], 
                                   embedding_dim = embed['embedding_dim'], 
                                   sparse = embed['sparse'],
@@ -97,6 +98,7 @@ class quantized_encoder(nn.Module):
         embed = config['embed']
         rnn= config['rnn']
         att = config ['att'] 
+        self.max_len = rnn['max_len']
         self.embed = nn.Embedding(num_embeddings = embed['num_chars'], 
                                   embedding_dim = embed['embedding_dim'], 
                                   sparse = embed['sparse'],
@@ -141,6 +143,7 @@ class audio_rnn_encoder(nn.Module):
         conv = config['conv']
         rnn= config['rnn']
         att = config ['att']
+        self.max_len = rnn['max_len']
         self.Conv = nn.Conv1d(in_channels = conv['in_channels'], 
                                   out_channels = conv['out_channels'], 
                                   kernel_size = conv['kernel_size'],
@@ -183,7 +186,7 @@ class img_encoder(nn.Module):
         self.linear_transform = nn.Linear(in_features = linear['in_size'], 
                                           out_features = linear['out_size']
                                           )
-        nn.init.xavier_uniform(self.linear_transform.weight.data)
+        nn.init.xavier_uniform_(self.linear_transform.weight.data)
     def forward(self, input):
         x = self.linear_transform(input.squeeze())
         if self.norm:
@@ -202,7 +205,7 @@ class resnet_encoder(nn.Module):
         self.linear_transform = nn.Linear(in_features = linear['in_size'], 
                                           out_features = linear['out_size']
                                           )
-        nn.init.xavier_uniform(self.linear_transform.weight.data)
+        nn.init.xavier_uniform_(self.linear_transform.weight.data)
         # set the layers which need to remain fixed
         resnet = list(models.resnet152(pretrained = True).children())
         self.resnet_pretrained = nn.Sequential(*resnet[:-self.n_layers])

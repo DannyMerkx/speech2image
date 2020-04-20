@@ -38,13 +38,13 @@ class attention(nn.Module):
     def __init__(self, in_size, hidden_size):
         super(attention, self).__init__()
         self.hidden = nn.Linear(in_size, hidden_size)
-        nn.init.orthogonal(self.hidden.weight.data)
+        nn.init.orthogonal_(self.hidden.weight.data)
         self.out = nn.Linear(hidden_size, in_size)
-        nn.init.orthogonal(self.hidden.weight.data)
+        nn.init.orthogonal_(self.hidden.weight.data)
         self.softmax = nn.Softmax(dim = 1)
     def forward(self, input):
         # calculate the attention weights
-        self.alpha = self.softmax(self.out(nn.functional.tanh(self.hidden(input))))
+        self.alpha = self.softmax(self.out(torch.tanh(self.hidden(input))))
         # apply the weights to the input and sum over all timesteps
         x = torch.sum(self.alpha * input, 1)
         # return the resulting embedding

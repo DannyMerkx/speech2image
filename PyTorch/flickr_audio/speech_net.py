@@ -62,7 +62,7 @@ audio_config = {'conv':{'in_channels': 39, 'out_channels': 64,
                         }, 
                 'rnn':{'input_size': 64, 'hidden_size': 1024, 'num_layers': 4, 
                        'batch_first': True, 'bidirectional': True, 
-                       'dropout': 0
+                       'dropout': 0, 'max_len':512
                        }, 
                'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1}
                }
@@ -110,7 +110,8 @@ optimizer = torch.optim.Adam(list(img_net.parameters()) +
 
 #step_scheduler = lr_scheduler.StepLR(optimizer, 1000, gamma=0.1, last_epoch=-1)
 cyclic_scheduler = cyclic_scheduler(max_lr = args.lr, min_lr = 1e-6, 
-                                           stepsize = (int(len(train)/args.batch_size)*5)*4)
+                                    stepsize = (int(len(train)/args.batch_size)*5)*4,
+                                    optimiser = optimizer)
 
 # create a trainer setting the loss function, optimizer, minibatcher, 
 # lr_scheduler and the r@n evaluator
