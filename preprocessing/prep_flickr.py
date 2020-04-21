@@ -19,8 +19,7 @@ img_path = os.path.join('/data/databases/flickr/Flickr8k_Dataset/Flicker8k_Datas
 text_path = os.path.join('/data/databases/flickr/dataset.json')
 # save the resulting feature file here
 data_loc = os.path.join('/prep_data/flickr_features.h5')
-# some bools in case only some new features needs to be added
-vis = ['resnet', 'resnet_trunc', 'raw']
+vis = ['resnet', 'vgg', 'raw']
 speech = ['fbanks', 'mfcc']
 text = True
 
@@ -56,19 +55,16 @@ for im in imgs_base:
     else:
         # keep track of images without captions
         no_cap.append(im)
-# we need to append something to the flickr files names because pytable group names cannot start
-# with integers.
+# we need to append something to the flickr files names because pytable group 
+# names cannot start with integers.
 append_name = 'flickr_'
 
 # if the output file does not exist yet, create it
 if not Path(data_loc).is_file():
     # create h5 output file for preprocessed images and audio
     output_file = tables.open_file(data_loc, mode='a')    
-    # create the h5 file to hold all image and audio features. This will fail if they already excist such
-    # as when you run this file to append new features to an excisting feature file
     for x in img_audio:
         try:        
-            # one group for each image file which will contain its vgg16 features and audio captions 
             output_file.create_group("/", append_name + x.split('.')[0])    
         except:
             continue

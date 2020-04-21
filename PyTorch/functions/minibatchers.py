@@ -121,7 +121,7 @@ def iterate_char(f_nodes, batchsize, visual, text, shuffle=True):
             # extract and append the visual features
             images.append(eval(f'ex.{visual}._f_list_nodes()[0].read()'))
             # extract the audio features
-            cap = eval('ex.{text}._f_list_nodes()[i].read()')
+            cap = eval(f'ex.{text}._f_list_nodes()[i].read()')
             cap = cap.decode('utf-8')
             # append an otherwise unused character as a start of sentence 
             # character and convert the sentence to lower case.
@@ -147,7 +147,7 @@ def iterate_tokens(f_nodes, batchsize, visual, text, dict_loc, shuffle=True):
             # extract and append the visual features
             images.append(eval(f'ex.{visual}._f_list_nodes()[0].read()'))
             # extract the audio features
-            cap = eval('ex.{text}._f_list_nodes()[i].read()')
+            cap = eval(f'ex.{text}._f_list_nodes()[i].read()')
             cap = [x.decode('utf-8') for x in cap]
             # append an otherwise unused character as a start of sentence 
             # character and convert the sentence to lower case.
@@ -176,7 +176,7 @@ def iterate_audio_5fold(f_nodes, batchsize, visual, audio, max_len = 2048,
                 # extract and append the visual features
                 images.append(eval(f'ex.{visual}._f_list_nodes()[0].read()'))
                 # extract the audio features
-                sp = eval('ex.{audio}._f_list_nodes()[i].read().transpose()')
+                sp = eval(f'ex.{audio}._f_list_nodes()[i].read().transpose()')
                 n_frames = sp.shape[1]
                 # pad if sentence is shorter than max_len
                 if n_frames < max_len:
@@ -216,7 +216,7 @@ def iterate_char_5fold(f_nodes, batchsize, visual, text, max_len = 256,
                 # extract and append the visual features
                 images.append(eval(f'ex.{visual}._f_list_nodes()[0].read()'))
                 # extract the audio features and truncate to max_len
-                cap = eval('ex.{text}._f_list_nodes()[i].read()')
+                cap = eval(f'ex.{text}._f_list_nodes()[i].read()')
                 cap = cap.decode('utf-8')[:max_len]
                 # append an otherwise unused character as a start of sentence 
                 # character and 
@@ -245,7 +245,7 @@ def iterate_tokens_5fold(f_nodes, batchsize, visual, text, dict_loc,
                 # extract and append the visual features
                 images.append(eval(f'ex.{visual}._f_list_nodes()[0].read()'))
                 # extract the audio features
-                cap = eval('ex.{text}._f_list_nodes()[i].read()')
+                cap = eval(f'ex.{text}._f_list_nodes()[i].read()')
                 # add begin of sentence and end of sentence tokens and truncate
                 # to max_len
                 cap = ['<s>'] + [x.decode('utf-8') for x in cap[:max_len]] \
