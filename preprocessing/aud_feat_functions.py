@@ -5,7 +5,7 @@ Created on Fri Feb  3 11:41:47 2017
 
 @author: danny
 """
-from audio_preproc import four,pad,preemph, hamming, notch
+from audio_preproc import four, pad, preemph, hamming, notch
 from filters import apply_filterbanks,filter_centers, create_filterbanks
 from scipy.fftpack import dct
 import numpy
@@ -32,11 +32,11 @@ def delta (data, N):
     return (dt)
 
 def raw_frames(input_data, frame_shift, window_size):
-# this function cuts the data into frames and calculates each frames' accuracy
+# this function cuts the data into frames and calculates each frames' energy
 
     #determine the number of frames to be extracted
     nframes = math.floor(input_data[1].size/frame_shift)
-    #apply notch filter
+    # apply notch filter
     notched_data = notch(input_data[1])
     # pad the data
     data = pad(notched_data, window_size, frame_shift)

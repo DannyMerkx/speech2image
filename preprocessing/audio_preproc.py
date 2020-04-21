@@ -2,15 +2,15 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri Feb  3 10:47:50 2017
-
+provides some basic preprocessing functions for audio files, such as
+padding the frames, hammingwindow for the  frames, data preemphasis and fourrier
+transform 
 @author: danny
 """
 from scipy.fftpack import fft
 from scipy.signal import iirnotch, lfilter
 import numpy
-# provides some basic preprocessing functions for audio files, such as
-# padding the frames, hammingwindow for the  frames, data preemphasis and fourrier
-# transform 
+
 
 
 def four(frames, fs, windowsize):
@@ -24,7 +24,8 @@ def four(frames, fs, windowsize):
        else:
            exp += 1
    # pad frames to be of size 2^x        
-   frames = numpy.pad(frames, [(0,0), (0,padsize)], 'constant', constant_values = 0)
+   frames = numpy.pad(frames, [(0,0), (0, padsize)], 'constant', 
+                      constant_values = 0)
    # set cutoff at the half the frame size (+1 to keep the bin around 
    # which the spectrum is mirrored)
    cutoff = int((windowsize+padsize)/2)+1
@@ -45,7 +46,7 @@ def notch(data):
     notched = lfilter(b, a, data)
     return notched
     
-def pad (data,window_size, frame_shift):
+def pad (data, window_size, frame_shift):
     # function to pad the audio file to fit the frameshift
     context_size = (window_size-frame_shift)/2
     pad_size = context_size - numpy.mod(data.size, frame_shift) 

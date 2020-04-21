@@ -105,8 +105,12 @@ cap_net = audio_rnn_encoder(audio_config)
 optimizer = torch.optim.Adam(list(img_net.parameters()) + 
                              list(cap_net.parameters()), 1)
 
-#plateau_scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode = 'min', factor = 0.9, patience = 100, 
-#                                                   threshold = 0.0001, min_lr = 1e-8, cooldown = 100)
+# plateau_scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode = 'min', 
+#                                                    factor = 0.9, 
+#                                                    patience = 100, 
+#                                                    threshold = 0.0001, 
+#                                                    min_lr = 1e-8, 
+#                                                    cooldown = 100)
 
 #step_scheduler = lr_scheduler.StepLR(optimizer, 1000, gamma=0.1, last_epoch=-1)
 cyclic_scheduler = cyclic_scheduler(max_lr = args.lr, min_lr = 1e-6, 
