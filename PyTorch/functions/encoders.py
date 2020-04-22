@@ -165,7 +165,7 @@ class audio_rnn_encoder(nn.Module):
     def forward(self, input, l):
         x = self.Conv(input)
         # correct the lengths after the convolution subsampling
-        cor = lambda l, ks, stride : int((l - (ks - stride)) / ks)
+        cor = lambda l, ks, stride : int((l - (ks - stride)) / stride)
         l = [cor(y, self.Conv.kernel_size[0], self.Conv.stride[0]) for y in l]
         
         x = torch.nn.utils.rnn.pack_padded_sequence(x.transpose(2, 1), l, 
