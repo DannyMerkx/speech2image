@@ -200,19 +200,17 @@ class flickr_trainer():
     # report on the time this epoch took and the train and test loss
     def report(self, max_epochs):
         # report on the time and train and val loss for the epoch
-        print("Epoch {} of {} took {:.3f}s".format(
-                self.epoch, max_epochs, time.time() - self.start_time
-                                                   )
-              )
+        t =  time.time() - self.start_time
+        print(f'Epoch {self.epoch} of {max_epochs} took {t}s')
         self.print_train_loss()
         self.print_validation_loss()
     # print the loss values
     def print_train_loss(self):  
-        print("training loss:\t\t{:.6f}".format(self.train_loss))
+        print(f'Training loss: {self.train_loss:.6f}')
     def print_test_loss(self):        
-        print("test loss:\t\t{:.6f}".format(self.test_loss))
+        print(f'Test loss: {self.test_loss:.6f}')
     def print_validation_loss(self):
-        print("validation loss:\t\t{:.6f}".format(self.test_loss))
+        print(f'Validation loss: {self.test_loss:.6f}')
     # create and manipulate an evaluator object   
     def set_evaluator(self, n):
         self.evaluator = evaluate(self.dtype, self.img_embedder, 
@@ -222,7 +220,8 @@ class flickr_trainer():
     # calculate the recall@n. Arguments are a set of nodes and a prepend string 
     # (e.g. to print validation or test in front of the results)
     def recall_at_n(self, data, batch_size, prepend):        
-        iterator = self.batcher(data, 5, shuffle = False)
+        iterator = self.batcher(data, 5, self.cap_embedder.max_len, 
+                                shuffle = False)
         # the calc_recall function calculates and prints the recall.
         self.evaluator.embed_data(iterator)
         self.evaluator.print_caption2image(prepend, self.epoch)
@@ -234,10 +233,10 @@ class flickr_trainer():
     # function to save parameters in a results folder
     def save_params(self, loc):
         torch.save(self.cap_embedder.state_dict(), 
-                   os.path.join(loc, 'caption_model' + '.' + str(self.epoch))
+                   os.path.join(loc, f'caption_model.{str(self.epoch)}')
                    )
         torch.save(self.img_embedder.state_dict(), 
-                   os.path.join(loc, 'image_model' + '.' + str(self.epoch))
+                   os.path.join(loc, f'image_model.{str(self.epoch)}')
                    )
 
 ############ functions to deal with the trainer's gradient clipper ############

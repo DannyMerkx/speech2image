@@ -2,9 +2,11 @@
 # -*- coding: utf-8 -*-
 """
 Created on Thu May 31 15:29:38 2018
-load the h5 file with the training data and create a dictionary with unique indices for each word (needed for torch embedding layers)
-Run this once before training your neural network and point the training script to the resulting index dictionary
-Filters out low occurence words and words containing numerical values to be replaced by <oov>
+load the h5 file with the training data and create a dictionary with unique 
+indices for each word (needed for torch embedding layers). Run this once before
+training your neural network and point the training script to the resulting 
+index dictionary. Filters out low occurence words and words containing 
+numerical values to be replaced by <oov>
 @author: danny
 """
 import os
@@ -40,19 +42,20 @@ f_nodes = [node for node in data_loader(data_file)]
 captions = []
 # read in all the captions
 for x in f_nodes:
-    for y in eval('x.' + feature):
+    for y in eval(f'x.{feature}'):
         captions.append([z.decode('utf-8') for z in y.read()])
 
 freq_dict = load_obj(freq_dict_loc)
-# start indicing the dictionary at 2 because we reserve 0 for padding and 1 for the 
-# out of vocab token
+# start indicing the dictionary at 2 because we reserve 0 for padding and 1 for
+# the out of vocab token
 index = 2
 flickr_dict = defaultdict(int)
 # make a dictionary with a unique index for each word in the database
 # start at 1 to leave index 0 for the padding embedding
 for cap in captions:
     # replace tokens with numerical values and low occurence tokens by oov 
-    cap = remove_low_occurence(remove_numerical(cap, '<oov>'), freq_dict, 5, 'oov')
+    cap = remove_low_occurence(remove_numerical(cap, '<oov>'), freq_dict, 5, 
+                               'oov')
     for word in cap:
         flickr_dict[word]
         if flickr_dict[word] == 0:

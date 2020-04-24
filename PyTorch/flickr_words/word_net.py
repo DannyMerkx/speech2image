@@ -19,20 +19,20 @@ sys.path.append('/data/speech2image/PyTorch/functions')
 
 from trainer import flickr_trainer
 from costum_loss import batch_hinge_loss, ordered_loss, attention_loss
-from encoders import img_encoder, text_rnn_encoder
+from encoders import img_encoder, text_rnn_encoder, quantized_encoder
 from data_split import split_data_flickr
 ##################################### parameter settings ##############################################
 
 parser = argparse.ArgumentParser(description='Create and run an articulatory feature classification DNN')
 
 # args concerning file location
-parser.add_argument('-data_loc', type = str, default = '/prep_data/flickr_features.h5',
+parser.add_argument('-data_loc', type = str, default = '/home/danny/Downloads/flickr_features.h5',
                     help = 'location of the feature file, default: /prep_data/flickr_features.h5')
-parser.add_argument('-split_loc', type = str, default = '/data/databases/flickr/dataset.json', 
+parser.add_argument('-split_loc', type = str, default = '/home/danny/Downloads/dataset.json', 
                     help = 'location of the json file containing the data split information')
 parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/flickr_words/results/',
                     help = 'location to save the results and network parameters')
-parser.add_argument('-dict_loc', type = str, default = '/data/speech2image/PyTorch/flickr_words/flickr_indices')
+parser.add_argument('-dict_loc', type = str, default = '/home/danny/Downloads/flickr_indices')
 parser.add_argument('-glove_loc', type = str, default = '/data/glove.840B.300d.txt', help = 'location of pretrained glove embeddings')
 # args concerning training settings
 parser.add_argument('-batch_size', type = int, default = 32, help = 'batch size, default: 32')
@@ -54,9 +54,12 @@ def load_obj(loc):
 # add 1 for the zero or padding embedding
 dict_size = len(load_obj(args.dict_loc))
 # create config dictionaries with all the parameters for your encoders
-token_config = {'embed':{'num_chars': dict_size, 'embedding_dim': 300, 'sparse': False, 'padding_idx': 0}, 
-               'rnn':{'input_size': 300, 'hidden_size': 1024, 'num_layers': 1, 'batch_first': True,
-               'bidirectional': True, 'dropout': 0}, 'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1}}
+token_config = {'embed':{'num_chars': dict_size, 'embedding_dim': 300, 
+                         'sparse': False, 'padding_idx': 0}, 
+               'rnn':{'input_size': 300, 'hidden_size': 1024, 'num_layers': 1, 
+                      'batch_first': True, 'bidirectional': True, 
+                      'dropout': 0, 'max_len': 64}, 
+               'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1}}
 # automatically adapt the image encoder output size to the size of the caption encoder
 out_size = token_config['rnn']['hidden_size'] * 2**token_config['rnn']['bidirectional'] * token_config['att']['heads']
 image_config = {'linear':{'in_size': 2048, 'out_size': out_size}, 'norm': True}
@@ -83,7 +86,7 @@ train, test, val = split_data_flickr(f_nodes, args.split_loc)
 ############################### Neural network setup #################################################
 # network modules
 img_net = img_encoder(image_config)
-cap_net = text_rnn_encoder(token_config)
+cap_net = quantized_encoder(token_config)
     
 # Adam optimiser. I found SGD to work terribly and could not find appropriate parameter settings for it.
 optimizer = torch.optim.Adam(list(img_net.parameters())+list(cap_net.parameters()), 1)

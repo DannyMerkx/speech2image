@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri May  4 09:42:05 2018
-gradient clipping class, can be added to the trainer to allow for gradient clipping
+gradient clipping class, can be added to the trainer to allow for gradient
+clipping
 @author: danny
 """
 import numpy as np
@@ -21,6 +22,8 @@ class gradient_clipping():
     # this appends the gradient norm at each backward call. x is a dummy because 
     # the backward hook passes the model's self.
     def track_grads(self, x, grad_input, grad_output):
+        print(f'g-in {grad_input[0].size()}')
+        print(f'g-out {grad_output[0].size()}')
         self.epoch_grads.append(grad_input[0].norm().cpu().data.numpy())
     # register a backward hook to the encoder            
     def register_hook(self, encoder):

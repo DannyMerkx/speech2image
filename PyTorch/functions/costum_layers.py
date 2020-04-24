@@ -8,11 +8,11 @@ Created on Tue Mar 13 15:22:38 2018
 
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-from load_embeddings import load_word_embeddings
 import torch
 import torch.nn as nn
 import numpy as np
 
+import torch.autograd
 #########################attention layer for rnns##############################
         
 # class for making multi headed attenders. 
@@ -50,7 +50,7 @@ class attention(nn.Module):
         # return the resulting embedding
         return x   
 
-class quantization_layer(nn.Module):
+class quantization_layer(torch.autograd.Function):
     def __init__(self, num_emb, emb_dim, sparse = False):
         super(quantization_layer, self).__init__()
         self.embed = nn.Embedding(num_embeddings = num_emb, 
@@ -60,7 +60,7 @@ class quantization_layer(nn.Module):
     def forward(self, input):
         # get the distance and the index of the closest embedding
         dims = input.size()
-        dists = -self.pwd(input.view(-1, dims[-1]), 
+        dists = -self.pwd(input.reshape(-1, dims[-1]), 
                      self.embed.weight).view(dims[0], dims[1], -1)
         topk = torch.topk(dists, k = 1)
         top_dists = topk[0].squeeze()
@@ -69,7 +69,7 @@ class quantization_layer(nn.Module):
         emb = self.embed(top_idx)
         
         return emb, top_dists
-
+    
     def pwd(self, x, y):
         # function to calculate the pointwise distance between the input
         # and the embedding weights
@@ -79,6 +79,45 @@ class quantization_layer(nn.Module):
         dist = x_norm + y_norm - 2.0 * torch.mm(x, torch.transpose(y, 0, 1))
         
         return dist
+    
+    def backward(ctx, grad_output, top_dists):
+        return grad_output
+        
+class LinearFunction(torch.autograd.Function):
+
+    # Note that both forward and backward are @staticmethods
+    @staticmethod
+    # bias is an optional argument
+    def forward(ctx, input, weight, bias=None):
+        ctx.save_for_backward(input, weight, bias)
+        output = input.mm(weight.t())
+        if bias is not None:
+            output += bias.unsqueeze(0).expand_as(output)
+        return output
+
+    # This function has only a single output, so it gets only one gradient
+    @staticmethod
+    def backward(ctx, grad_output):
+        # This is a pattern that is very convenient - at the top of backward
+        # unpack saved_tensors and initialize all gradients w.r.t. inputs to
+        # None. Thanks to the fact that additional trailing Nones are
+        # ignored, the return statement is simple even when the function has
+        # optional inputs.
+        input, weight, bias = ctx.saved_variables
+        grad_input = grad_weight = grad_bias = None
+
+        # These needs_input_grad checks are optional and there only to
+        # improve efficiency. If you want to make your code simpler, you can
+        # skip them. Returning gradients for inputs that don't require it is
+        # not an error.
+        if ctx.needs_input_grad[0]:
+            grad_input = grad_output.mm(weight)
+        if ctx.needs_input_grad[1]:
+            grad_weight = grad_output.t().mm(input)
+        if bias is not None and ctx.needs_input_grad[2]:
+            grad_bias = grad_output.sum(0).squeeze(0)
+
+        return grad_input, grad_weight, grad_bias
 
 ################################ Transformer Layers ###########################
 # costum implementation of the Transformer. Implements the Decoder and Encoder
@@ -255,11 +294,7 @@ class transformer(nn.Module):
     def __init__(self):
         super(transformer, self).__init__()
         pass    
-    # option to load pretrained word embeddings. Takes the dictionary of words 
-    # occuring in the training data add the file location of the embeddings.
-    def load_embeddings(self, dict_loc, embedding_loc):
-        load_word_embeddings(dict_loc, embedding_loc, self.embed.weight.data)
-    
+
     # function to create the positional embeddings
     def pos_embedding(self, sent_len, d_model):
         pos_emb = torch.zeros(int(sent_len), d_model)
