@@ -127,9 +127,10 @@ class flickr_trainer():
             img, cap, lengths = batch
             num_batches += 1
             # embed the images and audio using the networks
-            img_embedding, cap_embedding = self.embed(img, cap, lengths)
+            img_embedding, cap_embedding, dist = self.embed(img, cap, lengths)
             # calculate the loss
             loss = self.loss(img_embedding, cap_embedding, self.dtype)
+            loss = loss + torch.abs(dist)/100
             # optionally calculate the attention loss for multihead attention
             if self.att_loss:
                 loss += self.att_loss(self.cap_embedder.att, cap_embedding)
@@ -170,9 +171,10 @@ class flickr_trainer():
             img, cap, lengths = batch
             test_batches += 1      
             # embed the images and audio using the networks
-            img_embedding, cap_embedding = self.embed(img, cap, lengths)
+            img_embedding, cap_embedding, dist = self.embed(img, cap, lengths)
             # calculate the loss
             loss = self.loss(img_embedding, cap_embedding, self.dtype)
+            loss = loss + torch.abs(dist)/100
             # optionally calculate the attention loss for multihead attention
             if self.att_loss:
                 loss += self.att_loss(self.cap_embedder.att, cap_embedding)
@@ -194,8 +196,8 @@ class flickr_trainer():
         img, cap = self.dtype(img), self.dtype(cap)      
         # embed the images and audio using the networks
         img_embedding = self.img_embedder(img)
-        cap_embedding = self.cap_embedder(cap, lengths)
-        return img_embedding, cap_embedding
+        cap_embedding, dist = self.cap_embedder(cap, lengths)
+        return img_embedding, cap_embedding, dist
 ######################## evaluation functions #################################
     # report on the time this epoch took and the train and test loss
     def report(self, max_epochs):

@@ -128,10 +128,10 @@ class quantized_encoder(nn.Module):
         x, hx = self.RNN(x)
         
         #x, lens = nn.utils.rnn.pad_packed_sequence(x, batch_first = True) 
-        x, self.dists = self.quant(x)
+        x, dist = self.quant(x)
         x = nn.functional.normalize(self.att(x), p=2, dim=1)    
-        return x
-
+        return x, dist
+    
     def load_embeddings(self, dict_loc, embedding_loc):
         # optionally load pretrained word embeddings. takes the dictionary of 
         # words occuring in the training data and the location of the embeddings.

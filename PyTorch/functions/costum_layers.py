@@ -50,39 +50,77 @@ class attention(nn.Module):
         # return the resulting embedding
         return x   
 
-class quantization_layer(torch.autograd.Function):
+# quantization layer is an embedding layer which uses a costum embedding
+# function. It takes input activations from the previous layer, and maps them
+# to the closes embedding. upon calling backward, the output gradient for this
+# layer is directly passed to the layer beneath.
+class quantization_layer(nn.Module):
     def __init__(self, num_emb, emb_dim, sparse = False):
         super(quantization_layer, self).__init__()
-        self.embed = nn.Embedding(num_embeddings = num_emb, 
-                                  embedding_dim = emb_dim, 
-                                  sparse = sparse)
-        
+
+        self.embed = nn.Parameter(torch.zeros(num_emb, emb_dim))
+        torch.nn.init.xavier_uniform_(self.embed)
+        self.quant_emb = quantization_emb.apply
     def forward(self, input):
         # get the distance and the index of the closest embedding
         dims = input.size()
-        dists = -self.pwd(input.reshape(-1, dims[-1]), 
-                     self.embed.weight).view(dims[0], dims[1], -1)
-        topk = torch.topk(dists, k = 1)
-        top_dists = topk[0].squeeze()
-        top_idx = topk[1].squeeze()
+        embs = self.quant_emb(input.reshape(-1, dims[-1]), 
+                     self.embed).view(dims[0], dims[1], -1)
+        dist = self.pwd(input.reshape(-1, dims[-1]), self.embed)
         
-        emb = self.embed(top_idx)
-        
-        return emb, top_dists
-    
+        return embs, dist
     def pwd(self, x, y):
-        # function to calculate the pointwise distance between the input
-        # and the embedding weights
         x_norm = (x**2).sum(1).view(-1, 1)
         y_norm = (y**2).sum(1).view(1, -1)
 
         dist = x_norm + y_norm - 2.0 * torch.mm(x, torch.transpose(y, 0, 1))
-        
-        return dist
+        topk = torch.topk(-dist, k = 1)        
+        dists = topk[0].squeeze()                    
     
-    def backward(ctx, grad_output, top_dists):
-        return grad_output
+        return dists.mean()
+    
+# autograd function for the embedding mapping which also implements the 
+# skipping the gradient for this layer. 
+class quantization_emb(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, input, weight):
+        ctx.save_for_backward(input, weight)
+        shape = input.size()
+        i_norm = (input**2).sum(1).view(-1, 1)
+        w_norm = (weight**2).sum(1).view(1, -1)
+
+        dist = i_norm + w_norm - 2.0 * torch.mm(input, 
+                                                torch.transpose(weight, 0, 1))
         
+        topk = torch.topk(-dist, k = 1)        
+        top_idx = topk[1].squeeze()            
+        output = weight[top_idx]
+        return output
+    
+    @staticmethod
+    def backward(ctx, grad_output):
+        return grad_output, None
+
+# class quantization_dist(torch.autograd.Function)
+#     @staticmethod
+#     def forward(ctx, input, weight):
+#         ctx.save_for_backward(input, weight)
+#         i_norm = (input**2).sum(1).view(-1, 1)
+#         w_norm = (weight**2).sum(1).view(1, -1)
+
+#         dist = i_norm + w_norm - 2.0 * torch.mm(input, 
+#                                                 torch.transpose(weight, 0, 1))
+        
+#         topk = torch.topk(- dist, k = 1)
+#         output = topk[0].squeeze()    
+     
+#         return output
+    
+#     @staticmethod
+#     def backward(ctx, grad_output):
+        
+#         return grad_output 
+   
 class LinearFunction(torch.autograd.Function):
 
     # Note that both forward and backward are @staticmethods
