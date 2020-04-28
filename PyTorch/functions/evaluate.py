@@ -25,31 +25,25 @@ class evaluate():
         # set to evaluation mode
         self.embed_function_1.eval()
         self.embed_function_2.eval()
+        caption = self.dtype()
+        image = self.dtype()
         for batch in iterator:
-            img, cap, lengths = batch
-            caption = torch.Tensor()
-            image = torch.Tensor()
-            #sort = np.argsort(- np.array(lengths))
-            #cap = cap[sort]
-            #img = img[sort]
-            #lens = np.array(lengths)[sort]      
+            img, cap, lengths = batch    
             # convert data to the right pytorch type and disable gradients
             img, cap = self.dtype(img), self.dtype(cap)
             img.requires_grad = False
             cap.requires_grad = False
             # embed the data
             img = self.embed_function_1(img)
-            cap = self.embed_function_2(cap, lengths)
+            cap, dists = self.embed_function_2(cap, lengths)
             # reverse the sorting by length such that the data is in the same 
             # order for all 5 captions.
-            #cap = cap[torch.cuda.LongTensor(np.argsort(sort))]
-            #img = img[torch.cuda.LongTensor(np.argsort(sort))]
             caption = torch.cat((caption, cap.data))
             image = torch.cat((image, img.data))
         # set the image and caption embeddings as class values.
         self.image_embeddings = image
         self.caption_embeddings = caption
-        
+         
     # distance functions for calculating recall
     def cosine(self, emb_1, emb_2):
         # cosine expects embeddings to be normalised in the embedder
@@ -167,7 +161,7 @@ class evaluate():
         r_msg = 'recall :'
         for x in range(len(self.recall)):
             r = np.round(self.recall[x] * 100, 2)
-            r += (f' @ {self.n[x]}: {r}')
+            r_msg += (f' @{self.n[x]}: {r}')
         mean = np.round(self.mean, 2)
         print(f'{prepend} c2i, epoch: {epoch} {r_msg} median: {self.median} mean: {mean}')  
 

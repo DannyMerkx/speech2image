@@ -130,7 +130,6 @@ class flickr_trainer():
             img_embedding, cap_embedding, dist = self.embed(img, cap, lengths)
             # calculate the loss
             loss = self.loss(img_embedding, cap_embedding, self.dtype)
-            loss = loss + torch.abs(dist)/100
             # optionally calculate the attention loss for multihead attention
             if self.att_loss:
                 loss += self.att_loss(self.cap_embedder.att, cap_embedding)

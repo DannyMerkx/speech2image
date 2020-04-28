@@ -112,7 +112,7 @@ class quantized_encoder(nn.Module):
                           dropout = rnn['dropout']
                           )
         
-        self.quant = quantization_layer(100, 2048)
+        self.quant = quantization_layer(1000, 2048)
         
         self.att = multi_attention(in_size = att['in_size'], 
                                    hidden_size = att['hidden_size'], 

@@ -64,28 +64,29 @@ class quantization_layer(nn.Module):
     def forward(self, input):
         # get the distance and the index of the closest embedding
         dims = input.size()
-        embs = self.quant_emb(input.reshape(-1, dims[-1]), 
-                     self.embed).view(dims[0], dims[1], -1)
-        dist = self.pwd(input.reshape(-1, dims[-1]), self.embed)
+        embs, one_hot = self.quant_emb(input.reshape(-1, dims[-1]), 
+                                     self.embed)
+        embs = embs.view(dims[0], dims[1], -1)
+        x = input.detach()
+        dists = self.pwd(x.reshape(-1, dims[-1]), one_hot)
         
-        return embs, dist
-    def pwd(self, x, y):
-        x_norm = (x**2).sum(1).view(-1, 1)
-        y_norm = (y**2).sum(1).view(1, -1)
-
-        dist = x_norm + y_norm - 2.0 * torch.mm(x, torch.transpose(y, 0, 1))
-        topk = torch.topk(-dist, k = 1)        
-        dists = topk[0].squeeze()                    
+        return embs, dists
     
-        return dists.mean()
+    def pwd(self, x, y):
+        x_norm = (x**2).sum(1).sqrt().view(-1, 1)
+        y = torch.mm(y, self.embed)
+        y_norm = (y**2).sum(1).sqrt().view(1, -1)
+        
+        sim = torch.mm(x/x_norm, torch.transpose(y, 0, 1)/y_norm)
+        dist = torch.clamp(1 - sim, min =0 ) * torch.eye(sim.size()[0])             
+        return dist.diag().mean()
     
 # autograd function for the embedding mapping which also implements the 
 # skipping the gradient for this layer. 
 class quantization_emb(torch.autograd.Function):
     @staticmethod
     def forward(ctx, input, weight):
-        ctx.save_for_backward(input, weight)
-        shape = input.size()
+        shape = weight.size()
         i_norm = (input**2).sum(1).view(-1, 1)
         w_norm = (weight**2).sum(1).view(1, -1)
 
@@ -93,34 +94,21 @@ class quantization_emb(torch.autograd.Function):
                                                 torch.transpose(weight, 0, 1))
         
         topk = torch.topk(-dist, k = 1)        
-        top_idx = topk[1].squeeze()            
-        output = weight[top_idx]
-        return output
+        top_idx = topk[1].squeeze()    
+        one_hot = nn.functional.one_hot(top_idx, shape[0]).float() 
+
+        output = torch.mm(one_hot, weight)
+        #dist_err = 1 - torch.mm(input, output.t())
+        ctx.save_for_backward(input, weight, one_hot)
+        return output, one_hot
     
     @staticmethod
-    def backward(ctx, grad_output):
-        return grad_output, None
+    def backward(ctx, emb_output, dist_output):
+        input, weight, one_hot = ctx.saved_variables
+        #grad_weight = torch.mm(one_hot.t(),torch.mm(dist_output.t(), input))  
 
-# class quantization_dist(torch.autograd.Function)
-#     @staticmethod
-#     def forward(ctx, input, weight):
-#         ctx.save_for_backward(input, weight)
-#         i_norm = (input**2).sum(1).view(-1, 1)
-#         w_norm = (weight**2).sum(1).view(1, -1)
+        return emb_output, None
 
-#         dist = i_norm + w_norm - 2.0 * torch.mm(input, 
-#                                                 torch.transpose(weight, 0, 1))
-        
-#         topk = torch.topk(- dist, k = 1)
-#         output = topk[0].squeeze()    
-     
-#         return output
-    
-#     @staticmethod
-#     def backward(ctx, grad_output):
-        
-#         return grad_output 
-   
 class LinearFunction(torch.autograd.Function):
 
     # Note that both forward and backward are @staticmethods
@@ -128,7 +116,7 @@ class LinearFunction(torch.autograd.Function):
     # bias is an optional argument
     def forward(ctx, input, weight, bias=None):
         ctx.save_for_backward(input, weight, bias)
-        output = input.mm(weight.t())
+        output = torch.mm(input, weight.t())
         if bias is not None:
             output += bias.unsqueeze(0).expand_as(output)
         return output
@@ -149,9 +137,9 @@ class LinearFunction(torch.autograd.Function):
         # skip them. Returning gradients for inputs that don't require it is
         # not an error.
         if ctx.needs_input_grad[0]:
-            grad_input = grad_output.mm(weight)
+            grad_input = torch.mm(grad_output, weight)
         if ctx.needs_input_grad[1]:
-            grad_weight = grad_output.t().mm(input)
+            grad_weight = torch.mm(grad_output.t(), input)
         if bias is not None and ctx.needs_input_grad[2]:
             grad_bias = grad_output.sum(0).squeeze(0)
 
