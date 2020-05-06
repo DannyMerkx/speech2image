@@ -18,7 +18,7 @@ def four(frames, fs, windowsize):
    # our framesize.
    exp = 1
    while True:
-       if numpy.power(2,exp) - windowsize >= 0:
+       if numpy.power(2, exp) - windowsize >= 0:
            padsize= numpy.power(2,exp) - windowsize
            break
        else:

@@ -12,6 +12,8 @@ import numpy
 import tables
 import os
 import wave
+import torchaudio.transforms as transforms
+import torch
 
 def fix_wav(path_to_file):
     # In the flickr dataset there is one wav file with an incorrect header, 
@@ -65,12 +67,11 @@ def audio_features (params, img_audio, audio_path, append_name, node_list):
             # read audio samples
             try:
                 input_data = read(os.path.join(audio_path, cap))
-                # in the places database some of the audiofiles are empty, 
-                # remove nodes for which no audio features could be made
+                # in the places database some of the audiofiles are empty
                 if len(input_data[1]) == 0:
                     break
             except:
-                # try to repair the file, in places if found some that could
+                # try to repair the file, in places I found some that could
                 # not be fixed however
                 try:
                     fix_wav(os.path.join(audio_path, cap))
@@ -82,7 +83,7 @@ def audio_features (params, img_audio, audio_path, append_name, node_list):
             # get desired window and frameshift size in samples
             window_size = int(fs*params[2])
             frame_shift = int(fs*params[3])
-        
+###############################################################################        
             # create features (implemented are raw audio, the frequency 
             # spectrum, fbanks and mfcc's)
             if params[4] == 'raw':
@@ -120,7 +121,34 @@ def audio_features (params, img_audio, audio_path, append_name, node_list):
                                              double_delta
                                              ],1
                                             )
-           
+###############################################################################
+            melkwargs = {'win_length': window_size, 'hop_length': frame_shift,
+                         'n_mels': params[1], 'window_fn': torch.hann_window,
+                         'n_fft': 400
+                         }
+            
+            mfcc_func = transforms.MFCC(sample_rate = fs, n_mfcc = 13, 
+                                        dct_type = 2, norm = 'ortho',
+                                        log_mels = True, melkwargs = melkwargs
+                                        )
+            
+            melspect_func = transforms.MelSpectrogram(sample_rate = fs,
+                                                      n_fft = 400, 
+                                                      win_length = window_size, 
+                                                      hop_length = frame_shift, 
+                                                      n_mels = params[1], 
+                                                      window_fn = torch.hann_window)
+            
+            calc_delta = transforms.ComputeDeltas(win_length = 5, 
+                                                  mode = 'replicate')
+            
+            if params[4] == 'fbanks':
+                features = melspect_func(torch.FloatTensor(input_data[1]))
+                features = features.t().numpy()
+            elif params[4] == 'mfcc':
+                features = mfcc_func(torch.FloatTensor(input_data[1]))
+                features = features.t().numpy()  
+                
             # create new leaf node in the feature node for the current audio 
             # file
             feature_shape= numpy.shape(features)[1]

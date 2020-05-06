@@ -55,31 +55,33 @@ class attention(nn.Module):
 # to the closes embedding. upon calling backward, the output gradient for this
 # layer is directly passed to the layer beneath.
 class quantization_layer(nn.Module):
-    def __init__(self, num_emb, emb_dim, sparse = False):
+    def __init__(self, num_emb, emb_dim):
         super(quantization_layer, self).__init__()
 
         self.embed = nn.Parameter(torch.zeros(num_emb, emb_dim))
-        torch.nn.init.xavier_uniform_(self.embed)
+        torch.nn.init.uniform_(self.embed, -1/1024, 1/1024)
         self.quant_emb = quantization_emb.apply
     def forward(self, input):
         # get the distance and the index of the closest embedding
         dims = input.size()
         embs, one_hot = self.quant_emb(input.reshape(-1, dims[-1]), 
                                      self.embed)
-        embs = embs.view(dims[0], dims[1], -1)
-        x = input.detach()
-        dists = self.pwd(x.reshape(-1, dims[-1]), one_hot)
+        #embs = embs.view(dims[0], dims[1], -1)
+        embeddings = torch.mm(one_hot, self.embed)
+        input = input.reshape(-1, dims[-1])
         
-        return embs, dists
+        l1 = torch.nn.functional.mse_loss(input.detach(), embeddings)
+        l2 = 0.25 * torch.nn.functional.mse_loss(input, embeddings.detach())
+        
+        embs = input + (embeddings - input).detach()
+        return embs.view(dims[0], dims[1], -1), l1 + l2
     
-    def pwd(self, x, y):
-        x_norm = (x**2).sum(1).sqrt().view(-1, 1)
-        y = torch.mm(y, self.embed)
-        y_norm = (y**2).sum(1).sqrt().view(1, -1)
-        
-        sim = torch.mm(x/x_norm, torch.transpose(y, 0, 1)/y_norm)
-        dist = torch.clamp(1 - sim, min =0 ) * torch.eye(sim.size()[0])             
-        return dist.diag().mean()
+    def pwd(self, input, one_hot):
+        embeddings = torch.mm(one_hot, self.embed)       
+        d_1 = ((input.detach() - embeddings)**2).sum(1).sqrt()
+        embeddings = torch.mm(one_hot, self.embed.detach())
+        d_2 = ((input - embeddings)**2).sum(1).sqrt()
+        return d_1.mean() + d_2.mean()
     
 # autograd function for the embedding mapping which also implements the 
 # skipping the gradient for this layer. 
@@ -90,61 +92,65 @@ class quantization_emb(torch.autograd.Function):
         i_norm = (input**2).sum(1).view(-1, 1)
         w_norm = (weight**2).sum(1).view(1, -1)
 
-        dist = i_norm + w_norm - 2.0 * torch.mm(input, 
-                                                torch.transpose(weight, 0, 1))
-        
-        topk = torch.topk(-dist, k = 1)        
-        top_idx = topk[1].squeeze()    
-        one_hot = nn.functional.one_hot(top_idx, shape[0]).float() 
-
-        output = torch.mm(one_hot, weight)
+        dist = i_norm + w_norm - 2.0 * torch.mm(input,
+                                                torch.transpose(weight, 0, 1)) 
+        idx = dist.argmin(1)
+        #print(inds.float().mean())       
+        one_hot = nn.functional.one_hot(idx, shape[0]).float()
+        embs = torch.mm(one_hot, weight)
         #dist_err = 1 - torch.mm(input, output.t())
-        ctx.save_for_backward(input, weight, one_hot)
-        return output, one_hot
-    
+        return embs, one_hot
+
     @staticmethod
     def backward(ctx, emb_output, dist_output):
-        input, weight, one_hot = ctx.saved_variables
-        #grad_weight = torch.mm(one_hot.t(),torch.mm(dist_output.t(), input))  
-
         return emb_output, None
+    
+# residual convolution block with 4 conv layers and 2 residual connections
+class res_conv(nn.Module):
+    def __init__(self, in_channels, out_channels, ks, stride):
+        super(res_conv, self).__init__()   
+        # check if the input is being downsampled and if the number of channels
+        # increases. 
+        self.req_downsample = stride != 0
+        self.req_residual_dims = in_channels != out_channels
+        # only works for uneven kernel sizes and even strides.
+        pad = int((ks -1)/ 2)
+        # the first layer can optionally downsample the time dimesion
+        self.conv_1 = nn.Conv1d(in_channels, out_channels, kernel_size = ks,
+                                stride = stride, padding = pad)
+        
+        self.conv_2 = nn.Conv1d(out_channels, out_channels, kernel_size = ks,
+                                padding = pad)
+        
+        self.conv_3 = nn.Conv1d(out_channels, out_channels, kernel_size = ks,
+                                padding = pad)
+        
+        self.conv_4 = nn.Conv1d(out_channels, out_channels, kernel_size = ks,
+                                padding = pad)
+        
+        self.relu = nn.functional.relu
+        
+        self.downsample = nn.MaxPool1d(2, stride, padding = 0)
+        self.residual_dims = nn.Conv1d(in_channels, out_channels, 
+                                       kernel_size = 1, stride = 1)
 
-class LinearFunction(torch.autograd.Function):
-
-    # Note that both forward and backward are @staticmethods
-    @staticmethod
-    # bias is an optional argument
-    def forward(ctx, input, weight, bias=None):
-        ctx.save_for_backward(input, weight, bias)
-        output = torch.mm(input, weight.t())
-        if bias is not None:
-            output += bias.unsqueeze(0).expand_as(output)
+    def forward(self, input):
+        residual = input
+        
+        conv_out_1 = self.conv_2(self.relu(self.conv_1(input)))
+        # if input is downsampled or n_channels increases, transform input to
+        # match conv_out
+        if self.req_downsample:
+            residual = self.downsample(residual)
+        if self.req_residual_dims:
+            residual = self.residual_dims(residual)
+            
+        residual = self.relu(conv_out_1 + residual)
+        
+        conv_out_2 = self.conv_3(self.relu(self.conv_4(residual)))
+        output = self.relu(conv_out_2 + residual)
+        
         return output
-
-    # This function has only a single output, so it gets only one gradient
-    @staticmethod
-    def backward(ctx, grad_output):
-        # This is a pattern that is very convenient - at the top of backward
-        # unpack saved_tensors and initialize all gradients w.r.t. inputs to
-        # None. Thanks to the fact that additional trailing Nones are
-        # ignored, the return statement is simple even when the function has
-        # optional inputs.
-        input, weight, bias = ctx.saved_variables
-        grad_input = grad_weight = grad_bias = None
-
-        # These needs_input_grad checks are optional and there only to
-        # improve efficiency. If you want to make your code simpler, you can
-        # skip them. Returning gradients for inputs that don't require it is
-        # not an error.
-        if ctx.needs_input_grad[0]:
-            grad_input = torch.mm(grad_output, weight)
-        if ctx.needs_input_grad[1]:
-            grad_weight = torch.mm(grad_output.t(), input)
-        if bias is not None and ctx.needs_input_grad[2]:
-            grad_bias = grad_output.sum(0).squeeze(0)
-
-        return grad_input, grad_weight, grad_bias
-
 ################################ Transformer Layers ###########################
 # costum implementation of the Transformer. Implements the Decoder and Encoder
 # cells, transformer attention and costum forward functions for training 
