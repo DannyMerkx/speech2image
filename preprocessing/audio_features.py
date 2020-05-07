@@ -3,17 +3,18 @@
 """
 Created on Wed Dec  7 09:41:59 2016
 Main script for generating audio features such as filterbanks and mfccs
-
+may 2020: switched to python_speech_features for feature calculation. 
 @author: danny
 """
-from aud_feat_functions import get_fbanks, get_freqspectrum, get_mfcc, delta, raw_frames
-from scipy.io.wavfile import read
-import numpy
-import tables
 import os
 import wave
-import torchaudio.transforms as transforms
-import torch
+import tables
+
+import numpy as np
+import python_speech_features.base as base
+import python_speech_features.sigproc as sigproc
+
+from scipy.io.wavfile import read
 
 def fix_wav(path_to_file):
     # In the flickr dataset there is one wav file with an incorrect header, 
@@ -33,14 +34,11 @@ def fix_wav(path_to_file):
     out_file.writeframes(frames)
     out_file.close()
 
-
 # extract the audio features, params contains most of the settings for feature 
-# extraction, img_audio is a dictionary mapping each img to its corresponding
+# extraction, img_audio is a dictionary mapping each img to the corresponding
 # audio files, append_name is some arbitrary name which has to start with a 
 # letter (required by pytables).
-
-def audio_features (params, img_audio, audio_path, append_name, node_list):
-    
+def audio_features (params, img_audio, audio_path, append_name, node_list):    
     output_file = params[5]
     # create pytable atom for the features   
     f_atom= tables.Float32Atom() 
@@ -79,79 +77,86 @@ def audio_features (params, img_audio, audio_path, append_name, node_list):
                 except:
                     break
             # sampling frequency
-            fs = input_data[0]
-            # get desired window and frameshift size in samples
-            window_size = int(fs*params[2])
-            frame_shift = int(fs*params[3])
+            fs = input_data[0]            
+            # set the fft size to the power of two equal to or greater than 
+            # the window size.
+            window_size = int(fs * params['t_window'])
+            exp = 1
+            while True:
+                if np.power(2, exp) - window_size >= 0:
+                    fft_size = np.power(2, exp)
+                    break
+                else:
+                    exp += 1
+
 ###############################################################################        
-            # create features (implemented are raw audio, the frequency 
-            # spectrum, fbanks and mfcc's)
+            # create audio features 
             if params[4] == 'raw':
-                [features, energy] = raw_frames(input_data, frame_shift,
-                                                window_size)
+                # calculate the needed frame shift, premphasize and frame
+                # the signal
+                frame_shift = int(fs * params['t_shift'])
+                input = sigproc.preemphasis(input_data[1], 
+                                            coeff = params['alpha'])
+                features = sigproc.framesig(input_data[1], 
+                                            frame_len = window_size, 
+                                            frame_step = frame_shift, 
+                                            winfunc = params['windowing']
+                                            )
         
             elif params[4] == 'freq_spectrum':
-                [frames, energy] = raw_frames(input_data, frame_shift,
-                                              window_size)
-                features = get_freqspectrum(frames, params[0], fs, window_size)
-        
+                # calculate the needed frame shift, premphasize and frame
+                # the signal
+                frame_shift = int(fs * params['t_shift'])
+                input = sigproc.preemphasis(input_data[1], 
+                                            coeff = params['alpha'])
+                frames = sigproc.framesig(input, frame_len = window_size, 
+                                          frame_step = frame_shift, 
+                                          winfunc = params['windowing']
+                                          )
+                # create the power spectrum
+                features = sigproc.powspec(frames, fft_size)
+                
             elif params[4] == 'fbanks':
-                [frames, energy] = raw_frames(input_data, frame_shift, 
-                                              window_size)
-                freq_spectrum = get_freqspectrum(frames, params[0], fs, 
-                                                 window_size)
-                features = get_fbanks(freq_spectrum, params[1], fs) 
+                # create mel filterbank features
+                [features, energy] = base.fbank(input_data[1], samplerate = fs, 
+                                                winlen = params['t_window'], 
+                                                winstep = params['t_shift'], 
+                                                nfilt = params['nfilters'], 
+                                                nfft = fft_size, lowfreq = 0, 
+                                                highfreq = None, 
+                                                preemph = params['alpha'], 
+                                                winfunc = params['windowing']
+                                                )
             
             elif params[4] == 'mfcc':
-                [frames, energy] = raw_frames(input_data, frame_shift, 
-                                              window_size)
-                freq_spectrum = get_freqspectrum(frames, params[0], fs,
-                                                 window_size)
-                fbanks = get_fbanks(freq_spectrum, params[1], fs)
-                features = get_mfcc(fbanks)
+                # create mfcc features
+                features = base.mfcc(input_data[1], samplerate = fs,
+                                     winlen = params['t_window'], 
+                                     winstep = params['t_shift'], 
+                                     numcep = params['ncep'], 
+                                     nfilt = params['nfilters'], 
+                                     nfft = fft_size, lowfreq = 0, 
+                                     highfreq = None, 
+                                     preemph = params['alpha'], ceplifter = 0, 
+                                     appendEnergy = params['use_energy'], 
+                                     winfunc= params['windowing']
+                                     )
             
             # optionally add the frame energy
             if params[7]:
-                features = numpy.concatenate([energy[:,None], features],1)
+                features = np.concatenate([energy[:, None], features], 1)
             # optionally add the deltas and double deltas
-            if params[6]:
-                single_delta= delta (features,2)
-                double_delta= delta(single_delta,2)
-                features= numpy.concatenate([features,single_delta,
-                                             double_delta
-                                             ],1
-                                            )
-###############################################################################
-            melkwargs = {'win_length': window_size, 'hop_length': frame_shift,
-                         'n_mels': params[1], 'window_fn': torch.hann_window,
-                         'n_fft': 400
-                         }
-            
-            mfcc_func = transforms.MFCC(sample_rate = fs, n_mfcc = 13, 
-                                        dct_type = 2, norm = 'ortho',
-                                        log_mels = True, melkwargs = melkwargs
-                                        )
-            
-            melspect_func = transforms.MelSpectrogram(sample_rate = fs,
-                                                      n_fft = 400, 
-                                                      win_length = window_size, 
-                                                      hop_length = frame_shift, 
-                                                      n_mels = params[1], 
-                                                      window_fn = torch.hann_window)
-            
-            calc_delta = transforms.ComputeDeltas(win_length = 5, 
-                                                  mode = 'replicate')
-            
-            if params[4] == 'fbanks':
-                features = melspect_func(torch.FloatTensor(input_data[1]))
-                features = features.t().numpy()
-            elif params[4] == 'mfcc':
-                features = mfcc_func(torch.FloatTensor(input_data[1]))
-                features = features.t().numpy()  
+            if params['use_deltas']:
                 
+                single_delta = base.delta(features, params['delta_n'])
+                double_delta = base.delta(single_delta, params['delta_n'])
+                features= np.concatenate([features, single_delta, 
+                                          double_delta], 1
+                                         )
+###############################################################################               
             # create new leaf node in the feature node for the current audio 
             # file
-            feature_shape= numpy.shape(features)[1]
+            feature_shape= np.shape(features)[1]
             f_table = output_file.create_earray(audio_node, 
                                                 append_name + base_capt, 
                                                 f_atom, (0, feature_shape),

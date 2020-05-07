@@ -13,6 +13,8 @@ from audio_features import audio_features
 from text_features import text_features_flickr
 from pathlib import Path
 import tables
+import numpy as np
+
 # path to the flickr audio, caption and image files 
 audio_path = os.path.join('/data/databases/flickr/flickr_audio/wavs')
 img_path = os.path.join('/data/databases/flickr/Flickr8k_Dataset/Flicker8k_Dataset')
@@ -80,29 +82,18 @@ for x in vis:
     vis_feats(img_path, output_file, append_name, img_audio, node_list, x) 
 
 ######### parameter settings for the audio preprocessing ###############
-# option for which audio feature to create (options are mfcc, fbanks, freq_spectrum and raw)
-feat = ''
-params = []
-# set alpha for the preemphasis
-alpha = 0.97
-# set the number of desired filterbanks
-nfilters = 40
-# windowsize and shift in seconds
-t_window = .025
-t_shift = .010
-# option to include delta and double delta features
-use_deltas = True
-# option to include frame energy
-use_energy = True
-# put paramaters in a list
-params.append(alpha)
-params.append(nfilters) 
-params.append(t_window)
-params.append(t_shift)
-params.append(feat)
-params.append(output_file)
-params.append(use_deltas)
-params.append(use_energy)
+# put paramaters in a dictionary
+params = {}
+params['alpha'] = 0.97
+params['nfilters'] = 40 
+params['ncep'] = 13
+params['t_window'] = .025
+params['t_shift'] = 0.01
+params['feat'] = ''
+params['output_file'] = output_file
+params['use_deltas'] = True 
+params['use_energy'] = True
+params['windowing'] = np.hamming
 #############################################################################
 
 # create the audio features for all captions

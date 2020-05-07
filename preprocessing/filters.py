@@ -9,7 +9,7 @@ Created on Fri Feb  3 11:23:01 2017
 from melfreq import freq2mel, mel2freq
 import numpy
 
-def create_filterbanks (nfilters,freqrange,fc):
+def create_filterbanks (nfilters, freqrange, fc):
     # function to create filter banks. takes as input
     # the number of filters to be created, the frequency range and the
     # filter centers
@@ -27,14 +27,17 @@ def create_filterbanks (nfilters,freqrange,fc):
             if x < begin:
                 f.append(0)
             #increasing to 1 towards the center
-            elif begin <= x and x <= center:
+            elif begin <= x and x < center:
                 f.append((x-begin)/(center-begin))
+            elif x == center:
+                f.append(1)
             # decreasing to 0 upwards from the center
-            elif center <= x and x <= end:
+            elif center < x and x <= end:
                 f.append((end-x)/(end-center))
             # 0 outside filter range
             elif x > end:
                 f.append(0)
+                
         filterbank.append(f)
         
     return filterbank
@@ -42,7 +45,7 @@ def create_filterbanks (nfilters,freqrange,fc):
 def filter_centers(nfilters, fs, xf):
     # calculates the center frequencies for the mel filters
     
-    #space the filters equally in mels
+    # space the filters equally in mels
     spacing = numpy.linspace(0, freq2mel(fs/2), nfilters+2)
     #back from mels to frequency
     spacing = mel2freq(spacing)
@@ -54,9 +57,10 @@ def filter_centers(nfilters, fs, xf):
     
 def apply_filterbanks(data, filters):
     # function to apply the filterbanks and take the log of the filterbanks
-    filtered_freq = numpy.log(numpy.dot(data, numpy.transpose(filters)))  
-    # same as with energy, taking the log of a filter bank with 0 power results in -inf
-    # we approximate 0 power with -50 the log of 2e-22
-    filtered_freq[filtered_freq == numpy.log(0)] = -50     
-    
+    filtered_freq = numpy.dot(data, numpy.transpose(filters))
+    filtered_freq = numpy.log(numpy.where(filtered_freq == 0, 
+                                          numpy.finfo(float).eps, 
+                                          filtered_freq
+                                          )
+                              )
     return filtered_freq

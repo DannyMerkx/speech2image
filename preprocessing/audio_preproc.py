@@ -48,13 +48,10 @@ def notch(data):
     
 def pad (data, window_size, frame_shift):
     # function to pad the audio file to fit the frameshift
-    context_size = (window_size-frame_shift)/2
-    pad_size = context_size - numpy.mod(data.size, frame_shift) 
+    pad_size = window_size - numpy.mod(data.size, frame_shift) 
     # if needed add padding to the end of the data
     if pad_size > 0:
         data = numpy.append(data, numpy.zeros(int(pad_size)))
-    #always add padding to the front of the data
-    data = numpy.append(numpy.zeros(int(context_size)), data)
     return(data)
   
 def preemph(data, alpha):
@@ -68,6 +65,6 @@ def preemph(data, alpha):
 def hamming(data):
     # apply hamming windowing to a frame of data
     L = numpy.shape(data)[1]
-    hammingwindow = 0.54-(0.46*numpy.cos(2*numpy.pi*numpy.arange(L)/(L-1)))
-    data = numpy.multiply(data,hammingwindow)
+    hammingwindow = 0.54-(0.46*numpy.cos(2*numpy.pi*(numpy.arange(L)/(L-1))))
+    data = numpy.multiply(data, hammingwindow)
     return data
