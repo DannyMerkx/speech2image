@@ -26,7 +26,7 @@ def fix_wav(path_to_file):
     # derive the correct number of frames from the file
     frames = file.readframes(file.getnframes())
     # get all other header parameters
-    params = file.getparams()
+    p = file.getparams()
     file.close()
     # save the file with a new header containing the correct number of frames
     out_file = wave.open(path_to_file, 'w')
@@ -47,19 +47,19 @@ def audio_features (params, img_audio, audio_path, append_name, node_list):
     # database contains some empty audio files
     invalid = []
     for node in node_list:
-        print('processing file:' + str(count))
+        print(f'processing file: {count}')
         count+=1
         # create a group for the desired feature type
-        audio_node = output_file.create_group(node, params[4])
+        audio_node = output_file.create_group(node, params['feat'])
         # get the base name of the node this feature will be appended to
         base_name = node._v_name.split(append_name)[1]
         # get the caption file names corresponding to the image of this node
         caption_files = img_audio[base_name][1]
         
         for cap in caption_files:
-            # basename for the caption file
+            # remove extension from the caption filename
             base_capt = cap.split('.')[0]
-            # remove folder path from the places database names
+            # remove folder path from file names (Places database)
             if '/' in base_capt:
                 base_capt = base_capt.split('/')[-1]
             # read audio samples
@@ -69,12 +69,14 @@ def audio_features (params, img_audio, audio_path, append_name, node_list):
                 if len(input_data[1]) == 0:
                     break
             except:
-                # try to repair the file, in places I found some that could
-                # not be fixed however
+                # try to repair broken files, some files had a wrong header. 
+                # In Places I found some that could not be fixed however
                 try:
                     fix_wav(os.path.join(audio_path, cap))
                     input_data = read(os.path.join(audio_path, cap))
                 except:
+                    # the loop will break, if no valid audio features could 
+                    # be made for this image, the entire node is deleted.
                     break
             # sampling frequency
             fs = input_data[0]            
@@ -173,4 +175,3 @@ def audio_features (params, img_audio, audio_path, append_name, node_list):
             # features could be created
             output_file.remove_node(node, recursive = True)
     print(invalid)
-    return 

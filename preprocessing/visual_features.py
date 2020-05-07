@@ -5,7 +5,8 @@ Created on Fri Jan 26 12:04:54 2018
 
 @author: danny
 extract visual features for images using pretrained networks
-
+Resnet_truncated can be used to extract resnet activations after N layers, 
+which can then be used to finetune the final layers of resnet during training
 """
 import os
 import torch
@@ -13,7 +14,6 @@ import torchvision.models as models
 import torchvision.transforms as transforms
 import torch.nn as nn
 import PIL.Image
-import tables
 
 # this script uses a pretrained model to extract the penultimate layer 
 # activations for images
@@ -43,15 +43,11 @@ def resnet_truncated():
 
 # resize and take ten crops of the image. Return the average activations over 
 # the crops
-def prep_tencrop(im, model):
-    for p in model.parameters():
-    	p.requires_grad = False
-    model.eval()
-    
-    # define the required functions. Normalisation parameters are hardcoded
-    # (average over the network's training data)
+def prep_tencrop(im, model): 
+    # takes ten crops of 224x224 pixels
     tencrop = transforms.TenCrop(224)
     tens = transforms.ToTensor()
+    # normalises the images using the values provided with torchvision
     normalise = transforms.Normalize(mean = [0.485,0.456,0.406], 
                                      std = [0.229, 0.224, 0.225])
     resize = transforms.Resize(256, PIL.Image.ANTIALIAS)
@@ -67,26 +63,25 @@ def prep_tencrop(im, model):
     return activations.mean(0).squeeze()
 
 # only resize the image and get the model activations for a single image
+# meant for finetuning pretrained models
 def prep_resize(im, model):
-    for p in model.parameters():
-    	p.requires_grad = False
-    model.eval()
-        
     tens = transforms.ToTensor()
+    # normalise the images using the values provided with torchvision
     normalise = transforms.Normalize(mean = [0.485,0.456,0.406], 
                                      std = [0.229, 0.224, 0.225])
+    # resize the image to 224 x 224
     resize = transforms.Resize((224,224), PIL.Image.ANTIALIAS)
-    
     im = resize(im)
     im = normalise(tens(im))
     if torch.cuda.is_available():
         im = im.cuda()
-
+    # expand greyscale images to 3 channels so the visual networks accept them
     if not im.size()[0] == 3:
         im = im.expand(3, im.size()[2], im.size()[3])
     activations = model(im.unsqueeze(0))
     return activations.squeeze()
-
+# just normalised and rescaled raw images, for training a costum visual 
+# network
 def prep_raw(im, model):
     tencrop = transforms.TenCrop(224)
     tens = transforms.ToTensor()
@@ -119,12 +114,16 @@ def vis_feats(img_path, output_file, append_name, img_audio, node_list, net):
     # set the model to use cuda
     if torch.cuda.is_available() and model:
         model = model.cuda()
-    
+    # disable gradients and dropout
+    for p in model.parameters():
+    	p.requires_grad = False
+    model.eval()
+       
     count = 1
     # loop through all nodes (the main function creates a h5 file with an 
     # empty node for each image file)
     for node in node_list:
-        print('processing file:' + str(count))
+        print(f'processing file: {count}')
         count+=1
         # split the appended name from the node name to get the dictionary key
         # for the current file
@@ -145,5 +144,5 @@ def vis_feats(img_path, output_file, append_name, img_audio, node_list, net):
         vis_node = output_file.create_group(node, net)
         # create a pytable array at the current image node. Remove file 
         # extension from filename as dots arent allowed in pytable names
-        vis_array = output_file.create_array(vis_node, append_name + node_name, 
-                                             activations.data.cpu().numpy())
+        output_file.create_array(vis_node, f'{append_name}{node_name}', 
+                                 activations.data.cpu().numpy())

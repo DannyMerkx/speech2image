@@ -94,6 +94,7 @@ params['output_file'] = output_file
 params['use_deltas'] = True 
 params['use_energy'] = True
 params['windowing'] = np.hamming
+params['delta_n'] = 2
 #############################################################################
 
 # create the audio features for all captions
