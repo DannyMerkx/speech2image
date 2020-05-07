@@ -39,7 +39,7 @@ def fix_wav(path_to_file):
 # audio files, append_name is some arbitrary name which has to start with a 
 # letter (required by pytables).
 def audio_features (params, img_audio, audio_path, append_name, node_list):    
-    output_file = params[5]
+    output_file = params['output_file']
     # create pytable atom for the features   
     f_atom= tables.Float32Atom() 
     count = 1
@@ -91,7 +91,7 @@ def audio_features (params, img_audio, audio_path, append_name, node_list):
 
 ###############################################################################        
             # create audio features 
-            if params[4] == 'raw':
+            if params['feat'] == 'raw':
                 # calculate the needed frame shift, premphasize and frame
                 # the signal
                 frame_shift = int(fs * params['t_shift'])
@@ -103,7 +103,7 @@ def audio_features (params, img_audio, audio_path, append_name, node_list):
                                             winfunc = params['windowing']
                                             )
         
-            elif params[4] == 'freq_spectrum':
+            elif params['feat'] == 'freq_spectrum':
                 # calculate the needed frame shift, premphasize and frame
                 # the signal
                 frame_shift = int(fs * params['t_shift'])
@@ -116,7 +116,7 @@ def audio_features (params, img_audio, audio_path, append_name, node_list):
                 # create the power spectrum
                 features = sigproc.powspec(frames, fft_size)
                 
-            elif params[4] == 'fbanks':
+            elif params['feat'] == 'fbanks':
                 # create mel filterbank features
                 [features, energy] = base.fbank(input_data[1], samplerate = fs, 
                                                 winlen = params['t_window'], 
@@ -128,7 +128,7 @@ def audio_features (params, img_audio, audio_path, append_name, node_list):
                                                 winfunc = params['windowing']
                                                 )
             
-            elif params[4] == 'mfcc':
+            elif params['feat'] == 'mfcc':
                 # create mfcc features
                 features = base.mfcc(input_data[1], samplerate = fs,
                                      winlen = params['t_window'], 
@@ -143,8 +143,8 @@ def audio_features (params, img_audio, audio_path, append_name, node_list):
                                      )
             
             # optionally add the frame energy
-            if params[7]:
-                features = np.concatenate([energy[:, None], features], 1)
+            #if params['']:
+            #   features = np.concatenate([energy[:, None], features], 1)
             # optionally add the deltas and double deltas
             if params['use_deltas']:
                 

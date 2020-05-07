@@ -17,7 +17,7 @@ import numpy as np
 
 # path to the flickr audio, caption and image files 
 audio_path = os.path.join('/data/databases/flickr/flickr_audio/wavs')
-img_path = os.path.join('/data/databases/flickr/Flickr8k_Dataset/Flicker8k_Dataset')
+img_path = os.path.join('/data/databases/flickr/Flicker8k_Dataset')
 text_path = os.path.join('/data/databases/flickr/dataset.json')
 # save the resulting feature file here
 data_loc = os.path.join('/prep_data/flickr_features.h5')
@@ -78,8 +78,8 @@ else:
 node_list = output_file.root._f_list_nodes()
     
 # create the visual features for all images
-for x in vis: 
-    vis_feats(img_path, output_file, append_name, img_audio, node_list, x) 
+for ftype in vis: 
+    vis_feats(img_path, output_file, append_name, img_audio, node_list, ftype) 
 
 ######### parameter settings for the audio preprocessing ###############
 # put paramaters in a dictionary
@@ -98,7 +98,7 @@ params['windowing'] = np.hamming
 
 # create the audio features for all captions
 for ftype in speech:
-    params[4] = x
+    params['feat'] = ftype
     audio_features(params, img_audio, audio_path, append_name, node_list)
 
 # load all the captions
