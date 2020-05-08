@@ -270,8 +270,55 @@ class audio_conv_encoder(nn.Module):
         
     def forward(self, input, l):
         x = self.Conv(input)
-        
         x = self.conv4(self.conv3(self.conv2(self.conv1(x)))).permute(0,2,1)
+        
+        x = nn.functional.normalize(self.att(x), p=2, dim=1)    
+        return x
+
+class conv_VQ_encoder(nn.Module):
+    def __init__(self, config):
+        super(audio_conv_encoder, self).__init__()
+        conv_init = config['conv_init']
+        conv= config['conv']
+        att = config ['att']
+        self.max_len = config['max_len']
+        self.Conv = nn.Conv1d(in_channels = conv_init['in_channels'], 
+                                  out_channels = conv_init['out_channels'], 
+                                  kernel_size = conv_init['kernel_size'],
+                                  stride = conv_init['stride'], 
+                                  padding = conv_init['padding']
+                                  )
+        self.conv1 = res_conv(in_channels = conv['in_channels'][0], 
+                               out_channels = conv['out_channels'][0], 
+                               ks = conv['kernel_size'][0], 
+                               stride = conv['stride'][0]
+                               )
+        self.conv2 = res_conv(in_channels = conv['in_channels'][1], 
+                               out_channels = conv['out_channels'][1], 
+                               ks = conv['kernel_size'][1], 
+                               stride = conv['stride'][1]
+                               )
+        self.conv3 = res_conv(in_channels = conv['in_channels'][2], 
+                               out_channels = conv['out_channels'][2], 
+                               ks = conv['kernel_size'][2], 
+                               stride = conv['stride'][2]
+                               )
+        self.conv4 = res_conv(in_channels = conv['in_channels'][3], 
+                               out_channels = conv['out_channels'][3], 
+                               ks = conv['kernel_size'][3], 
+                               stride = conv['stride'][3]
+                               )               
+        self.att = multi_attention(in_size = att['in_size'], 
+                                   hidden_size = att['hidden_size'], 
+                                   n_heads = att['heads']
+                                   )
+        
+        self.VQ = quantization_layer(1024, 256)
+    def forward(self, input, l):
+        x = self.Conv(input)
+        x = self.conv2(self.conv1(x))
+        x, self.VQ_loss = self.VQ(x)
+        x = self.conv4(self.conv3(x)).permute(0,2,1)
         
         x = nn.functional.normalize(self.att(x), p=2, dim=1)    
         return x

@@ -35,7 +35,7 @@ class evaluate():
             cap.requires_grad = False
             # embed the data
             img = self.embed_function_1(img)
-            cap, dists = self.embed_function_2(cap, lengths)
+            cap = self.embed_function_2(cap, lengths)
             # reverse the sorting by length such that the data is in the same 
             # order for all 5 captions.
             caption = torch.cat((caption, cap.data))
