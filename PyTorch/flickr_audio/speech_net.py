@@ -19,7 +19,7 @@ from trainer import flickr_trainer
 from costum_loss import batch_hinge_loss, ordered_loss, attention_loss
 from costum_scheduler import cyclic_scheduler
 from encoders import (img_encoder, audio_rnn_encoder, audio_conv_encoder, 
-                      quantized_encoder)
+                      quantized_encoder, conv_VQ_encoder)
 from data_split import split_data_flickr
 ##################################### parameter settings ######################
 
@@ -110,7 +110,7 @@ train, test, val = split_data_flickr(f_nodes, args.split_loc)
 
 # network modules
 img_net = img_encoder(image_config)
-cap_net = audio_rnn_encoder(audio_config)
+cap_net = conv_VQ_encoder(audio_config)
 
 # Adam optimiser. I found SGD to work terribly and could not find appropriate 
 # parameter settings for it.
