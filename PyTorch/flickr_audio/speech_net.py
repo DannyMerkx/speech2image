@@ -11,7 +11,6 @@ from __future__ import print_function
 import tables
 import argparse
 import torch
-import numpy as np
 from torch.optim import lr_scheduler
 import sys
 sys.path.append('../functions')
@@ -19,7 +18,8 @@ sys.path.append('../functions')
 from trainer import flickr_trainer
 from costum_loss import batch_hinge_loss, ordered_loss, attention_loss
 from costum_scheduler import cyclic_scheduler
-from encoders import img_encoder, audio_rnn_encoder
+from encoders import (img_encoder, audio_rnn_encoder, audio_conv_encoder, 
+                      quantized_encoder)
 from data_split import split_data_flickr
 ##################################### parameter settings ######################
 
@@ -42,7 +42,7 @@ parser.add_argument('-batch_size', type = int, default = 32,
 parser.add_argument('-lr', type = float, default = 0.0002, 
                     help = 'learning rate, default:0.0002')
 parser.add_argument('-n_epochs', type = int, default = 32, 
-                    help = 'number of training epochs, default: 25')
+                    help = 'number of training epochs, default: 32')
 parser.add_argument('-cuda', type = bool, default = True,
                     help = 'use cuda, default: True')
 # args concerning the database and which features to load
@@ -67,11 +67,23 @@ audio_config = {'conv':{'in_channels': 39, 'out_channels': 64,
                'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1}
                }
 
+audio_config = {'conv_init':{'in_channels': 40, 'out_channels': 128, 
+                             'kernel_size': 1, 'stride': 1, 'padding': 0,
+                             },
+                'conv':{'in_channels': [128, 128, 256, 512], 
+                        'out_channels': [128, 256, 512, 1024], 
+                        'kernel_size': [9, 9, 9, 9], 'stride': [2, 2, 2, 2]
+                        },
+                'att':{'in_size': 1024, 'hidden_size': 128, 'heads': 1},
+                'max_len': 1024
+                }
+
+
 # automatically adapt the image encoder output size to the size of the caption
 # encoder
-out_size = audio_config['rnn']['hidden_size'] * 2 ** \
-           audio_config['rnn']['bidirectional'] * audio_config['att']['heads']
-           
+#out_size = audio_config['rnn']['hidden_size'] * 2 ** \
+#           audio_config['rnn']['bidirectional'] * audio_config['att']['heads']
+out_size = 1024           
 image_config = {'linear':{'in_size': 2048, 'out_size': out_size}, 'norm': True}
 
 # open the data file
