@@ -64,8 +64,8 @@ class quantization_layer(nn.Module):
         
         # Calculate distances
         distances = (torch.sum(flat_input**2, dim = 1, keepdim = True) 
-                    + torch.sum(self.embed.weight**2, dim = 1)
-                    - 2 * torch.matmul(flat_input, self.embed.weight.t()))
+                    + torch.sum(self.embed**2, dim = 1)
+                    - 2 * torch.matmul(flat_input, self.embed.t()))
             
         # Encoding
         encoding_indices = torch.argmin(distances, dim=1).unsqueeze(1)
@@ -75,7 +75,7 @@ class quantization_layer(nn.Module):
         
         # Quantize and unflatten
         quantized = torch.matmul(encodings, 
-                                 self.embed.weight).view(input_shape)
+                                 self.embed).view(input_shape)
         
         # Loss
         e_latent_loss = torch.nn.functional.mse_loss(quantized.detach(), input)

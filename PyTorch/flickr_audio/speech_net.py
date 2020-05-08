@@ -67,7 +67,7 @@ audio_config = {'conv':{'in_channels': 39, 'out_channels': 64,
                'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1}
                }
 
-audio_config = {'conv_init':{'in_channels': 40, 'out_channels': 128, 
+audio_config = {'conv_init':{'in_channels': 39, 'out_channels': 128, 
                              'kernel_size': 1, 'stride': 1, 'padding': 0,
                              },
                 'conv':{'in_channels': [128, 128, 256, 512], 
