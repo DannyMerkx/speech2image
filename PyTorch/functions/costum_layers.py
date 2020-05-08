@@ -76,13 +76,6 @@ class quantization_layer(nn.Module):
         embs = input + (embeddings - input).detach()
         return embs.view(dims[0], dims[1], -1), l1 + l2
     
-    def pwd(self, input, one_hot):
-        embeddings = torch.mm(one_hot, self.embed)       
-        d_1 = ((input.detach() - embeddings)**2).sum(1).sqrt()
-        embeddings = torch.mm(one_hot, self.embed.detach())
-        d_2 = ((input - embeddings)**2).sum(1).sqrt()
-        return d_1.mean() + d_2.mean()
-    
 # autograd function for the embedding mapping which also implements the 
 # skipping the gradient for this layer. 
 class quantization_emb(torch.autograd.Function):
@@ -111,36 +104,48 @@ class res_conv(nn.Module):
         super(res_conv, self).__init__()   
         # check if the input is being downsampled and if the number of channels
         # increases. 
-        self.req_downsample = stride != 0
+        self.req_downsample = stride != 1
+        # if the number of channels is changed, the residual needs to upscale
         self.req_residual_dims = in_channels != out_channels
         # only works for uneven kernel sizes and even strides.
         pad = int((ks -1)/ 2)
         # the first layer can optionally downsample the time dimesion
-        self.conv_1 = nn.Conv1d(in_channels, out_channels, kernel_size = ks,
-                                stride = stride, padding = pad)
+        self.conv_1 = nn.Sequential(nn.Conv1d(in_channels, out_channels, 
+                                              kernel_size = ks, 
+                                              stride = stride, padding = pad),
+                                    nn.BatchNorm1d(out_channels)
+                                    )
         
-        self.conv_2 = nn.Conv1d(out_channels, out_channels, kernel_size = ks,
-                                padding = pad)
+        self.conv_2 = nn.Sequential(nn.Conv1d(out_channels, out_channels, 
+                                              kernel_size = ks, padding = pad),
+                                    nn.BatchNorm1d(out_channels)
+                                    )
         
-        self.conv_3 = nn.Conv1d(out_channels, out_channels, kernel_size = ks,
-                                padding = pad)
+        self.conv_3 = nn.Sequential(nn.Conv1d(out_channels, out_channels, 
+                                              kernel_size = ks, padding = pad),
+                                    nn.BatchNorm1d(out_channels)
+                                    )
         
-        self.conv_4 = nn.Conv1d(out_channels, out_channels, kernel_size = ks,
-                                padding = pad)
+        self.conv_4 = nn.Sequential(nn.Conv1d(out_channels, out_channels, 
+                                              kernel_size = ks, padding = pad),
+                                    nn.BatchNorm1d(out_channels)
+                                    )
         
         self.relu = nn.functional.relu
         
-        self.downsample = nn.MaxPool1d(2, stride, padding = 0)
+        self.downsample = nn.MaxPool1d(stride, stride, padding = 0)
         self.residual_dims = nn.Conv1d(in_channels, out_channels, 
                                        kernel_size = 1, stride = 1)
-
+           
     def forward(self, input):
         residual = input
-        
         conv_out_1 = self.conv_2(self.relu(self.conv_1(input)))
         # if input is downsampled or n_channels increases, transform input to
         # match conv_out
         if self.req_downsample:
+            # if the input size was uneven, a onesided 0 pad is required.
+            if not input.size(-1)%2 == 0:
+                residual = nn.functional.pad(residual, [0, 1])
             residual = self.downsample(residual)
         if self.req_residual_dims:
             residual = self.residual_dims(residual)

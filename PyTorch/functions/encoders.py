@@ -124,15 +124,15 @@ class quantized_encoder(nn.Module):
     def forward(self, input, l):
         # embedding layers expect Long tensors
         x = self.embed(input.long())
-        #x = torch.nn.utils.rnn.pack_padded_sequence(x, l, batch_first=True,
-        #                                            enforce_sorted = False
-        #                                            )
+        x = torch.nn.utils.rnn.pack_padded_sequence(x, l, batch_first=True,
+                                                    enforce_sorted = False
+                                                    )
         x, hx = self.RNN(x)
         
-        #x, lens = nn.utils.rnn.pad_packed_sequence(x, batch_first = True) 
-        x, dist = self.quant(x)
+        x, lens = nn.utils.rnn.pad_packed_sequence(x, batch_first = True) 
+        x, self.VQ_loss = self.quant(x)
         x = nn.functional.normalize(self.att(x), p=2, dim=1)    
-        return x, dist
+        return x
     
     def load_embeddings(self, dict_loc, embedding_loc):
         # optionally load pretrained word embeddings. takes the dictionary of 
@@ -275,16 +275,6 @@ class audio_conv_encoder(nn.Module):
         
         x = nn.functional.normalize(self.att(x), p=2, dim=1)    
         return x
-#config = {'conv_init':{'in_channels': 40, 'out_channels': 128, 
-#                       'kernel_size': 1, 'stride': 1, 'padding': 0,
-#                       },
-#          'conv':{'in_channels': [128, 128, 256, 512], 
-#                  'out_channels': [128, 256, 512, 1024], 
-#                  'kernel_size': [9, 9, 9, 9], 'stride': [2, 2, 2, 2]
-#                  },
-#          'att':{'in_size': 1024, 'hidden_size': 128, 'heads': 1},
-#          'max_len': 1024
-#          }
 
 ###########################transformer architectures###########################
 
