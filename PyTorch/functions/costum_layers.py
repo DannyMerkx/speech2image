@@ -59,6 +59,7 @@ class quantization_layer(nn.Module):
         torch.nn.init.uniform_(self.embed, -1/1024, 1/1024)
     def forward(self, input):
         input = input.permute(0, 2, 1).contiguous()
+        input_shape = input.shape
         # Flatten input
         flat_input = input.view(-1, self.emb_dim)
         
