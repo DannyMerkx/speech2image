@@ -50,13 +50,52 @@ class attention(nn.Module):
         # return the resulting embedding
         return x   
 
+class quantization_layer(nn.Module):
+    def __init__(self, num_emb, emb_dim):
+        super(quantization_layer, self).__init__()
+        self.emb_dim = emb_dim
+        self.num_emb = num_emb
+        self.embed = nn.Parameter(torch.zeros(num_emb, emb_dim))
+        torch.nn.init.uniform_(self.embed, -1/1024, 1/1024)
+    def forward(self, input):
+        input = input.permute(0, 2, 1).contiguous()
+        # Flatten input
+        flat_input = input.view(-1, self.emb_dim)
+        
+        # Calculate distances
+        distances = (torch.sum(flat_input**2, dim = 1, keepdim = True) 
+                    + torch.sum(self.embed.weight**2, dim = 1)
+                    - 2 * torch.matmul(flat_input, self.embed.weight.t()))
+            
+        # Encoding
+        encoding_indices = torch.argmin(distances, dim=1).unsqueeze(1)
+        encodings = torch.zeros(encoding_indices.shape[0], 
+                                self.num_emb, device = input.device)
+        encodings.scatter_(1, encoding_indices, 1)
+        
+        # Quantize and unflatten
+        quantized = torch.matmul(encodings, 
+                                 self.embed.weight).view(input_shape)
+        
+        # Loss
+        e_latent_loss = torch.nn.functional.mse_loss(quantized.detach(), input)
+        q_latent_loss = torch.nn.functional.mse_loss(quantized, input.detach())
+        loss = q_latent_loss + 0.25 * e_latent_loss
+        
+        quantized = input + (quantized - input).detach()
+        #avg_probs = torch.mean(encodings, dim=0)
+        #perplexity = torch.exp(-torch.sum(avg_probs * torch.log(avg_probs + 1e-10)))
+        
+        # convert quantized from BHWC -> BCHW
+        return quantized.permute(0, 2, 1).contiguous(), loss
+
 # quantization layer is an embedding layer which uses a costum embedding
 # function. It takes input activations from the previous layer, and maps them
 # to the closes embedding. upon calling backward, the output gradient for this
 # layer is directly passed to the layer beneath.
-class quantization_layer(nn.Module):
+class quantization_layer2(nn.Module):
     def __init__(self, num_emb, emb_dim):
-        super(quantization_layer, self).__init__()
+        super(quantization_layer2, self).__init__()
 
         self.embed = nn.Parameter(torch.zeros(num_emb, emb_dim))
         torch.nn.init.uniform_(self.embed, -1/1024, 1/1024)

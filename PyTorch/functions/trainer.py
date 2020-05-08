@@ -28,6 +28,7 @@ class flickr_trainer():
         self.scheduler = False
         self.grad_clipping = False
         self.att_loss = False
+        self.VQ = False
         # names of the features to be loaded by the batcher
         self.vis = vis
         self.cap = cap

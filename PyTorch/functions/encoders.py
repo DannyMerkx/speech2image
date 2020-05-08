@@ -277,7 +277,7 @@ class audio_conv_encoder(nn.Module):
 
 class conv_VQ_encoder(nn.Module):
     def __init__(self, config):
-        super(audio_conv_encoder, self).__init__()
+        super(conv_VQ_encoder, self).__init__()
         conv_init = config['conv_init']
         conv= config['conv']
         att = config ['att']
