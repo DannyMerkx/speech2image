@@ -15,7 +15,9 @@ import numpy as np
 import torch.autograd
 #########################attention layer for rnns##############################
         
-# class for making multi headed attenders. 
+# class for making multi headed attention layers. This is not attention as used
+# in Transformer architectures, I use this layer as an alternative to mean/max
+# pooling over time to create sentence embeddings.  
 class multi_attention(nn.Module):
     def __init__(self, in_size, hidden_size, n_heads):
         super(multi_attention, self).__init__()
@@ -49,51 +51,72 @@ class attention(nn.Module):
         x = torch.sum(self.alpha * input, 1)
         # return the resulting embedding
         return x   
+###############################################################################
 
-class quantization_layer(nn.Module):
+####################### Vector Quantization layer #############################
+# this implementation is taken from zalando research on github. It also has
+# Exponential moving average updating.
+class VQ_EMA_layer(nn.Module):
     def __init__(self, num_emb, emb_dim):
-        super(quantization_layer, self).__init__()
+        super(VQ_EMA_layer, self).__init__()
         self.emb_dim = emb_dim
         self.num_emb = num_emb
         self.embed = nn.Embedding(num_emb, emb_dim)
-        self.embed.weight.data.uniform_(self.embed, -1/num_emb, 1/num_emb)
+        self.embed.weight.data.normal_()
+
+        self.register_buffer('_ema_cluster_size', torch.zeros(num_emb))
+        self._ema_w = nn.Parameter(torch.Tensor(num_emb, emb_dim))
+        self._ema_w.data.normal_()
+
+        self._decay = 0.99
+        self._epsilon = 1e-5
+        
     def forward(self, input):
         input = input.permute(0, 2, 1).contiguous()
         input_shape = input.shape
         # Flatten input
         flat_input = input.view(-1, self.emb_dim)
-        
+
         # Calculate distances
-        distances = (torch.sum(flat_input**2, dim = 1, keepdim = True) 
+        distances = (torch.sum(flat_input**2, dim = 1, keepdim = True)
                     + torch.sum(self.embed.weight**2, dim = 1)
                     - 2 * torch.matmul(flat_input, self.embed.weight.t()))
-            
+
         # Encoding
         encoding_indices = torch.argmin(distances, dim=1).unsqueeze(1)
-        encodings = torch.zeros(encoding_indices.shape[0], 
+        encodings = torch.zeros(encoding_indices.shape[0],
                                 self.num_emb, device = input.device)
         encodings.scatter_(1, encoding_indices, 1)
-        
+
         # Quantize and unflatten
-        quantized = torch.matmul(encodings, 
+        quantized = torch.matmul(encodings,
                                  self.embed.weight).view(input_shape)
+
+        self._ema_cluster_size = self._ema_cluster_size * self._decay + \
+                                     (1 - self._decay) * torch.sum(encodings, 0)
+
+        # Laplace smoothing of the cluster size
+        n = torch.sum(self._ema_cluster_size.data)
+        self._ema_cluster_size = (
+                (self._ema_cluster_size + self._epsilon)
+                / (n + self.num_emb * self._epsilon) * n)
+
+        dw = torch.matmul(encodings.t(), flat_input)
+        self._ema_w = nn.Parameter(self._ema_w * self._decay + (1 - self._decay) * dw)
         
+        self.embed.weight = nn.Parameter(self._ema_w / self._ema_cluster_size.unsqueeze(1))
         # Loss
         e_latent_loss = torch.nn.functional.mse_loss(quantized.detach(), input)
-        q_latent_loss = torch.nn.functional.mse_loss(quantized, input.detach())
-        loss = q_latent_loss + 0.25 * e_latent_loss
-        
+        #q_latent_loss = torch.nn.functional.mse_loss(quantized, input.detach())
+        loss = 0.25 * e_latent_loss
+
         quantized = input + (quantized - input).detach()
-        #avg_probs = torch.mean(encodings, dim=0)
-        #perplexity = torch.exp(-torch.sum(avg_probs * torch.log(avg_probs + 1e-10)))
-        
+        avg_probs = torch.mean(encodings, dim=0)
+        perplexity = torch.exp(-torch.sum(avg_probs * torch.log(avg_probs + 1e-10)))
         # convert quantized from BHWC -> BCHW
         return quantized.permute(0, 2, 1).contiguous(), loss
-
-# quantization layer is an embedding layer which uses a costum embedding
-# function. It takes input activations from the previous layer, and maps them
-# to the closes embedding. upon calling backward, the output gradient for this
-# layer is directly passed to the layer beneath.
+                                                                                         
+# this layer is my own attempt at a VQ layer. 
 class quantization_layer2(nn.Module):
     def __init__(self, num_emb, emb_dim):
         super(quantization_layer2, self).__init__()
@@ -137,19 +160,22 @@ class quantization_emb(torch.autograd.Function):
     @staticmethod
     def backward(ctx, emb_output, dist_output):
         return emb_output, None
-    
-# residual convolution block with 4 conv layers and 2 residual connections
+
+###################### residual convolutional layer ###########################
+# residual convolution block as used by Harwath et al. in DAVE-net. it is a
+# residual convolution block with 4 conv layers and 2 residual connections that
+# should, depending on your kernel and stride size, correctly resize the dims.
 class res_conv(nn.Module):
     def __init__(self, in_channels, out_channels, ks, stride):
         super(res_conv, self).__init__()   
-        # check if the input is being downsampled and if the number of channels
-        # increases. 
+        # the first layer can optionally downsample the time dimension and 
+        # change the number of channels. If this happens we need to downsample
+        # and up/downscale the residuals as well.
         self.req_downsample = stride != 1
-        # if the number of channels is changed, the residual needs to upscale
-        self.req_residual_dims = in_channels != out_channels
-        # only works for uneven kernel sizes and even strides.
+        # if the number of channels is changed, residual needs an up/downscale
+        self.req_rescale = in_channels != out_channels
+        # only works for uneven kernel sizes and even strides
         pad = int((ks -1)/ 2)
-        # the first layer can optionally downsample the time dimesion
         self.conv_1 = nn.Sequential(nn.Conv1d(in_channels, out_channels, 
                                               kernel_size = ks, 
                                               stride = stride, padding = pad),
@@ -172,9 +198,10 @@ class res_conv(nn.Module):
                                     )
         
         self.relu = nn.functional.relu
-        
+        # layer to downsample the residual using maxpool
         self.downsample = nn.MaxPool1d(stride, stride, padding = 0)
-        self.residual_dims = nn.Conv1d(in_channels, out_channels, 
+        # layer to up or downscale the residual channels
+        self.rescale = nn.Conv1d(in_channels, out_channels, 
                                        kernel_size = 1, stride = 1)
            
     def forward(self, input):
@@ -187,8 +214,8 @@ class res_conv(nn.Module):
             if not input.size(-1)%2 == 0:
                 residual = nn.functional.pad(residual, [0, 1])
             residual = self.downsample(residual)
-        if self.req_residual_dims:
-            residual = self.residual_dims(residual)
+        if self.req_rescale:
+            residual = self.rescale(residual)
             
         residual = self.relu(conv_out_1 + residual)
         

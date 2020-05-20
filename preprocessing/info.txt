@@ -2,14 +2,11 @@ This folder contains all the scripts to create visual features and caption featu
 the appropriate format in an h5 file. 
 
 The prep_*.py  files are the main scripts to run which call all other functions and delivers an h5 file with the specified features. 
-I did not try to create a catch all preparation file for all datasets because the datasets are too different. 
+I did not try to create a catch all preparation file for all datasets because the datasets are too different. Places has 1 spoken
+caption per image, flickr has 5 written and 5 spoken captions per image and mscoco has 5 written captions per image. 
 
-aud_feat_functions : functions to create the audio features e.g. filterbanks, mfcc etc.
 aud_features : main script to create the features and save them in the appropriate file. 
-aud_preproc : preprocessing of the audio
-filters : functions to make the filters for the filterbank features
-melfreq : functions to convert hz to mel and vice versa
-places_cleanup : cleans up the places database (i.e. there are images without captions and empty speech files etc. it's a mess)
+places_cleanup : cleans up the places database (i.e. there are images without captions and empty speech files)
 prep_coco : prepare the ms coco database, add visual features, raw text and tokenised text
 prep_flickr : prepare the flickr database, add visual features, raw text, tokenised text and audio features
 prep_places : prepare the places database, add visual features and audio features
@@ -17,15 +14,15 @@ text_features : functions to read the database's text captions and tokenise them
 visual_features : load pretrained pytorch models and create visual features for images. 
 
 It is important to note that all these functions are made to create a h5 file containing all data for all features. 
-The structure is: file -> root -> node_1 -> feature_1(e.g. vgg16)-> caption 1
-                                                                 -> caption 2 
-                                                                 -> caption n
+The structure is: file -> root -> node_1 -> feature_1(e.g. resnet)-> caption 1
+                                                                  -> caption 2 
+                                                                  -> caption n
                                          
-                                         -> feature_2(tokens)    -> caption 1
-                                                                 -> caption 2
-                                                                 -> caption n
-                                         -> feature_3(audio)     -> caption 1 
-                                                                 -> etc.
+                                         -> feature_2(tokens)     -> caption 1
+                                                                  -> caption 2
+                                                                  -> caption n
+                                         -> feature_3(audio)      -> caption 1 
+                                                                  -> etc.
                                          -> etc.
  
                                -> node_2 -> feature_1
@@ -35,4 +32,5 @@ Furthermore for places and coco the nodes (each node is an individual data sampl
 
 The names for the nodes are by my convention the name of the image file. This makes it easier to associate the data with the nodes and makes sure a list of image and audio file locations are enough to find all data and add it to the right node (as is the case in flickr). In mscoco the captions in the caption file contain an image id making it easy to associate with the node. 
 
-After creating the features use the scripts in the dictionaries folder to make the appropriate dictionaries for token based networks.
+After creating the features use the scripts in the dictionaries folder to make the appropriate dictionaries for token based networks. A dictionary for training a text based model
+should give each unique word token in your training data a unique index > 0 so the words can be mapped to embedding layer indices during training. 0 should be reserved for padding.

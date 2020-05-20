@@ -13,10 +13,16 @@ import tables
 
 from visual_features import vis_feats
 from audio_features import audio_features
+from pathlib import Path
 
-vis = ['resnet', 'vgg19']
-speech = ['fbanks', 'mfcc']
+# places is a rather large dataset, be prepared for 20-60GB of extra data just
+# by adding another feature type. vis features can be resnet, vgg19,
+# resnet_trunc or raw
+vis = ['resnet']
+# speech features can be raw, freq_spectrum, fbanks or mfcc
+speech = ['mfcc']
 
+data_loc = '/prep_data/places_features.h5'
 def batcher(batch_size, img_audio):
     keys = [x for x in img_audio]
     for start_idx in range(0, len(img_audio) - 1, batch_size):
@@ -63,22 +69,26 @@ for wav in wavs:
     wav = wav.split()
     img_audio[wav[0].replace('-','_')] = img_audio[wav[0].replace('-','_')], [wav[1]]
     
-# create h5 output file for preprocessed images and audio
-output_file = tables.open_file('/prep_data/places_features.h5', mode='a')
-
 
 # we need to append something to the flickr files names because pytable group 
 # names cannot start with integers.
 append_name = 'places_'
 
-# the size of this database is bigger than the maximum amount of children
-# a single node can have. I split the database smaller 10k subgroups.
-count = 0
-for batch in batcher(10000, img_audio):
-    node = output_file.create_group('/', 'subgroup_' + str(count))
-    for x in batch:
-        output_file.create_group(node, append_name + x.split('.')[0])
-    count +=1
+if not Path(data_loc).is_file():
+    # create h5 output file for preprocessed images and audio
+    output_file = tables.open_file(data_loc, mode='a') 
+    count = 0
+    # the size of this database is bigger than the maximum amount of children
+    # a single node can have. I split the database smaller 10k subgroups.
+    for batch in batcher(10000, img_audio):
+        node = output_file.create_group('/', 'subgroup_' + str(count))
+        for x in batch:
+            output_file.create_group(node, append_name + x.split('.')[0])
+        count +=1
+else:
+    # create h5 output file for preprocessed images and audio
+    output_file = tables.open_file(data_loc, mode='a')
+
 
 node_list = []
 subgroups = output_file.root._f_list_nodes()
@@ -86,40 +96,28 @@ for subgroup in subgroups:
     node_list = node_list + subgroup._f_list_nodes()
 
 # create the vgg16 features for all images  
-for x in vis: 
-    vis_feats(img_path, output_file, append_name, img_audio, node_list, x) 
+for ftype in vis: 
+    vis_feats(img_path, output_file, append_name, img_audio, node_list, ftype) 
 ######### parameter settings for the audio preprocessing ###############
-# option for which audio feature to create (options are mfcc, fbanks, 
-# freq_spectrum and raw)
-feat = ''
-params = []
-# set alpha for the preemphasis
-alpha = 0.97
-# set the number of desired filterbanks
-nfilters = 40
-# windowsize and shift in seconds
-t_window = .025
-t_shift = .010
-# option to include delta and double delta features
-use_deltas = True
-# option to include frame energy
-use_energy = True
-# put paramaters in a list
-params.append(alpha)
-params.append(nfilters) 
-params.append(t_window)
-params.append(t_shift)
-params.append(feat)
-params.append(output_file)
-params.append(use_deltas)
-params.append(use_energy)
+# put the parameters in a dictionary
+params = {}
+params['alpha'] = 0.97
+params['nfilters'] = 40
+params['ncep'] = 13
+params['t_window'] = .025
+params['t_shift'] = 0.01
+params['feat'] = ''
+params['output_file'] = output_file
+params['use_deltas'] = True
+params['use_energy'] = True
+params['windowing'] = np.hamming
+params['delta_n'] = 2
 #############################################################################
 
 # create the audio features for all captions
 for ftype in speech:
-    params[4] = x
+    params['feat'] = ftype
     audio_features(params, img_audio, audio_path, append_name, node_list)
-
 
 # close the output files
 output_file.close()

@@ -175,3 +175,4 @@ def audio_features (params, img_audio, audio_path, append_name, node_list):
             # features could be created
             output_file.remove_node(node, recursive = True)
     print(invalid)
+    print(f'There were {len(invalid)} files that could not be processed')
