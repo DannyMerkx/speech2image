@@ -14,7 +14,7 @@ import torch.nn as nn
 
 from costum_layers import (multi_attention, transformer_encoder, 
                            transformer_decoder, transformer, 
-                           quantization_layer, res_conv)
+                           VQ_EMA_layer, res_conv)
 from collections import defaultdict
 
 #################### functions for loading word embeddings ####################
@@ -141,6 +141,7 @@ class quantized_encoder(nn.Module):
 
 # rnn encoder for audio (mfcc, mbn etc.) start with convolution for temporal 
 # subsampling followed by n rnn layers and (multi)attention pooling.
+# expects input of dimensions Batch/Features/Time
 class audio_rnn_encoder(nn.Module):
     def __init__(self, config):
         super(audio_rnn_encoder, self).__init__()
@@ -167,11 +168,12 @@ class audio_rnn_encoder(nn.Module):
                                    )
         
     def forward(self, input, l):
+        # conv1d expects Batch/Feats/Time
         x = self.Conv(input)
         # correct the lengths after the convolution subsampling
         cor = lambda l, ks, stride : int((l - (ks - stride)) / stride)
         l = [cor(y, self.Conv.kernel_size[0], self.Conv.stride[0]) for y in l]
-        
+        # RNNs expects Batch/Time/Feats
         x = torch.nn.utils.rnn.pack_padded_sequence(x.transpose(2, 1), l, 
                                                     batch_first = True, 
                                                     enforce_sorted = False
@@ -315,11 +317,15 @@ class conv_VQ_encoder(nn.Module):
         
         self.VQ = quantization_layer(1024, 256)
     def forward(self, input, l):
+        # input is B/Ch/SL
         x = self.Conv(input)
+        # x is B/Ch/SL
         x = self.conv2(self.conv1(x))
+        # x is  B/Ch/SL
         x, self.VQ_loss = self.VQ(x)
+        # x is B/Ch/SL
         x = self.conv4(self.conv3(x)).permute(0,2,1)
-        
+        # X is B/SL/CH
         x = nn.functional.normalize(self.att(x), p=2, dim=1)    
         return x
 

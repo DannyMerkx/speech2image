@@ -61,60 +61,66 @@ class VQ_EMA_layer(nn.Module):
         super(VQ_EMA_layer, self).__init__()
         self.emb_dim = emb_dim
         self.num_emb = num_emb
+        # create the embedding layer and initialise with normal distribution
         self.embed = nn.Embedding(num_emb, emb_dim)
-        self.embed.weight.data.normal_()
+        self.embed.weight.data.uniform_(-1/num_emb, 1/num_emb)
 
         self.register_buffer('_ema_cluster_size', torch.zeros(num_emb))
-        self._ema_w = nn.Parameter(torch.Tensor(num_emb, emb_dim))
-        self._ema_w.data.normal_()
+        self._ema_w = self.embedding.clone()
 
         self._decay = 0.99
         self._epsilon = 1e-5
-        
+    # expected input dimensions is Batch/Channels/Signal-Length   
     def forward(self, input):
-        input = input.permute(0, 2, 1).contiguous()
         input_shape = input.shape
-        # Flatten input
-        flat_input = input.view(-1, self.emb_dim)
+        # flatten accross B/SL dims
+        flat_input = input.detach().view(-1, self.emb_dim)
 
-        # Calculate distances
+        # matrix of dists between inputs and embeddings
         distances = (torch.sum(flat_input**2, dim = 1, keepdim = True)
                     + torch.sum(self.embed.weight**2, dim = 1)
-                    - 2 * torch.matmul(flat_input, self.embed.weight.t()))
+                    - 2.0 * torch.matmul(flat_input, self.embed.weight.t()))
 
-        # Encoding
-        encoding_indices = torch.argmin(distances, dim=1).unsqueeze(1)
-        encodings = torch.zeros(encoding_indices.shape[0],
-                                self.num_emb, device = input.device)
-        encodings.scatter_(1, encoding_indices, 1)
-
+        # Retrieve for each input the index of the closest embedding
+        encoding_indices = torch.argmin(distances, dim = -1).unsqueeze(1)
+        #encodings = torch.zeros(encoding_indices.shape[0],
+        #                        self.num_emb, device = input.device)
+        #encodings.scatter_(1, encoding_indices, 1)
+        encodings = nn.functional.one_hot(encoding_indices, self.num_emb).float()
         # Quantize and unflatten
         quantized = torch.matmul(encodings,
                                  self.embed.weight).view(input_shape)
-
-        self._ema_cluster_size = self._ema_cluster_size * self._decay + \
+        if self.training:
+            self._ema_cluster_size = self._ema_cluster_size * self._decay + \
                                      (1 - self._decay) * torch.sum(encodings, 0)
-
-        # Laplace smoothing of the cluster size
-        n = torch.sum(self._ema_cluster_size.data)
-        self._ema_cluster_size = (
-                (self._ema_cluster_size + self._epsilon)
-                / (n + self.num_emb * self._epsilon) * n)
-
-        dw = torch.matmul(encodings.t(), flat_input)
-        self._ema_w = nn.Parameter(self._ema_w * self._decay + (1 - self._decay) * dw)
-        
-        self.embed.weight = nn.Parameter(self._ema_w / self._ema_cluster_size.unsqueeze(1))
+    
+            # Laplace smoothing of the cluster size
+            n = torch.sum(self._ema_cluster_size.data)
+            self._ema_cluster_size = ((self._ema_cluster_size + self._epsilon)
+                                      / (n + self.num_emb * self._epsilon) * n
+                                      )
+    
+            dw = torch.matmul(encodings.t(), flat_input)
+            self._ema_w = nn.Parameter(self._ema_w * self._decay + 
+                                       (1 - self._decay) * dw)
+            
+            self.embed.weight = nn.Parameter(self._ema_w / 
+                                             self._ema_cluster_size.unsqueeze(1)
+                                             )
         # Loss
-        e_latent_loss = torch.nn.functional.mse_loss(quantized.detach(), input)
+        e_latent_loss = torch.nn.functional.mse_loss(input, quantized.detach())
         #q_latent_loss = torch.nn.functional.mse_loss(quantized, input.detach())
         loss = 0.25 * e_latent_loss
 
         quantized = input + (quantized - input).detach()
-        avg_probs = torch.mean(encodings, dim=0)
-        perplexity = torch.exp(-torch.sum(avg_probs * torch.log(avg_probs + 1e-10)))
+        avg_probs = torch.mean(encodings, dim = 0)
+        perplexity = torch.exp(-torch.sum(avg_probs * torch.log(avg_probs 
+                                                                + 1e-10
+                                                                )
+                                          )
+                               )
         # convert quantized from BHWC -> BCHW
-        return quantized.permute(0, 2, 1).contiguous(), loss
+        return quantized, loss
                                                                                          
 # this layer is my own attempt at a VQ layer. 
 class quantization_layer2(nn.Module):
