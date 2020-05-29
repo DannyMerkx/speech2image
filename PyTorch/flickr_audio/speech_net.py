@@ -18,9 +18,9 @@ sys.path.append('../functions')
 from trainer import flickr_trainer
 from costum_loss import batch_hinge_loss, ordered_loss, attention_loss
 from costum_scheduler import cyclic_scheduler
-from encoders import (img_encoder, audio_rnn_encoder, audio_conv_encoder, 
-                      quantized_encoder, conv_VQ_encoder)
+
 from data_split import split_data_flickr
+from encoder_configs import create_encoders
 ##################################### parameter settings ######################
 
 parser = argparse.ArgumentParser(description = 
@@ -54,37 +54,10 @@ parser.add_argument('-gradient_clipping', type = bool, default = False,
                     help ='use gradient clipping, default: False')
 
 args = parser.parse_args()
+use_VQ_loss = True
 
-# create config dictionaries with all the parameters for your encoders
-audio_config = {'conv':{'in_channels': 39, 'out_channels': 64, 
-                        'kernel_size': 6, 'stride': 2,'padding': 0, 
-                        'bias': False
-                        }, 
-                'rnn':{'input_size': 64, 'hidden_size': 1024, 'num_layers': 4, 
-                       'batch_first': True, 'bidirectional': True, 
-                       'dropout': 0, 'max_len':512
-                       }, 
-               'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1}
-               }
-
-audio_config = {'conv_init':{'in_channels': 39, 'out_channels': 128, 
-                             'kernel_size': 1, 'stride': 1, 'padding': 0,
-                             },
-                'conv':{'in_channels': [128, 128, 256, 512], 
-                        'out_channels': [128, 256, 512, 1024], 
-                        'kernel_size': [9, 9, 9, 9], 'stride': [2, 2, 2, 2]
-                        },
-                'att':{'in_size': 1024, 'hidden_size': 128, 'heads': 1},
-                'max_len': 1024
-                }
-
-
-# automatically adapt the image encoder output size to the size of the caption
-# encoder
-#out_size = audio_config['rnn']['hidden_size'] * 2 ** \
-#           audio_config['rnn']['bidirectional'] * audio_config['att']['heads']
-out_size = 1024           
-image_config = {'linear':{'in_size': 2048, 'out_size': out_size}, 'norm': True}
+# create encoders using presets defined in encoder_configs
+img_net, cap_net = create_encoders('rnn')
 
 # open the data file
 data_file = tables.open_file(args.data_loc, mode='r+') 
@@ -107,10 +80,6 @@ f_nodes = [node for node in read_data(data_file)]
 train, test, val = split_data_flickr(f_nodes, args.split_loc)
 
 ############################### Neural network setup ##########################
-
-# network modules
-img_net = img_encoder(image_config)
-cap_net = conv_VQ_encoder(audio_config)
 
 # Adam optimiser. I found SGD to work terribly and could not find appropriate 
 # parameter settings for it.
@@ -137,6 +106,9 @@ trainer.set_optimizer(optimizer)
 trainer.set_audio_batcher()
 trainer.set_lr_scheduler(cyclic_scheduler, 'cyclic')
 trainer.set_att_loss(attention_loss)
+# if using a VQ layer, the trainer should use the VQ layers' loss 
+if use_VQ_loss:
+    trainer.set_VQ_loss()
 # optionally use cuda, gradient clipping and pretrained glove vectors
 if cuda:
     trainer.set_cuda()
@@ -170,7 +142,7 @@ trainer.print_test_loss()
 # calculate the recall@n
 trainer.recall_at_n(test, args.batch_size, prepend = 'test')
 
-# save the gradients for each epoch, can be usefull to select an initial 
+# save the gradients for each epoch, can be useful to select an initial 
 # clipping value.
 if args.gradient_clipping:
     trainer.save_gradients(args.results_loc)
