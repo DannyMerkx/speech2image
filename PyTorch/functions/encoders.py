@@ -95,7 +95,7 @@ class text_rnn_encoder(nn.Module):
 
 # rnn encoder for audio (mfcc, mbn etc.) start with convolution for temporal 
 # subsampling followed by n rnn layers and (multi)attention pooling.
-# expects input of dimensions Batch/Features/Time
+# expects input of dimensions Batch/Features/Time. 
 class audio_rnn_encoder(nn.Module):
     def __init__(self, config):
         super(audio_rnn_encoder, self).__init__()
@@ -111,9 +111,10 @@ class audio_rnn_encoder(nn.Module):
                                   padding = conv['padding']
                                   )
         self.RNN = nn.ModuleList()
-        for x in range(rnn['n_layers']):
+        for x in range(len(rnn['n_layers'])):
             self.RNN.append(nn.GRU(input_size = rnn['input_size'][x], 
                                    hidden_size = rnn['hidden_size'][x], 
+                                   num_layers = rnn['n_layers'][x],
                                    batch_first = rnn['batch_first'],
                                    bidirectional = rnn['bidirectional'], 
                                    dropout = rnn['dropout']
