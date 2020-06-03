@@ -16,7 +16,7 @@ def create_encoders(preset_name):
                                 }, 
                         'rnn':{'input_size': [64, 2048, 2048, 2048], 
                                'hidden_size': [1024, 1024, 1024, 1024], 
-                               'num_layers': 4, 
+                               'n_layers': 4, 
                                'batch_first': True, 'bidirectional': True, 
                                'dropout': 0, 'max_len': 512
                                }, 
@@ -45,7 +45,7 @@ def create_encoders(preset_name):
                                 }, 
                         'rnn':{'input_size': [64, 2048, 2048, 2048], 
                                'hidden_size': [1024, 1024, 1024, 1024], 
-                               'num_layers': 4, 
+                               'n_layers': 4, 
                                'batch_first': True, 'bidirectional': True, 
                                'dropout': 0, 'max_len': 512
                                }, 
