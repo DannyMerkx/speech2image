@@ -45,6 +45,8 @@ parser.add_argument('-n_epochs', type = int, default = 32,
                     help = 'number of training epochs, default: 32')
 parser.add_argument('-cuda', type = bool, default = True,
                     help = 'use cuda, default: True')
+parser.add_argument('-vq', type = bool, default = True, 
+                    help = 'use vq loss, default: True')
 # args concerning the database and which features to load
 parser.add_argument('-visual', type = str, default = 'resnet', 
                     help = 'name of the node containing the visual features, default: resnet')
@@ -54,7 +56,6 @@ parser.add_argument('-gradient_clipping', type = bool, default = False,
                     help ='use gradient clipping, default: False')
 
 args = parser.parse_args()
-use_VQ_loss = True
 
 # create encoders using presets defined in encoder_configs
 img_net, cap_net = create_encoders('rnn')
@@ -107,7 +108,7 @@ trainer.set_audio_batcher()
 trainer.set_lr_scheduler(cyclic_scheduler, 'cyclic')
 trainer.set_att_loss(attention_loss)
 # if using a VQ layer, the trainer should use the VQ layers' loss 
-if use_VQ_loss:
+if args.vq:
     trainer.set_VQ_loss()
 # optionally use cuda, gradient clipping and pretrained glove vectors
 if cuda:
@@ -123,20 +124,16 @@ if args.gradient_clipping:
 while trainer.epoch <= args.n_epochs:
     # Train on the train set
     trainer.train_epoch(train, args.batch_size)
-    #evaluate on the validation set
-    trainer.test_epoch(val, args.batch_size)
     # save network parameters
     trainer.save_params(args.results_loc)  
-    # print some info about this epoch
-    trainer.report(args.n_epochs)
-    trainer.recall_at_n(val, args.batch_size, prepend = 'validation')    
+    # print some info about this epoch and evaluation on the validation set
+    trainer.report_training(args.n_epochs, val)
 
     if args.gradient_clipping:
         # I found that updating the clip value at each epoch did not work well     
         # trainer.update_clip()
         trainer.reset_grads()
-    #increase epoch#
-    trainer.update_epoch()
+
 trainer.test_epoch(test, args.batch_size)
 trainer.print_test_loss()
 # calculate the recall@n
