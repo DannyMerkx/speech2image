@@ -100,7 +100,8 @@ class audio_rnn_encoder(nn.Module):
     def __init__(self, config):
         super(audio_rnn_encoder, self).__init__()
         conv = config['conv']
-        rnn= config['rnn']
+        rnn = config['rnn']
+        VQ = config['VQ']
         att = config ['att']
         self.max_len = rnn['max_len']
         self.Conv = nn.Conv1d(in_channels = conv['in_channels'], 
@@ -109,32 +110,54 @@ class audio_rnn_encoder(nn.Module):
                                   stride = conv['stride'], 
                                   padding = conv['padding']
                                   )
-        self.RNN = nn.GRU(input_size = rnn['input_size'], 
-                          hidden_size = rnn['hidden_size'], 
-                          num_layers = rnn['num_layers'], 
-                          batch_first = rnn['batch_first'],
-                          bidirectional = rnn['bidirectional'], 
-                          dropout = rnn['dropout']
-                          )
+        self.RNN = nn.ModuleList()
+        for x in range(rnn['n_layers']):
+            self.RNN.append(nn.GRU(input_size = rnn['input_size'][x], 
+                                   hidden_size = rnn['hidden_size'][x], 
+                                   batch_first = rnn['batch_first'],
+                                   bidirectional = rnn['bidirectional'], 
+                                   dropout = rnn['dropout']
+                                   )
+                            )
+        # VQ layers
+        self.VQ = nn.ModuleList()
+        for x in range(VQ['n_layers']):
+            self.VQ.append(VQ_EMA_layer(VQ['n_embs'][x], VQ['emb_dim'][x]))
+            
         self.att = multi_attention(in_size = att['in_size'], 
                                    hidden_size = att['hidden_size'], 
                                    n_heads = att['heads']
                                    )
+        # application order of the vq and conv layers. list with 1 bool per
+        # VQ/res_conv layer.
+        self.app_order = config['app_order']
         
     def forward(self, input, l):
-        # conv1d expects Batch/Feats/Time
-        x = self.Conv(input)
+        # keep track of amount of rnn and vq layers applied
+        r, v, self.VQ_loss = 0, 0, 0
+        x = self.Conv(input).permute(0,2,1).contiguous()
         # correct the lengths after the convolution subsampling
         cor = lambda l, ks, stride : int((l - (ks - stride)) / stride)
-        l = [cor(y, self.Conv.kernel_size[0], self.Conv.stride[0]) for y in l]
-        # RNNs expects Batch/Time/Feats
-        x = torch.nn.utils.rnn.pack_padded_sequence(x.transpose(2, 1), l, 
-                                                    batch_first = True, 
-                                                    enforce_sorted = False
-                                                    )
-        x, hx = self.RNN(x)
-        x, lens = nn.utils.rnn.pad_packed_sequence(x, batch_first = True)
+        l = [cor(y, self.Conv.kernel_size[0], self.Conv.stride[0]) for y in l]        
+        # go through the application order list. If true apply VQ else RNN
+        for i in self.app_order:
+            if i:
+                x, VQ_loss = self.VQ[v](x)
+                self.VQ_loss = VQ_loss
+                v += 1
+            else: 
+                x = self.apply_rnn(x, l, r)
+                r += 1
+                
         x = nn.functional.normalize(self.att(x), p=2, dim=1)    
+        return x
+    # function which packs sequences, applys RNN and unpacks sequence again
+    def apply_rnn(self, input, l, RNN_idx):
+        input = nn.utils.rnn.pack_padded_sequence(input, l, batch_first = True, 
+                                                  enforce_sorted = False
+                                                  )
+        x, hx = self.RNN[RNN_idx](input)
+        x, lens = nn.utils.rnn.pad_packed_sequence(x, batch_first = True)        
         return x
     
 # the network for embedding the visual features

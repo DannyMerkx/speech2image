@@ -14,14 +14,19 @@ def create_encoders(preset_name):
                                 'kernel_size': 6, 'stride': 2,'padding': 0, 
                                 'bias': False
                                 }, 
-                        'rnn':{'input_size': 64, 'hidden_size': 1024, 'num_layers': 4, 
+                        'rnn':{'input_size': [64, 2048, 2048, 2048], 
+                               'hidden_size': [1024, 1024, 1024, 1024], 
+                               'num_layers': 4, 
                                'batch_first': True, 'bidirectional': True, 
                                'dropout': 0, 'max_len': 512
                                }, 
-                       'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1},
+                        'app_order': [0, 0, 0, 0],
+                        'att':{'in_size': 2048, 'hidden_size': 128, 
+                               'heads': 1
+                               },
                        }
         # calculate the required output size of the image encoder
-        out_size = audio_config['rnn']['hidden_size'] * 2 ** \
+        out_size = audio_config['rnn']['hidden_size'][-1] * 2 ** \
                    audio_config['rnn']['bidirectional'] * audio_config['att']['heads']          
         image_config = {'linear':{'in_size': 2048, 'out_size': out_size}, 
                         'norm': True
@@ -29,6 +34,32 @@ def create_encoders(preset_name):
         img_net = img_encoder(image_config)
         cap_net = audio_rnn_encoder(audio_config)
         
+    if preset_name == 'rnn_VQ':
+        # create config dictionaries with all the parameters for your encoders
+        audio_config = {'conv':{'in_channels': 39, 'out_channels': 64, 
+                                'kernel_size': 6, 'stride': 2,'padding': 0, 
+                                'bias': False
+                                }, 
+                        'rnn':{'input_size': [64, 2048, 2048, 2048], 
+                               'hidden_size': [1024, 1024, 1024, 1024], 
+                               'num_layers': 4, 
+                               'batch_first': True, 'bidirectional': True, 
+                               'dropout': 0, 'max_len': 512
+                               }, 
+                        'app_order': [0, 1, 0, 1, 0, 0],
+                        'att':{'in_size': 2048, 'hidden_size': 128, 
+                               'heads': 1
+                               },
+                       }
+        # calculate the required output size of the image encoder
+        out_size = audio_config['rnn']['hidden_size'][-1] * 2 ** \
+                   audio_config['rnn']['bidirectional'] * audio_config['att']['heads']          
+        image_config = {'linear':{'in_size': 2048, 'out_size': out_size}, 
+                        'norm': True
+                        }
+        img_net = img_encoder(image_config)
+        cap_net = audio_rnn_encoder(audio_config)
+                
     elif preset_name == 'conv_VQ':
 
         audio_config = {'conv_init':{'in_channels': 39, 'out_channels': 128, 

@@ -161,8 +161,7 @@ class flickr_trainer():
             # cyclic and step schedulers require updating after every minibatch
             if self.scheduler == 'cyclic' or self.scheduler == 'step':
                 self.lr_scheduler.step()
-                self.iteration +=1
-        self.update_epoch()      
+                self.iteration +=1      
         self.train_loss = self.train_loss.cpu().data.numpy()/num_batches
     # test epoch
     def test_epoch(self, data, batch_size):
