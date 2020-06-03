@@ -212,7 +212,7 @@ class flickr_trainer():
         # convert data to the right pytorch tensor type
         img, cap = self.dtype(img), self.dtype(cap)  
         # set requires_grad to false to speed up test/validation epochs
-        if not self.training:
+        if not self.cap_embedder.training:
             img.requires_grad_(False)
             cap.requires_grad_(False)
         # embed the images and audio using the networks
