@@ -59,33 +59,30 @@ class attention(nn.Module):
 class VQ_EMA_layer(nn.Module):
     def __init__(self, num_emb, emb_dim):
         super(VQ_EMA_layer, self).__init__()
-        self.emb_dim = emb_dim
         self.num_emb = num_emb
-        # create the embedding layer and initialise with normal distribution
+        # create the embedding layer and initialise with uniform distribution
         self.embed = nn.Embedding(num_emb, emb_dim)
         self.embed.weight.data.uniform_(-1/num_emb, 1/num_emb)
 
         self.register_buffer('_ema_cluster_size', torch.zeros(num_emb))
-        self._ema_w = self.embed.weight.clone()
-
+        # set the exponential moving average 
+        self._ema_w = nn.Parameter(self.embed.weight.clone())
+        self._ema_w.requires_grad_(False)
         self._decay = 0.99
         self._epsilon = 1e-5
-    # expected input dimensions is Batch/Channels/Signal-Length   
+    # expected input dimensions is Batch/Signal-length/Channels
     def forward(self, input):
         input_shape = input.shape
         # flatten accross B/SL dims
-        flat_input = input.detach().view(-1, self.emb_dim)
+        flat_input = input.detach().view(-1, input_shape[-1])
 
-        # matrix of dists between inputs and embeddings
+        # matrix of distances between inputs and embeddings
         distances = (torch.sum(flat_input**2, dim = 1, keepdim = True)
                     + torch.sum(self.embed.weight**2, dim = 1)
                     - 2.0 * torch.matmul(flat_input, self.embed.weight.t()))
 
         # Retrieve for each input the index of the closest embedding
-        encoding_indices = torch.argmin(distances, dim = -1).unsqueeze(1)
-        #encodings = torch.zeros(encoding_indices.shape[0],
-        #                        self.num_emb, device = input.device)
-        #encodings.scatter_(1, encoding_indices, 1)
+        encoding_indices = torch.argmin(distances, dim = -1)
         encodings = nn.functional.one_hot(encoding_indices, self.num_emb).float()
         # Quantize and unflatten
         quantized = torch.matmul(encodings,
@@ -119,7 +116,6 @@ class VQ_EMA_layer(nn.Module):
                                                                 )
                                           )
                                )
-        # convert quantized from BHWC -> BCHW
         return quantized, loss
                                                                                          
 # this layer is my own attempt at a VQ layer. 
@@ -172,43 +168,45 @@ class quantization_emb(torch.autograd.Function):
 # residual convolution block with 4 conv layers and 2 residual connections that
 # should, depending on your kernel and stride size, correctly resize the dims.
 class res_conv(nn.Module):
-    def __init__(self, in_channels, out_channels, ks, stride):
+    def __init__(self, in_ch, out_ch, ks, stride):
         super(res_conv, self).__init__()   
         # the first layer can optionally downsample the time dimension and 
         # change the number of channels. If this happens we need to downsample
         # and up/downscale the residuals as well.
         self.req_downsample = stride != 1
         # if the number of channels is changed, residual needs an up/downscale
-        self.req_rescale = in_channels != out_channels
+        self.req_rescale = in_ch != out_ch
         # only works for uneven kernel sizes and even strides
         pad = int((ks -1)/ 2)
-        self.conv_1 = nn.Sequential(nn.Conv1d(in_channels, out_channels, 
-                                              kernel_size = ks, 
-                                              stride = stride, padding = pad),
-                                    nn.BatchNorm1d(out_channels)
+        self.conv_1 = nn.Sequential(nn.Conv1d(in_ch, out_ch, kernel_size = ks, 
+                                              stride = stride, padding = pad
+                                              ),
+                                    nn.BatchNorm1d(out_ch)
                                     )
         
-        self.conv_2 = nn.Sequential(nn.Conv1d(out_channels, out_channels, 
-                                              kernel_size = ks, padding = pad),
-                                    nn.BatchNorm1d(out_channels)
+        self.conv_2 = nn.Sequential(nn.Conv1d(out_ch, out_ch, kernel_size = ks,
+                                              padding = pad
+                                              ),
+                                    nn.BatchNorm1d(out_ch)
                                     )
         
-        self.conv_3 = nn.Sequential(nn.Conv1d(out_channels, out_channels, 
-                                              kernel_size = ks, padding = pad),
-                                    nn.BatchNorm1d(out_channels)
+        self.conv_3 = nn.Sequential(nn.Conv1d(out_ch, out_ch, kernel_size = ks,
+                                              padding = pad
+                                              ),
+                                    nn.BatchNorm1d(out_ch)
                                     )
         
-        self.conv_4 = nn.Sequential(nn.Conv1d(out_channels, out_channels, 
-                                              kernel_size = ks, padding = pad),
-                                    nn.BatchNorm1d(out_channels)
+        self.conv_4 = nn.Sequential(nn.Conv1d(out_ch, out_ch, kernel_size = ks, 
+                                              padding = pad
+                                              ),
+                                    nn.BatchNorm1d(out_ch)
                                     )
         
         self.relu = nn.functional.relu
         # layer to downsample the residual using maxpool
         self.downsample = nn.MaxPool1d(stride, stride, padding = 0)
         # layer to up or downscale the residual channels
-        self.rescale = nn.Conv1d(in_channels, out_channels, 
-                                       kernel_size = 1, stride = 1)
+        self.rescale = nn.Conv1d(in_ch, out_ch, kernel_size = 1, stride = 1)
            
     def forward(self, input):
         residual = input
@@ -217,7 +215,7 @@ class res_conv(nn.Module):
         # match conv_out
         if self.req_downsample:
             # if the input size was uneven, a onesided 0 pad is required.
-            if not input.size(-1)%2 == 0:
+            if not input.size(-1) % 2 == 0:
                 residual = nn.functional.pad(residual, [0, 1])
             residual = self.downsample(residual)
         if self.req_rescale:

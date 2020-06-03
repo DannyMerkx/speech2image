@@ -20,7 +20,8 @@ class evaluate():
         self.embed_function_2 = embed_function_2
         # set dist to cosine by default
         self.dist = self.cosine
-    # embed the captions and images
+    # embed the captions and images (usefull if not running a test epoch
+    # before calculating R@N for some reason)
     def embed_data(self, iterator):
         # set to evaluation mode
         self.embed_function_1.eval()
@@ -36,8 +37,7 @@ class evaluate():
             # embed the data
             img = self.embed_function_1(img)
             cap = self.embed_function_2(cap, lengths)
-            # reverse the sorting by length such that the data is in the same 
-            # order for all 5 captions.
+
             caption = torch.cat((caption, cap.data))
             image = torch.cat((image, img.data))
         # set the image and caption embeddings as class values.
