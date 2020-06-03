@@ -56,9 +56,6 @@ def prep_tencrop(im, model):
     im = torch.cat([normalise(tens(x)).unsqueeze(0) for x in im])
     if torch.cuda.is_available():
         im = im.cuda()
-    # expand greyscale images to 3 channels so the visual networks accept them
-    if not im.size()[1] == 3:
-        im = im.expand(im.size()[0], 3, im.size()[2], im.size()[3])
     activations = model(im)
     return activations.mean(0).squeeze()
 
@@ -75,9 +72,6 @@ def prep_resize(im, model):
     im = normalise(tens(im))
     if torch.cuda.is_available():
         im = im.cuda()
-    # expand greyscale images to 3 channels so the visual networks accept them
-    if not im.size()[0] == 3:
-        im = im.expand(3, im.size()[2], im.size()[3])
     activations = model(im.unsqueeze(0))
     return activations.squeeze()
 # just normalised and rescaled raw images, for training a costum visual 
@@ -93,8 +87,6 @@ def prep_raw(im, model):
     im = torch.cat([normalise(tens(x)).unsqueeze(0) for x in im])
     if torch.cuda.is_available():
         im = im.cuda()
-    if not im.size()[1] == 3:
-        im = im.expand(im.size()[0], 3, im.size()[2], im.size()[3])
     return im
 
 def vis_feats(img_path, output_file, append_name, img_audio, node_list, net):
@@ -137,7 +129,7 @@ def vis_feats(img_path, output_file, append_name, img_audio, node_list, net):
         if '/' in node_name:
                 node_name = node_name.split('/')[-1]
         
-        im = PIL.Image.open(os.path.join(img_path, img_file))
+        im = PIL.Image.open(os.path.join(img_path, img_file)).convert('RGB')
         activations = get_activations(im, model)
 
         # create a new node 

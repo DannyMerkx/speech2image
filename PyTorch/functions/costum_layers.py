@@ -66,7 +66,7 @@ class VQ_EMA_layer(nn.Module):
         self.embed.weight.data.uniform_(-1/num_emb, 1/num_emb)
 
         self.register_buffer('_ema_cluster_size', torch.zeros(num_emb))
-        self._ema_w = self.embedding.clone()
+        self._ema_w = self.embed.weight.clone()
 
         self._decay = 0.99
         self._epsilon = 1e-5

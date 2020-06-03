@@ -315,7 +315,8 @@ class conv_VQ_encoder(nn.Module):
                                    n_heads = att['heads']
                                    )
         
-        self.VQ = quantization_layer(1024, 256)
+        self.VQ = VQ_EMA_layer(1024, 256)
+        
     def forward(self, input, l):
         # input is B/Ch/SL
         x = self.Conv(input)

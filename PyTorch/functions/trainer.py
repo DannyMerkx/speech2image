@@ -134,7 +134,7 @@ class flickr_trainer():
             img_embedding, cap_embedding = self.embed(img, cap, lengths)
             # calculate the loss
             loss = self.loss(img_embedding, cap_embedding, self.dtype)
-            if self.VQ:
+            if hasattr(self.cap_embedder, 'use_VQ_loss'):
                 loss += self.cap_embedder.VQ_loss
             # optionally calculate the attention loss for multihead attention
             if self.att_loss:

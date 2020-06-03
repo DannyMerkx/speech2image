@@ -141,7 +141,7 @@ def audio_features (params, img_audio, audio_path, append_name, node_list):
                                      highfreq = None, 
                                      preemph = params['alpha'], ceplifter = 0, 
                                      appendEnergy = params['use_energy'], 
-                                     winfunc= params['windowing']
+                                     winfunc = params['windowing']
                                      )
             
             # optionally add the frame energy
