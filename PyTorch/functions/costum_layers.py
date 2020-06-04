@@ -141,7 +141,7 @@ class VQ_EMA_layer(nn.Module):
         flat_input = input.view(-1, input_shape[-1])
         
         quantized, encodings = self.quant_emb(flat_input, self.embed)
-        
+        quantized = quantized.view(input_shape)
         if self.training:
             self._ema_cluster_size = self._ema_cluster_size * self._decay + \
                                      (1 - self._decay) * torch.sum(encodings, 0)
