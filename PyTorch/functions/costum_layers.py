@@ -200,17 +200,16 @@ class quantization_layer2(nn.Module):
 # skipping the gradient for this layer. 
 class quantization_emb(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, input, weight):
-        shape = weight.size()
+    def forward(ctx, input, emb):
         i_norm = (input**2).sum(1).view(-1, 1)
-        w_norm = (weight**2).sum(1).view(1, -1)
+        w_norm = (emb.weight**2).sum(1).view(1, -1)
 
         dist = i_norm + w_norm - 2.0 * torch.mm(input,
-                                                torch.transpose(weight, 0, 1)) 
+                                                torch.transpose(emb.weight, 0, 1)) 
         idx = dist.argmin(1)
         #print(inds.float().mean())       
-        one_hot = nn.functional.one_hot(idx, shape[0]).float()
-        embs = torch.mm(one_hot, weight)
+        one_hot = nn.functional.one_hot(idx, emb.num_embeddings).float()
+        embs = torch.mm(one_hot, emb.weight)
         #dist_err = 1 - torch.mm(input, output.t())
         return embs, one_hot
 
