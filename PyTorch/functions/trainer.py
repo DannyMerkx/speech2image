@@ -231,6 +231,8 @@ class flickr_trainer():
         if val:
             print(f'Validation loss: {self.test_loss:.6f}')
             # calculate the recall@n on the validation set
+            self.evaluator.caption_embeddings = self.caption_embeddings
+            self.evaluator.image_embeddings = self.image_embeddings
             self.recall_at_n(val, prepend = 'validation') 
     
     def report_test(self, test):
@@ -238,6 +240,8 @@ class flickr_trainer():
         self.test_epoch(test, 100)
         print(f'Test loss: {self.test_loss:.6f}')
         # calculate the recall@n on the test set
+        self.evaluator.caption_embeddings = self.caption_embeddings
+        self.evaluator.image_embeddings = self.image_embeddings
         self.recall_at_n(test, prepend = 'test')
 
     # create an evaluator object
