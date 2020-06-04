@@ -152,7 +152,7 @@ class audio_rnn_encoder(nn.Module):
                 
         x = nn.functional.normalize(self.att(x), p=2, dim=1)    
         return x
-    # function which packs sequences, applys RNN and unpacks sequence again
+    # function to pack sequences, apply RNN and unpack sequence again
     def apply_rnn(self, input, l, RNN_idx):
         input = nn.utils.rnn.pack_padded_sequence(input, l, batch_first = True, 
                                                   enforce_sorted = False

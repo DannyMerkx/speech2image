@@ -23,7 +23,7 @@ def create_encoders(preset_name):
                         'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1
                                },
                         'VQ':{'n_layers': 0, 'n_embs': [], 'emb_dim': []},
-                        'app_order': [0, 0, 0, 0]
+                        'app_order': [0]
                         }
         # calculate the required output size of the image encoder
         out_size = audio_config['rnn']['hidden_size'][-1] * 2 ** \

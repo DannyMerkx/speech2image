@@ -134,10 +134,7 @@ while trainer.epoch <= args.n_epochs:
         # trainer.update_clip()
         trainer.reset_grads()
     trainer.update_epoch()
-trainer.test_epoch(test, args.batch_size)
-trainer.print_test_loss()
-# calculate the recall@n
-trainer.recall_at_n(test, args.batch_size, prepend = 'test')
+trainer.report_test(test)
 
 # save the gradients for each epoch, can be useful to select an initial 
 # clipping value.
