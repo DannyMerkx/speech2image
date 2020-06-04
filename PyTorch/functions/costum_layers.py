@@ -56,9 +56,9 @@ class attention(nn.Module):
 ####################### Vector Quantization layer #############################
 # this implementation is taken from zalando research on github. It also has
 # Exponential moving average updating.
-class VQ_EMA_layer(nn.Module):
+class VQ_EMA_layer2(nn.Module):
     def __init__(self, num_emb, emb_dim):
-        super(VQ_EMA_layer, self).__init__()
+        super(VQ_EMA_layer2, self).__init__()
         self.num_emb = num_emb
         # create the embedding layer and initialise with uniform distribution
         self.embed = nn.Embedding(num_emb, emb_dim)
@@ -110,6 +110,61 @@ class VQ_EMA_layer(nn.Module):
         loss = 0.25 * e_latent_loss
 
         quantized = input + (quantized - input).detach()
+        avg_probs = torch.mean(encodings, dim = 0)
+        perplexity = torch.exp(-torch.sum(avg_probs * torch.log(avg_probs 
+                                                                + 1e-10
+                                                                )
+                                          )
+                               )
+        return quantized, loss
+
+class VQ_EMA_layer(nn.Module):
+    def __init__(self, num_emb, emb_dim):
+        super(VQ_EMA_layer, self).__init__()
+        self.num_emb = num_emb
+        # create the embedding layer and initialise with uniform distribution
+        self.embed = nn.Embedding(num_emb, emb_dim)
+        self.embed.weight.data.uniform_(-1/num_emb, 1/num_emb)
+
+        self.quant_emb = quantization_emb.apply
+
+        self.register_buffer('_ema_cluster_size', torch.zeros(num_emb))
+        # set the exponential moving average 
+        self._ema_w = nn.Parameter(self.embed.weight.clone())
+        self._ema_w.requires_grad_(False)
+        self._decay = 0.99
+        self._epsilon = 1e-5
+    # expected input dimensions is Batch/Signal-length/Channels
+    def forward(self, input):
+        input_shape = input.shape
+        # flatten accross B/SL dims
+        flat_input = input.view(-1, input_shape[-1])
+        
+        quantized, encodings = self.quant_emb(flat_input, self.embed)
+        
+        if self.training:
+            self._ema_cluster_size = self._ema_cluster_size * self._decay + \
+                                     (1 - self._decay) * torch.sum(encodings, 0)
+    
+            # Laplace smoothing of the cluster size
+            n = torch.sum(self._ema_cluster_size.data)
+            self._ema_cluster_size = ((self._ema_cluster_size + self._epsilon)
+                                      / (n + self.num_emb * self._epsilon) * n
+                                      )
+    
+            dw = torch.matmul(encodings.t(), flat_input)
+            self._ema_w = nn.Parameter(self._ema_w * self._decay + 
+                                       (1 - self._decay) * dw)
+            
+            self.embed.weight = nn.Parameter(self._ema_w / 
+                                             self._ema_cluster_size.unsqueeze(1)
+                                             )
+        # Loss
+        e_latent_loss = torch.nn.functional.mse_loss(input, quantized.detach())
+        #q_latent_loss = torch.nn.functional.mse_loss(quantized, input.detach())
+        loss = 0.25 * e_latent_loss
+
+        #quantized = input + (quantized - input).detach()
         avg_probs = torch.mean(encodings, dim = 0)
         perplexity = torch.exp(-torch.sum(avg_probs * torch.log(avg_probs 
                                                                 + 1e-10
