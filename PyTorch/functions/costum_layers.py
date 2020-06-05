@@ -125,26 +125,28 @@ class VQ_EMA_layer(nn.Module):
         # create the embedding layer and initialise with uniform distribution
         self.embed = nn.Embedding(num_emb, emb_dim)
         self.embed.weight.data.uniform_(-1/num_emb, 1/num_emb)
-
-        self.quant_emb = quantization_emb.apply
-
-        self.register_buffer('_ema_cluster_size', torch.zeros(num_emb))
+        
         # set the exponential moving average 
+        self.register_buffer('_ema_cluster_size', torch.zeros(num_emb))
         self._ema_w = nn.Parameter(self.embed.weight.clone())
         self._ema_w.requires_grad_(False)
         self._decay = 0.99
         self._epsilon = 1e-5
+        # set the costum autograd function for quantization
+        self.quant_emb = quantization_emb.apply
+                
     # expected input dimensions is Batch/Signal-length/Channels
     def forward(self, input):
         input_shape = input.shape
         # flatten accross B/SL dims
         flat_input = input.view(-1, input_shape[-1])
-        
-        quantized, encodings = self.quant_emb(flat_input, self.embed)
+        # retrieve the quantized input and encoding indices
+        quantized, enc_idx = self.quant_emb(flat_input, self.embed)
         quantized = quantized.view(input_shape)
+        # update the exponential moving average
         if self.training:
             self._ema_cluster_size = self._ema_cluster_size * self._decay + \
-                                     (1 - self._decay) * torch.sum(encodings, 0)
+                                     (1 - self._decay) * torch.sum(enc_idx, 0)
     
             # Laplace smoothing of the cluster size
             n = torch.sum(self._ema_cluster_size.data)
@@ -152,20 +154,19 @@ class VQ_EMA_layer(nn.Module):
                                       / (n + self.num_emb * self._epsilon) * n
                                       )
     
-            dw = torch.matmul(encodings.t(), flat_input)
+            dw = torch.matmul(enc_idx.t(), flat_input)
             self._ema_w = nn.Parameter(self._ema_w * self._decay + 
                                        (1 - self._decay) * dw)
             
             self.embed.weight = nn.Parameter(self._ema_w / 
                                              self._ema_cluster_size.unsqueeze(1)
                                              )
-        # Loss
+        # loss based on distance between input and embeddings
         e_latent_loss = torch.nn.functional.mse_loss(input, quantized.detach())
-        #q_latent_loss = torch.nn.functional.mse_loss(quantized, input.detach())
         loss = 0.25 * e_latent_loss
 
         #quantized = input + (quantized - input).detach()
-        avg_probs = torch.mean(encodings, dim = 0)
+        avg_probs = torch.mean(enc_idx, dim = 0)
         perplexity = torch.exp(-torch.sum(avg_probs * torch.log(avg_probs 
                                                                 + 1e-10
                                                                 )
@@ -195,27 +196,40 @@ class quantization_layer2(nn.Module):
         
         embs = input + (embeddings - input).detach()
         return embs.view(dims[0], dims[1], -1), l1 + l2
-    
+
+def smooth(idx):   
+    for c, i in enumerate(idx):
+        if c != 0:
+            if i != idx[c -1] and i != idx[c + 1]:
+                rand = np.random.rand()
+                if rand <0.5:
+                    idx[c] = idx[c - 1]
+                else:
+                    idx[c] = idx[c + 1]    
 # autograd function for the embedding mapping which also implements the 
 # skipping the gradient for this layer. 
 class quantization_emb(torch.autograd.Function):
     @staticmethod
     def forward(ctx, input, emb):
+        # calculate input and embedding norms and the input-emb distance
         i_norm = (input**2).sum(1).view(-1, 1)
         w_norm = (emb.weight**2).sum(1).view(1, -1)
 
-        dist = i_norm + w_norm - 2.0 * torch.mm(input,
-                                                torch.transpose(emb.weight, 0, 1)) 
-        idx = dist.argmin(1)
-        #print(inds.float().mean())       
-        one_hot = nn.functional.one_hot(idx, emb.num_embeddings).float()
-        embs = torch.mm(one_hot, emb.weight)
-        #dist_err = 1 - torch.mm(input, output.t())
-        return embs, one_hot
+        dist = i_norm + w_norm - 2.0 * \
+               torch.mm(input, torch.transpose(emb.weight, 0, 1)) 
+        # retrieve closest embedding and create onehot encoding vector   
+        idx = dist.argmin(-1)   
+        smooth(idx)
+        one_hot_idx = nn.functional.one_hot(idx, emb.num_embeddings).float()
+        quantized = torch.mm(one_hot_idx, emb.weight)
+        # return quantized input and the one_hot_idx
+        return quantized, one_hot_idx
+    
 
     @staticmethod
-    def backward(ctx, emb_output, dist_output):
-        return emb_output, None
+    def backward(ctx, grad_quant, grad_idx):
+        # simply pass the gradient of the quantized embeddings
+        return grad_quant, None
 
 ###################### residual convolutional layer ###########################
 # residual convolution block as used by Harwath et al. in DAVE-net. it is a
