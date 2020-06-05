@@ -48,7 +48,7 @@ def create_encoders(preset_name):
                                }, 
                         'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1
                                },
-                        'VQ':{'n_layers': 1, 'n_embs': [1024], 
+                        'VQ':{'n_layers': 1, 'n_embs': [64], 
                               'emb_dim': [2048]
                               },
                         'app_order': [0, 1, 0],

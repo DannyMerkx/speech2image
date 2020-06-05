@@ -58,7 +58,7 @@ parser.add_argument('-gradient_clipping', type = bool, default = False,
 args = parser.parse_args()
 
 # create encoders using presets defined in encoder_configs
-img_net, cap_net = create_encoders('rnn')
+img_net, cap_net = create_encoders('rnn_VQ')
 
 # open the data file
 data_file = tables.open_file(args.data_loc, mode='r+') 
