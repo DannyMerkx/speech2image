@@ -7,20 +7,23 @@ captions exist. Run once before creating features for the places database
 @author: danny
 """
 import os
+import json
 import glob
 
-meta_data_loc = '/data/databases/places/audio/placesaudio_distro_part_1/metadata/'
+# location of the json files
+meta_data_loc = '/vol/tensusers3/dmerkx/databases/places/'
+# location of the jpeg files
+img_path = os.path.join('/vol/tensusers3/dmerkx/databases/places/data/')
+# load metadata for the train and val sets
+val = json.load(open(os.path.join(meta_data_loc, 'val.json')))
+train = json.load(open(os.path.join(meta_data_loc, 'train.json')))
 
-img_path = os.path.join('/data/databases/places/images')
+imgs = val['data'] + train['data']
 
-file = open(os.path.join(meta_data_loc, 'utt2image'))
+imgs= [os.path.join(img_path, x['image']) for x in imgs]
 
-imgs = file.readlines()
-
-imgs = [os.path.join(img_path, x.split()[1][1:]) for x in imgs]
-
-x = glob.glob(img_path + '/*/*/*.jpg')
-y = glob.glob(img_path + '/*/*/*/*.jpg')
+x = glob.glob(img_path + '/*/*.jpg')
+y = glob.glob(img_path + '/*/*/*.jpg')
 places_data = x + y 
 
 # check if all files in the metadata are actually in the places database
@@ -29,6 +32,6 @@ print(len(union) == len(imgs))
 
 disjunct = set(places_data) - set(imgs)
 
-# remove places images for which there is no caption exists to save disk space
+# remove places images for which there is no caption to save disk space
 for x in list(disjunct):
     os.remove(x)

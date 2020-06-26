@@ -14,10 +14,12 @@ import torch
 
 # class to evaluate c2i models with mean and median rank and recall@n
 class evaluate():
-    def __init__(self, dtype, embed_function_1, embed_function_2):
+    def __init__(self, dtype, embed_function_1, embed_function_2, test_size = 1000):
         self.dtype = dtype
         self.embed_function_1 = embed_function_1
         self.embed_function_2 = embed_function_2
+	# size of the test/eval set, default is 1000 (appropriate for flickr and places) 	
+	self.test_size = test_size
         # set dist to cosine by default
         self.dist = self.cosine
     # embed the captions and images (usefull if not running a test epoch
@@ -55,10 +57,13 @@ class evaluate():
     def c2i(self):
         # total number of the embeddings
         n_emb = self.image_embeddings.size()[0]
-        # with the 5 captions per image we got 5 copies of each image embedding 
-        # get rid of the copies.
+	
         embeddings_1 = self.caption_embeddings
-        embeddings_2 = self.image_embeddings[0:n_emb//5, :]
+        # if we get 5 captions per image (e.g. flickr) we got 5 copies of each image embedding 
+        # get rid of the copies.
+	embeddings_2 = self.image_embeddings
+	if self.test_size != n_emb:
+            embeddings_2 = self.image_embeddings[0:self.test_size, :]   
         ranks = []
         for index, emb in enumerate(embeddings_1):
             sim = self.dist(emb, embeddings_2)
@@ -76,9 +81,11 @@ class evaluate():
     def i2c(self):
         # total number of embeddings
         n_emb = self.image_embeddings.size()[0]
-        # with the 5 captions per image we got 5 copies of each image embedding 
+        # if we get 5 captions per image (e.g. flickr) we got 5 copies of each image embedding 
         # get rid of the copies.
-        embeddings_1 = self.image_embeddings[0:n_emb//5, :]
+	embeddings_2 = self.image_embeddings
+	if self.test_size != n_emb:
+        	embeddings_1 = self.image_embeddings[0:self.test_size, :]
         embeddings_2 = self.caption_embeddings
         # calculate the distance for 1 img embedding at a time to save space
         ranks = []        
@@ -89,9 +96,12 @@ class evaluate():
             sorted, indices = sim.sort(descending = True)
             sorted, indices = indices.sort()
             # extract the ranks of all 5 captions and append them to the total
-            inds = [index + (x * (n_emb // 5)) for x in range (5)]
-            ranks.append(indices[inds].unsqueeze(1) + 1)
-
+	    if self.test_size != n_emb:
+            	inds = [index + (x * (n_emb // 5)) for x in range (5)]
+            	ranks.append(indices[inds].unsqueeze(1) + 1)
+            else:
+                rank = indices[np.mod(index, embeddings_2.size()[0])] + 1
+                ranks.append(rank)
         # create a 5 by n_images matrix with the rank of each correct caption
         self.ranks = torch.cat(ranks, 1)
     # calculate median rank            
