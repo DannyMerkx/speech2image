@@ -116,25 +116,27 @@ class flickr_trainer():
 
 ################## functions to perform training and testing ##################
     # training loop
-    def train_epoch(self, data, batch_size):
+    def train_epoch(self, data, batch_size, n = 100):
         print('training epoch: ' + str(self.epoch))
-        # keep track of the runtime
+        # keep track of runtime
         self.start_time = time.time()
+        # set networks to training mode
         self.img_embedder.train()
         self.cap_embedder.train()
-        # for keeping track of the average loss over all batches
+        # keep track of the average loss over all batches
         self.train_loss = 0
         num_batches = 0
         for batch in self.batcher(data, batch_size, self.cap_embedder.max_len, 
                                   shuffle = True):
-            # retrieve a minibatch from the batcher
-            img, cap, lengths = batch
             num_batches += 1
+            # retrieve a minibatch from the batcher
+            img, cap, lengths = batch           
             # embed the images and audio using the networks
             img_embedding, cap_embedding = self.embed(img, cap, lengths)
             # calculate the loss
             loss = self.loss(img_embedding, cap_embedding, self.dtype)
-            if self.VQ:
+            # add vq_loss if the cap_embedder has VQ layers
+            if hasattr(self.cap_embedder, 'VQ_loss'):
                 loss += self.cap_embedder.VQ_loss
             # optionally calculate the attention loss for multihead attention
             if self.att_loss:
@@ -153,20 +155,22 @@ class flickr_trainer():
             self.optimizer.step()
             # add loss to the running average
             self.train_loss += loss.data
-            # optionally print loss every n batches
-            if num_batches%100 == 0:
+            # print loss every n batches
+            if num_batches % n == 0:
                 print(self.train_loss.cpu().data.numpy()/num_batches)
             # cyclic and step schedulers require updating after every minibatch
             if self.scheduler == 'cyclic' or self.scheduler == 'step':
                 self.lr_scheduler.step()
-                self.iteration +=1
-                
+                self.iteration +=1      
         self.train_loss = self.train_loss.cpu().data.numpy()/num_batches
     # test epoch
     def test_epoch(self, data, batch_size):
         # set to evaluation mode to disable dropout
         self.img_embedder.eval()
         self.cap_embedder.eval()
+        # set buffers to store the embeddings
+        self.image_embeddings = self.dtype()
+        self.caption_embeddings = self.dtype()
         # keeping track of the average loss
         test_batches = 0
         self.test_loss = 0
@@ -177,8 +181,20 @@ class flickr_trainer():
             test_batches += 1      
             # embed the images and audio using the networks
             img_embedding, cap_embedding = self.embed(img, cap, lengths)
+            # store the embeddings in the buffers for later use (R@N)
+            self.caption_embeddings = torch.cat((self.caption_embeddings, 
+                                                 cap_embedding.data
+                                                 )
+                                                )
+            self.image_embeddings = torch.cat((self.image_embeddings, 
+                                               img_embedding.data
+                                               )
+                                              )                        
             # calculate the loss
             loss = self.loss(img_embedding, cap_embedding, self.dtype)
+            # add VQ loss if the cap_embedder has VQ layers
+            if hasattr(self.cap_embedder, 'VQ_loss'):
+                loss += self.cap_embedder.VQ_loss
             # optionally calculate the attention loss for multihead attention
             if self.att_loss:
                 loss += self.att_loss(self.cap_embedder.att, cap_embedding)
@@ -192,48 +208,64 @@ class flickr_trainer():
  
     # Function which combines embeddings the images and captions
     def embed(self, img, cap, lengths):
-        # cap = cap[np.argsort(- np.array(lengths))]
-        # img = img[np.argsort(- np.array(lengths))]
-        # lengths = np.array(lengths)[np.argsort(- np.array(lengths))]   
-        
         # convert data to the right pytorch tensor type
-        img, cap = self.dtype(img), self.dtype(cap)      
+        img, cap = self.dtype(img), self.dtype(cap)  
+        # set requires_grad to false to speed up test/validation epochs
+        if not self.cap_embedder.training:
+            img.requires_grad_(False)
+            cap.requires_grad_(False)
         # embed the images and audio using the networks
         img_embedding = self.img_embedder(img)
         cap_embedding = self.cap_embedder(cap, lengths)
         return img_embedding, cap_embedding
+    
 ######################## evaluation functions #################################
-    # report on the time this epoch took and the train and test loss
-    def report(self, max_epochs):
-        # report on the time and train and val loss for the epoch
+    # report time and evaluation of this training epoch
+    def report_training(self, max_epochs, val = False):
+        # run a test epoch on the validation set
+        if val:
+            self.test_epoch(val, 100)
         t =  time.time() - self.start_time
         print(f'Epoch {self.epoch} of {max_epochs} took {t}s')
-        self.print_train_loss()
-        self.print_validation_loss()
-    # print the loss values
-    def print_train_loss(self):  
         print(f'Training loss: {self.train_loss:.6f}')
-    def print_test_loss(self):        
+        if val:
+            print(f'Validation loss: {self.test_loss:.6f}')
+            # calculate the recall@n on the validation set
+            self.evaluator.caption_embeddings = self.caption_embeddings
+            self.evaluator.image_embeddings = self.image_embeddings
+            self.recall_at_n(val, prepend = 'validation') 
+    
+    def report_test(self, test):
+        # run a test epoch on the test set
+        self.test_epoch(test, 100)
         print(f'Test loss: {self.test_loss:.6f}')
-    def print_validation_loss(self):
-        print(f'Validation loss: {self.test_loss:.6f}')
-    # create and manipulate an evaluator object   
+        # calculate the recall@n on the test set
+        self.evaluator.caption_embeddings = self.caption_embeddings
+        self.evaluator.image_embeddings = self.image_embeddings
+        self.recall_at_n(test, prepend = 'test')
+
+    # create an evaluator object
     def set_evaluator(self, n):
         self.evaluator = evaluate(self.dtype, self.img_embedder, 
                                   self.cap_embedder
                                   )
         self.evaluator.set_n(n)
     # calculate the recall@n. Arguments are a set of nodes and a prepend string 
-    # (e.g. to print validation or test in front of the results)
-    def recall_at_n(self, data, batch_size, prepend):        
-        iterator = self.batcher(data, 5, self.cap_embedder.max_len, 
-                                shuffle = False)
-        # the calc_recall function calculates and prints the recall.
-        self.evaluator.embed_data(iterator)
+    # (e.g. to print validation or test in front of the results). emb = True
+    # reembeds the given data
+    def recall_at_n(self, data, prepend, emb = False):
+        # if you ran a test epoch on the data before calculating recall, the 
+        # trainer has buffered the embeddings
+        if emb:
+            iterator = self.batcher(data, 5, self.cap_embedder.max_len, 
+                                    shuffle = False)
+            # the calc_recall function calculates and prints the recall.
+            self.evaluator.embed_data(iterator)
         self.evaluator.print_caption2image(prepend, self.epoch)
         self.evaluator.print_image2caption(prepend, self.epoch)
     def fivefold_recall_at_n(self, prepend):
-        # calculates the average recall@n over 5 folds (for mscoco). 
+        # calculates the average recall@n over 5 test folds (for mscoco). 
+        # asumes regular r@n on full test set has already been calculated 
         self.evaluator.fivefold_c2i('1k ' + prepend, self.epoch)
         self.evaluator.fivefold_i2c('1k ' + prepend, self.epoch)
     # function to save parameters in a results folder

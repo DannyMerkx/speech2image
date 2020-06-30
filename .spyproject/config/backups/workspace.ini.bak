@@ -6,5 +6,5 @@ save_non_project_files = False
 
 [main]
 version = 0.2.0
-recent_files = ['PyTorch/flickr_words/word_net.py', 'PyTorch/functions/costum_layers.py', 'PyTorch/functions/evaluate.py', 'PyTorch/functions/trainer.py', 'preprocessing/audio_features.py']
+recent_files = ['preprocessing/prep_places.py', '../next_word_prediction/PyTorch/analysis/prep_exp_data.py', '../next_word_prediction/PyTorch/analysis/load_model.py', '../next_word_prediction/PyTorch/functions/encoders.py']
 

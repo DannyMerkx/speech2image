@@ -93,60 +93,15 @@ class text_rnn_encoder(nn.Module):
         # optionally load pretrained word embeddings. 
         load_word_embeddings(dict_loc, embedding_loc, self.embed.weight.data)      
 
-# rnn encoder for characters and tokens
-class quantized_encoder(nn.Module):
-    def __init__(self, config):
-        super(quantized_encoder, self).__init__()
-        embed = config['embed']
-        rnn= config['rnn']
-        att = config ['att'] 
-        self.max_len = rnn['max_len']
-        self.embed = nn.Embedding(num_embeddings = embed['num_chars'], 
-                                  embedding_dim = embed['embedding_dim'], 
-                                  sparse = embed['sparse'],
-                                  padding_idx = embed['padding_idx']
-                                  )
-        self.RNN = nn.GRU(input_size = rnn['input_size'], 
-                          hidden_size = rnn['hidden_size'], 
-                          num_layers = rnn['num_layers'], 
-                          batch_first = rnn['batch_first'],
-                          bidirectional = rnn['bidirectional'], 
-                          dropout = rnn['dropout']
-                          )
-        
-        self.quant = quantization_layer(1000, 2048)
-        
-        self.att = multi_attention(in_size = att['in_size'], 
-                                   hidden_size = att['hidden_size'], 
-                                   n_heads = att['heads']
-                                   )
-        
-    def forward(self, input, l):
-        # embedding layers expect Long tensors
-        x = self.embed(input.long())
-        x = torch.nn.utils.rnn.pack_padded_sequence(x, l, batch_first=True,
-                                                    enforce_sorted = False
-                                                    )
-        x, hx = self.RNN(x)
-        
-        x, lens = nn.utils.rnn.pad_packed_sequence(x, batch_first = True) 
-        x, self.VQ_loss = self.quant(x)
-        x = nn.functional.normalize(self.att(x), p=2, dim=1)    
-        return x
-    
-    def load_embeddings(self, dict_loc, embedding_loc):
-        # optionally load pretrained word embeddings. takes the dictionary of 
-        # words occuring in the training data and the location of the embeddings.
-        load_word_embeddings(dict_loc, embedding_loc, self.embed.weight.data) 
-
 # rnn encoder for audio (mfcc, mbn etc.) start with convolution for temporal 
 # subsampling followed by n rnn layers and (multi)attention pooling.
-# expects input of dimensions Batch/Features/Time
+# expects input of dimensions Batch/Features/Time. 
 class audio_rnn_encoder(nn.Module):
     def __init__(self, config):
         super(audio_rnn_encoder, self).__init__()
         conv = config['conv']
-        rnn= config['rnn']
+        rnn = config['rnn']
+        VQ = config['VQ']
         att = config ['att']
         self.max_len = rnn['max_len']
         self.Conv = nn.Conv1d(in_channels = conv['in_channels'], 
@@ -155,32 +110,55 @@ class audio_rnn_encoder(nn.Module):
                                   stride = conv['stride'], 
                                   padding = conv['padding']
                                   )
-        self.RNN = nn.GRU(input_size = rnn['input_size'], 
-                          hidden_size = rnn['hidden_size'], 
-                          num_layers = rnn['num_layers'], 
-                          batch_first = rnn['batch_first'],
-                          bidirectional = rnn['bidirectional'], 
-                          dropout = rnn['dropout']
-                          )
+        self.RNN = nn.ModuleList()
+        for x in range(len(rnn['n_layers'])):
+            self.RNN.append(nn.GRU(input_size = rnn['input_size'][x], 
+                                   hidden_size = rnn['hidden_size'][x], 
+                                   num_layers = rnn['n_layers'][x],
+                                   batch_first = rnn['batch_first'],
+                                   bidirectional = rnn['bidirectional'], 
+                                   dropout = rnn['dropout']
+                                   )
+                            )
+        # VQ layers
+        self.VQ = nn.ModuleList()
+        for x in range(VQ['n_layers']):
+            self.VQ.append(VQ_EMA_layer(VQ['n_embs'][x], VQ['emb_dim'][x]))
+            
         self.att = multi_attention(in_size = att['in_size'], 
                                    hidden_size = att['hidden_size'], 
                                    n_heads = att['heads']
                                    )
+        # application order of the vq and conv layers. list with 1 bool per
+        # VQ/res_conv layer.
+        self.app_order = config['app_order']
         
     def forward(self, input, l):
-        # conv1d expects Batch/Feats/Time
-        x = self.Conv(input)
+        # keep track of amount of rnn and vq layers applied
+        r, v, self.VQ_loss = 0, 0, 0
+        x = self.Conv(input).permute(0,2,1).contiguous()
         # correct the lengths after the convolution subsampling
         cor = lambda l, ks, stride : int((l - (ks - stride)) / stride)
-        l = [cor(y, self.Conv.kernel_size[0], self.Conv.stride[0]) for y in l]
-        # RNNs expects Batch/Time/Feats
-        x = torch.nn.utils.rnn.pack_padded_sequence(x.transpose(2, 1), l, 
-                                                    batch_first = True, 
-                                                    enforce_sorted = False
-                                                    )
-        x, hx = self.RNN(x)
-        x, lens = nn.utils.rnn.pad_packed_sequence(x, batch_first = True)
+        l = [cor(y, self.Conv.kernel_size[0], self.Conv.stride[0]) for y in l]        
+        # go through the application order list. If true apply VQ else RNN
+        for i in self.app_order:
+            if i:
+                x, VQ_loss = self.VQ[v](x)
+                self.VQ_loss = VQ_loss
+                v += 1
+            else: 
+                x = self.apply_rnn(x, l, r)
+                r += 1
+                
         x = nn.functional.normalize(self.att(x), p=2, dim=1)    
+        return x
+    # function to pack sequences, apply RNN and unpack sequence again
+    def apply_rnn(self, input, l, RNN_idx):
+        input = nn.utils.rnn.pack_padded_sequence(input, l, batch_first = True, 
+                                                  enforce_sorted = False
+                                                  )
+        x, hx = self.RNN[RNN_idx](input)
+        x, lens = nn.utils.rnn.pad_packed_sequence(x, batch_first = True)        
         return x
     
 # the network for embedding the visual features
@@ -232,100 +210,64 @@ class resnet_encoder(nn.Module):
         else:
             return x
 
-class audio_conv_encoder(nn.Module):
-    def __init__(self, config):
-        super(audio_conv_encoder, self).__init__()
-        conv_init = config['conv_init']
-        conv= config['conv']
-        att = config ['att']
-        self.max_len = config['max_len']
-        self.Conv = nn.Conv1d(in_channels = conv_init['in_channels'], 
-                                  out_channels = conv_init['out_channels'], 
-                                  kernel_size = conv_init['kernel_size'],
-                                  stride = conv_init['stride'], 
-                                  padding = conv_init['padding']
-                                  )
-        self.conv1 = res_conv(in_channels = conv['in_channels'][0], 
-                               out_channels = conv['out_channels'][0], 
-                               ks = conv['kernel_size'][0], 
-                               stride = conv['stride'][0]
-                               )
-        self.conv2 = res_conv(in_channels = conv['in_channels'][1], 
-                               out_channels = conv['out_channels'][1], 
-                               ks = conv['kernel_size'][1], 
-                               stride = conv['stride'][1]
-                               )
-        self.conv3 = res_conv(in_channels = conv['in_channels'][2], 
-                               out_channels = conv['out_channels'][2], 
-                               ks = conv['kernel_size'][2], 
-                               stride = conv['stride'][2]
-                               )
-        self.conv4 = res_conv(in_channels = conv['in_channels'][3], 
-                               out_channels = conv['out_channels'][3], 
-                               ks = conv['kernel_size'][3], 
-                               stride = conv['stride'][3]
-                               )               
-        self.att = multi_attention(in_size = att['in_size'], 
-                                   hidden_size = att['hidden_size'], 
-                                   n_heads = att['heads']
-                                   )
-        
-    def forward(self, input, l):
-        x = self.Conv(input)
-        x = self.conv4(self.conv3(self.conv2(self.conv1(x)))).permute(0,2,1)
-        
-        x = nn.functional.normalize(self.att(x), p=2, dim=1)    
-        return x
-
+# this is the convolutional VQ encoder proposed by Harwath et al.
+# forward function is a bit weird but allows for configuring how many VQ layers
+# to use and where they are applied instead of having to hard-code this. 
 class conv_VQ_encoder(nn.Module):
     def __init__(self, config):
         super(conv_VQ_encoder, self).__init__()
         conv_init = config['conv_init']
         conv= config['conv']
         att = config ['att']
+        VQ = config['VQ']
         self.max_len = config['max_len']
+        # initial conv over the full feature dimension
         self.Conv = nn.Conv1d(in_channels = conv_init['in_channels'], 
                                   out_channels = conv_init['out_channels'], 
                                   kernel_size = conv_init['kernel_size'],
                                   stride = conv_init['stride'], 
                                   padding = conv_init['padding']
                                   )
-        self.conv1 = res_conv(in_channels = conv['in_channels'][0], 
-                               out_channels = conv['out_channels'][0], 
-                               ks = conv['kernel_size'][0], 
-                               stride = conv['stride'][0]
-                               )
-        self.conv2 = res_conv(in_channels = conv['in_channels'][1], 
-                               out_channels = conv['out_channels'][1], 
-                               ks = conv['kernel_size'][1], 
-                               stride = conv['stride'][1]
-                               )
-        self.conv3 = res_conv(in_channels = conv['in_channels'][2], 
-                               out_channels = conv['out_channels'][2], 
-                               ks = conv['kernel_size'][2], 
-                               stride = conv['stride'][2]
-                               )
-        self.conv4 = res_conv(in_channels = conv['in_channels'][3], 
-                               out_channels = conv['out_channels'][3], 
-                               ks = conv['kernel_size'][3], 
-                               stride = conv['stride'][3]
-                               )               
+        # residual conv blocks
+        self.res_convs = nn.ModuleList()
+        for x in range(conv['n_layers']):
+            self.res_convs.append(res_conv(in_ch = conv['in_channels'][x], 
+                                           out_ch = conv['out_channels'][x], 
+                                           ks = conv['kernel_size'][x], 
+                                           stride = conv['stride'][x]
+                                           )
+                                  )
+        # VQ layers
+        self.VQ = nn.ModuleList()
+        for x in range(VQ['n_layers']):
+            self.VQ.append(VQ_EMA_layer(VQ['n_embs'][x], VQ['emb_dim'][x]))
+            
+        # final pooling over the full time dimension              
         self.att = multi_attention(in_size = att['in_size'], 
                                    hidden_size = att['hidden_size'], 
                                    n_heads = att['heads']
                                    )
+        # application order of the vq and conv layers. list with 1 bool per
+        # VQ/res_conv layer.
+        self.app_order = config['app_order']
         
-        self.VQ = quantization_layer(1024, 256)
     def forward(self, input, l):
-        # input is B/Ch/SL
+        # keep track of amount of conv and vq layers applied
+        c, v, self.VQ_loss = 0, 0, 0
         x = self.Conv(input)
-        # x is B/Ch/SL
-        x = self.conv2(self.conv1(x))
-        # x is  B/Ch/SL
-        x, self.VQ_loss = self.VQ(x)
-        # x is B/Ch/SL
-        x = self.conv4(self.conv3(x)).permute(0,2,1)
-        # X is B/SL/CH
+        # go through the application order list. If true apply VQ else res_conv
+        for i in self.app_order:
+            if i:
+                x = x.permute(0,2,1).contiguous()
+                x, VQ_loss = self.VQ[v](x)
+                x = x.permute(0,2,1).contiguous()
+                self.VQ_loss = VQ_loss
+                v += 1
+            else: 
+                x = self.res_convs[c](x)
+                c += 1
+                
+        x = x.permute(0,2,1)
         x = nn.functional.normalize(self.att(x), p=2, dim=1)    
         return x
 
