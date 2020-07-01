@@ -33,6 +33,22 @@ def split_data_flickr(f_nodes, loc):
             test.append(x) 
     return train, val, test
 
+def split_data_places(f_nodes, loc):
+    split = json.load(open(loc))
+    split = [x['uttid'].replace('-', '_') for x in split['data']]
+    
+    train = []
+    test = []
+    
+    for node in f_nodes:
+        name = node._v_name.replace('places_', '')
+        if name in split:
+            train.append(node)
+        else:
+            test.append(node)
+    
+    return train, test
+
 # Karpathy's MSCOCO split
 def split_data_coco(f_nodes, loc):
     train_img_path = os.path.join(loc, 'train2017')

@@ -96,13 +96,12 @@ def iterate_audio(f_nodes, batchsize, visual, audio, max_len = 2048,
             lengths.append(n_frames)
             speech.append(sp)
       
-        max_length = max(lengths)
+        max_batch = max(lengths)
         # reshape the features and recast as float64
         speech = np.float64(speech)
         # truncate all padding to the length of the longest utterance
-        speech = speech[:,:, :max_length]
+        speech = speech[:,:, :max_batch]
         # reshape the features into appropriate shape and recast as float32
-        speech = np.float64(speech)
         images = np.float64(images)
         yield images, speech, lengths  
 

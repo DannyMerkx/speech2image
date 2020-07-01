@@ -6,7 +6,7 @@ Trainer classes for caption-image retrieval, so that all DNN parts
 can be combined in one trainer object. 
 @author: danny
 """
-from minibatchers import iterate_tokens_5fold, iterate_char_5fold, iterate_audio_5fold
+from minibatchers import iterate_tokens_5fold, iterate_char_5fold, iterate_audio_5fold, iterate_audio
 from grad_tracker import gradient_clipping
 from evaluate import evaluate
 
@@ -47,7 +47,9 @@ class flickr_trainer():
     def raw_text_batcher(self, data, batch_size, max_len, shuffle):
         return iterate_char_5fold(data, batch_size, self.vis, self.cap, 
                                   max_len, shuffle)    
-
+    def places_batcher(self, data, batch_size, max_len, shuffle):
+        return iterate_audio(data, batch_size, self.vis, self.cap, max_len,
+                             shuffle)
 ############ functions to set the class values and attributes ################
     # minibatcher type should match your input features, no default is set.
     def set_token_batcher(self):
@@ -56,6 +58,8 @@ class flickr_trainer():
         self.batcher = self.raw_text_batcher
     def set_audio_batcher(self):
         self.batcher = self.audio_batcher
+    def set_places_batcher(self):
+        self.batcher = self.places_batcher
     # lr scheduler and attention loss are optional
     def set_lr_scheduler(self, scheduler, s_type):
         self.lr_scheduler = scheduler  
