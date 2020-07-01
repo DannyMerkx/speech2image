@@ -83,7 +83,7 @@ class evaluate():
         n_emb = self.image_embeddings.size()[0]
         # if we get 5 captions per image (e.g. flickr) we got 5 copies of each image embedding 
         # get rid of the copies.
-	embeddings_2 = self.image_embeddings
+        embeddings_2 = self.image_embeddings
         if self.test_size != n_emb:
             embeddings_1 = self.image_embeddings[0:self.test_size, :]
         embeddings_2 = self.caption_embeddings

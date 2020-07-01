@@ -30,10 +30,10 @@ parser = argparse.ArgumentParser(description =
 
 # args concerning file location
 parser.add_argument('-data_loc', type = str, 
-                    default = '/prep_data/flickr_features.h5',
+                    default = '/vol/tensusers3/dmerkx/databases/places/places_features.h5',
                     help = 'location of the feature file, default: /prep_data/flickr_features.h5')
 parser.add_argument('-split_loc', type = str, 
-                    default = '/data/databases/flickr/dataset.json', 
+                    default = '/vol/tensusers3/dmerkx/databases/places/train.json', 
                     help = 'location of the json file containing the data split information')
 parser.add_argument('-results_loc', type = str, 
                     default = '/data/speech2image/PyTorch/flickr_audio/results/',
@@ -75,7 +75,7 @@ else:
 
 def read_data(h5_file):
     for x in h5_file.root:
-        for y in x._f_list_nodes()
+        for y in x._f_list_nodes():
             yield y
 f_nodes = [node for node in read_data(data_file)] 
 

@@ -33,6 +33,17 @@ def split_data_flickr(f_nodes, loc):
             test.append(x) 
     return train, val, test
 
+def prep_data_places(f_nodes, loc):
+    split = json.load(open(loc))
+    split = [x['uttid'].replace('-', '_') for x in split['data']]
+    
+    for node in f_nodes:
+        name = node._v_name.replace('places_', '')
+        if name in split:
+            node._f_setattr('train', True)
+        else:
+            node._f_setattr('train', False)
+
 def split_data_places(f_nodes, loc):
     split = json.load(open(loc))
     split = [x['uttid'].replace('-', '_') for x in split['data']]
@@ -41,12 +52,10 @@ def split_data_places(f_nodes, loc):
     test = []
     
     for node in f_nodes:
-        name = node._v_name.replace('places_', '')
-        if name in split:
+        if node._f_getattr('train'):
             train.append(node)
         else:
             test.append(node)
-    
     return train, test
 
 # Karpathy's MSCOCO split
