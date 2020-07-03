@@ -83,7 +83,7 @@ class evaluate():
         n_emb = self.image_embeddings.size()[0]
         # if we get 5 captions per image (e.g. flickr) we got 5 copies of each image embedding 
         # get rid of the copies.
-        embeddings_2 = self.image_embeddings
+        embeddings_1 = self.image_embeddings
         if self.test_size != n_emb:
             embeddings_1 = self.image_embeddings[0:self.test_size, :]
         embeddings_2 = self.caption_embeddings
@@ -102,8 +102,13 @@ class evaluate():
             else:
                 rank = indices[np.mod(index, embeddings_2.size()[0])] + 1
                 ranks.append(rank)
-        # create a 5 by n_images matrix with the rank of each correct caption
-        self.ranks = torch.cat(ranks, 1)
+        if self.test_size != n_emb:
+            # create a 5 by n_images matrix with the rank of each correct caption
+            ranks = torch.cat(ranks, 1)
+            self.ranks = ranks.min(0)[0]
+        else:
+            self.ranks = self.dtype(ranks)
+
     # calculate median rank            
     def median_rank(self, ranks):
         self.median = ranks.double().median().cpu().numpy()
@@ -129,9 +134,9 @@ class evaluate():
     def image2caption(self):
         self.i2c()
         # take only the caption with the lowest rank into consideration 
-        self.median_rank(self.ranks.min(0)[0])
-        self.mean_rank(self.ranks.min(0)[0])
-        self.recall_at_n(self.ranks.min(0)[0])
+        self.median_rank(self.ranks)
+        self.mean_rank(self.ranks)
+        self.recall_at_n(self.ranks)
 
 ###############################################################################
 # functions to set some class values
