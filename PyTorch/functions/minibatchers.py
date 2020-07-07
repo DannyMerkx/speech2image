@@ -96,7 +96,8 @@ class PlacesDataset(Dataset):
         return {'im': image, 'sp': speech}
     
 class pad_fn():
-    def __init__(self, max_len):
+    def __init__(self, max_len, dtype):
+        self.dtype = dtype
         self.max_len = max_len   
     def pad(self, batch):
         # determine the length of the longest sentence in the batch
@@ -116,8 +117,8 @@ class pad_fn():
                 sp = sp[:,:batch_max]
                 n_frames = batch_max  
             lengths.append(n_frames)  
-            speech.append(torch.FloatTensor(sp))
-        im_batch = torch.stack([torch.FloatTensor(x['im']) for x in batch])
+            speech.append(self.dtype(sp))
+        im_batch = torch.stack([self.dtype(x['im']) for x in batch])
         sp_batch = torch.stack(speech)        
         return im_batch, sp_batch, lengths
     def __call__(self, batch):

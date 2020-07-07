@@ -51,7 +51,7 @@ class flickr_trainer():
                                   max_len, shuffle)    
     def places_batcher(self, data, batch_size, max_len, mode, shuffle):
         return DataLoader(data, batch_size = batch_size, 
-                          collate_fn = pad_fn(max_len), 
+                          collate_fn = pad_fn(max_len, self.dtype), 
                           sampler = PlacesSampler(data, mode))
 
 ############ functions to set the class values and attributes ################
@@ -217,7 +217,7 @@ class flickr_trainer():
     # Function which combines embeddings the images and captions
     def embed(self, img, cap, lengths):
         # convert data to the right pytorch tensor type
-        img, cap = self.dtype(img), self.dtype(cap)  
+        #img, cap = self.dtype(img), self.dtype(cap)  
         # set requires_grad to false to speed up test/validation epochs
         if not self.cap_embedder.training:
             img.requires_grad_(False)
