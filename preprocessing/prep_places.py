@@ -28,6 +28,7 @@ data_loc = '/vol/tensusers3/dmerkx/places_features.h5'
 
 def batcher(batch_size, img_audio):
     keys = [x for x in img_audio]
+    np.shuffle(keys)
     for start_idx in range(0, len(img_audio) - 1, batch_size):
         excerpt = {}
         if not start_idx + batch_size > len(img_audio):
@@ -51,11 +52,12 @@ train = json.load(open(os.path.join(meta_data_loc, 'train.json')))
 # create a dictionary with the unique identifier as key pointing to the image 
 # and its caption. The id contains a hyphen which is invalid for h5 naming 
 # conventions so it is replaced by an underscore
-img_audio = {}
+train_dict = {}
+test_dict = {}
 for im in train['data']:
-    img_audio[im['uttid'].replace('-', '_')] = im['image'], [im['wav']]
+    train_dict[im['uttid'].replace('-', '_')] = im['image'], [im['wav']]
 for im in val['data']:
-    img_audio[im['uttid'].replace('-', '_')] = im['image'], [im['wav']]
+    test_dict[im['uttid'].replace('-', '_')] = im['image'], [im['wav']]
 
     
 
@@ -69,11 +71,17 @@ if not Path(data_loc).is_file():
     count = 0
     # the size of this database is bigger than the maximum amount of children
     # a single node can have. I split the database smaller 10k subgroups.
-    for batch in batcher(10000, img_audio):
+    for batch in batcher(10000, train_dict):
         node = output_file.create_group('/', 'subgroup_' + str(count))
         for x in batch:
             output_file.create_group(node, append_name + x)
         count +=1
+    
+    keys = [x for x in test_dict]
+    node = output_file.create_group('/', 'test_data')
+    for x in keys:
+        output_file.create_group(node, append_name + x)
+    
 else:
     # create h5 output file for preprocessed images and audio
     output_file = tables.open_file(data_loc, mode='a')
@@ -85,7 +93,8 @@ for subgroup in subgroups:
 
 # create the visual features for all images  
 for ftype in vis:
-    vis_feats(img_path, output_file, append_name, img_audio, node_list, ftype)
+    vis_feats(img_path, output_file, append_name, {**train_dict, **test_dict}, 
+              node_list, ftype)
 ######### parameter settings for the audio preprocessing ###############
 # put the parameters in a dictionary
 params = {}
@@ -105,7 +114,8 @@ params['delta_n'] = 2
 # create the audio features for all captions
 for ftype in speech:
     params['feat'] = ftype
-    audio_features(params, img_audio, audio_path, append_name, node_list)
+    audio_features(params, {**train_dict, **test_dict}, audio_path, 
+                   append_name, node_list)
 
 # close the output files
 output_file.close()

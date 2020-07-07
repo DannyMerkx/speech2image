@@ -7,7 +7,7 @@ can be combined in one trainer object.
 @author: danny
 """
 from minibatchers import (iterate_tokens_5fold, iterate_char_5fold, 
-                          iterate_audio_5fold, iterate_audio, pad_fn, PlacesSampler)
+                          FlickrSampler, pad_fn, PlacesSampler)
 from grad_tracker import gradient_clipping
 from evaluate import evaluate
 from torch.utils.data import DataLoader
@@ -43,9 +43,10 @@ class flickr_trainer():
     def token_batcher(self, data, batch_size, max_len, shuffle):
         return iterate_tokens_5fold(data, batch_size, self.vis, self.cap, 
                                     self.dict_loc, max_len, shuffle)
-    def audio_batcher(self, data, batch_size, max_len, shuffle):
-        return iterate_audio_5fold(data, batch_size, self.vis, self.cap, 
-                                   max_len, shuffle)
+    def audio_batcher(self, data, batch_size, max_len, mode, shuffle):
+        return DataLoader(data, batch_size = batch_size, 
+                          collate_fn = pad_fn(max_len, self.dtype),
+                          sampler = FlickrSampler(data, mode))
     def raw_text_batcher(self, data, batch_size, max_len, shuffle):
         return iterate_char_5fold(data, batch_size, self.vis, self.cap, 
                                   max_len, shuffle)    

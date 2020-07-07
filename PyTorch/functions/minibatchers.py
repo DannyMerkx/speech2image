@@ -13,6 +13,8 @@ import string
 import pickle
 import torch
 import tables
+import json
+
 from torch.utils.data import Dataset, Sampler
 ##############################################################################
 # the following functions are used to convert the input strings to indices for 
@@ -94,6 +96,42 @@ class PlacesDataset(Dataset):
         image = eval(f'self.f_nodes[idx].{self.visual}._f_list_nodes()[0].read()')
         speech = eval(f'self.f_nodes[idx].{self.audio}._f_list_nodes()[0].read().transpose()')        
         return {'im': image, 'sp': speech}
+
+class FlickrDataset(Dataset):
+    def __init__(self, h5_file, visual, audio, split_loc, transform=None):
+        self.f_nodes = [node for node in self.read_data(h5_file)]       
+        self.train, self.val, self.test = self.split_data_flickr(split_loc)
+        self.visual = visual
+        self.audio = audio
+    def read_data(self, h5_file):
+        h5_file = tables.open_file(h5_file, 'r+')
+        for x in h5_file.root:
+                yield x
+    def __len__(self):
+        return len(self.f_nodes)
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+        image = eval(f'self.f_nodes[idx[1]].{self.visual}._f_list_nodes()[0].read()')
+        speech = eval(f'self.f_nodes[idx[1]].{self.audio}._f_list_nodes()[idx[0]].read().transpose()')        
+        return {'im': image, 'sp': speech} 
+    def split_data_flickr(self, loc):
+        file = json.load(open(loc))
+        split_dict = {}
+        for x in file['images']:
+            split_dict[x['filename'].replace('.jpg', '')] = x['split']       
+        train = []
+        val = []
+        test = []   
+        for idx, node in enumerate(self.f_nodes):
+            name = node._v_name.replace('flickr_', '')
+            if split_dict[name] == 'train':
+                train.append(idx)
+            if split_dict[name] == 'val':
+                val.append(idx)    
+            if split_dict[name] == 'test':
+                test.append(idx) 
+        return train, val, test
     
 class pad_fn():
     def __init__(self, max_len, dtype):
@@ -125,10 +163,6 @@ class pad_fn():
         return self.pad(batch)
  
 class PlacesSampler(Sampler):
-    r"""Samples elements sequentially, always in the same order.
-    Arguments:
-        data_source (Dataset): dataset to sample from
-    """
     def __init__(self, data_source, mode = 'train'):
         if mode == 'train':
             self.split = data_source.train
@@ -140,6 +174,19 @@ class PlacesSampler(Sampler):
         return iter(self.split)
     def __len__(self):
         return len(self.data_source)
+
+class FlickrSampler(Sampler):
+    def __init__(self, data_source, mode = 'train'):
+        if mode == 'train':
+            self.split = data_source.train
+        elif mode == 'val':
+            self.split = data_source.val
+        else:
+            self.split = data_source.test
+    def __iter__(self):        
+        return iter([(x, idx) for x in range(5) for idx in self.split])
+    def __len__(self):
+        return len(self.data_source)    
 
 ################################### minibatchers ##############################
 
