@@ -8,7 +8,6 @@ Created on Tue Feb 27 14:13:00 2018
 #!/usr/bin/env python
 from __future__ import print_function
 
-import tables
 import argparse
 import torch
 from torch.optim import lr_scheduler
@@ -18,6 +17,7 @@ sys.path.append('../functions')
 from trainer import flickr_trainer
 from costum_loss import batch_hinge_loss, ordered_loss, attention_loss
 from costum_scheduler import cyclic_scheduler
+from minibatchers import FlickrDataset
 
 from data_split import split_data_flickr
 from encoder_configs import create_encoders
@@ -60,25 +60,14 @@ args = parser.parse_args()
 # create encoders using presets defined in encoder_configs
 img_net, cap_net = create_encoders('rnn_VQ')
 
-# open the data file
-data_file = tables.open_file(args.data_loc, mode='r+') 
-
+# open the dataset
+dataset = FlickrDataset(args.data_loc, args.visual, args.cap, args.split_loc) 
 # check if cuda is availlable and user wants to run on gpu
 cuda = args.cuda and torch.cuda.is_available()
 if cuda:
     print('using gpu')
 else:
     print('using cpu')
-
-
-def read_data(h5_file):
-    for x in h5_file.root:
-        yield x
-f_nodes = [node for node in read_data(data_file)] 
-
-# split the database into train test and validation sets. default settings
-# uses the json file with the karpathy split
-train, test, val = split_data_flickr(f_nodes, args.split_loc)
 
 ############################### Neural network setup ##########################
 
@@ -96,7 +85,7 @@ optimizer = torch.optim.Adam(list(img_net.parameters()) +
 
 #step_scheduler = lr_scheduler.StepLR(optimizer, 1000, gamma=0.1, last_epoch=-1)
 cyclic_scheduler = cyclic_scheduler(max_lr = args.lr, min_lr = 1e-6, 
-                                    stepsize = (int(len(train)/args.batch_size)*5)*4,
+                                    stepsize = (int(len(dataset.train)/args.batch_size)*5)*4,
                                     optimiser = optimizer)
 
 # create a trainer setting the loss function, optimizer, minibatcher, 
@@ -123,18 +112,18 @@ if args.gradient_clipping:
 # run the training loop for the indicated amount of epochs 
 while trainer.epoch <= args.n_epochs:
     # Train on the train set
-    trainer.train_epoch(train, args.batch_size)
+    trainer.train_epoch(dataset, args.batch_size)
     # save network parameters
     trainer.save_params(args.results_loc)  
     # print some info about this epoch and evaluation on the validation set
-    trainer.report_training(args.n_epochs, val)
+    trainer.report_training(args.n_epochs, dataset)
 
     if args.gradient_clipping:
         # I found that updating the clip value at each epoch did not work well     
         # trainer.update_clip()
         trainer.reset_grads()
     trainer.update_epoch()
-trainer.report_test(test)
+trainer.report_test(dataset)
 
 # save the gradients for each epoch, can be useful to select an initial 
 # clipping value.

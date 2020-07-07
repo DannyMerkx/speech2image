@@ -32,9 +32,6 @@ parser = argparse.ArgumentParser(description =
 parser.add_argument('-data_loc', type = str, 
                     default = '/vol/tensusers3/dmerkx/databases/places/places_features.h5',
                     help = 'location of the feature file, default: /prep_data/flickr_features.h5')
-parser.add_argument('-split_loc', type = str, 
-                    default = '/vol/tensusers3/dmerkx/databases/places/train.json', 
-                    help = 'location of the json file containing the data split information')
 parser.add_argument('-results_loc', type = str, 
                     default = '/vol/tensusers3/dmerkx/places_results/',
                     help = 'location to save the trained models')
@@ -62,9 +59,8 @@ args = parser.parse_args()
 # create encoders using presets defined in encoder_configs
 img_net, cap_net = create_encoders('rnn')
 
-# open the data file
+# open the dataset
 dataset = PlacesDataset(args.data_loc, args.visual, args.cap)
-#data_file = tables.open_file(args.data_loc, mode='r+') 
 
 # check if cuda is availlable and user wants to run on gpu
 cuda = args.cuda and torch.cuda.is_available()
@@ -73,20 +69,6 @@ if cuda:
 else:
     print('using cpu')
 
-
-def read_data(h5_file):
-    for x in h5_file.root:
-        for y in x._f_list_nodes():
-            yield y
-#f_nodes = [node for node in read_data(data_file)] 
-
-# split the database into train test and validation sets. default settings
-# uses the json file with the karpathy split
-#train, test = split_data_places(f_nodes, args.split_loc)
-
-#np.random.shuffle(train)
-#val = train[:1000]
-#train = train[1000:]
 ############################### Neural network setup ##########################
 
 # Adam optimiser. I found SGD to work terribly and could not find appropriate 

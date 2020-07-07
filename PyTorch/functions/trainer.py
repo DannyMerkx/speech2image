@@ -173,7 +173,7 @@ class flickr_trainer():
                 self.iteration +=1      
         self.train_loss = self.train_loss.cpu().data.numpy()/num_batches
     # test epoch
-    def test_epoch(self, data, batch_size):
+    def test_epoch(self, data, batch_size, mode):
         # set to evaluation mode to disable dropout
         self.img_embedder.eval()
         self.cap_embedder.eval()
@@ -184,7 +184,7 @@ class flickr_trainer():
         test_batches = 0
         self.test_loss = 0
         for batch in self.batcher(data, batch_size, self.cap_embedder.max_len,
-                                  'test', shuffle = False):
+                                  mode, shuffle = False):
             # retrieve a minibatch from the batcher
             img, cap, lengths = batch
             test_batches += 1      
@@ -233,7 +233,7 @@ class flickr_trainer():
     def report_training(self, max_epochs, val = False):
         # run a test epoch on the validation set
         if val:
-            self.test_epoch(val, 100)
+            self.test_epoch(val, 100, 'val')
         t =  time.time() - self.start_time
         print(f'Epoch {self.epoch} of {max_epochs} took {t}s')
         print(f'Training loss: {self.train_loss:.6f}')
@@ -246,7 +246,7 @@ class flickr_trainer():
     
     def report_test(self, test):
         # run a test epoch on the test set
-        self.test_epoch(test, 100)
+        self.test_epoch(test, 100, 'test')
         print(f'Test loss: {self.test_loss:.6f}')
         # calculate the recall@n on the test set
         self.evaluator.caption_embeddings = self.caption_embeddings
