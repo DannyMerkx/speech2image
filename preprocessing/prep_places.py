@@ -6,8 +6,6 @@ prepare the places database
 
 @author: danny
 """
-
-
 import numpy as np
 import os
 import tables
@@ -25,7 +23,7 @@ vis = ['resnet']
 speech = ['mfcc']
 
 data_loc = '/vol/tensusers3/dmerkx/places_features.h5'
-
+#a = sorted(x, key=lambda k: len(k['asr_text'])) 
 def batcher(batch_size, img_audio):
     keys = [x for x in img_audio]
     np.shuffle(keys)
@@ -58,8 +56,6 @@ for im in train['data']:
     train_dict[im['uttid'].replace('-', '_')] = im['image'], [im['wav']]
 for im in val['data']:
     test_dict[im['uttid'].replace('-', '_')] = im['image'], [im['wav']]
-
-    
 
 # we need to append something to the flickr files names because pytable group 
 # names cannot start with integers.
