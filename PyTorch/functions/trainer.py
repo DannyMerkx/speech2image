@@ -6,9 +6,11 @@ Trainer classes for caption-image retrieval, so that all DNN parts
 can be combined in one trainer object. 
 @author: danny
 """
-from minibatchers import iterate_tokens_5fold, iterate_char_5fold, iterate_audio_5fold, iterate_audio
+from minibatchers import (iterate_tokens_5fold, iterate_char_5fold, 
+                          iterate_audio_5fold, iterate_audio, pad_fn, PlacesSampler)
 from grad_tracker import gradient_clipping
 from evaluate import evaluate
+from torch.utils.data import DataLoader
 
 import torch
 import os
@@ -47,9 +49,11 @@ class flickr_trainer():
     def raw_text_batcher(self, data, batch_size, max_len, shuffle):
         return iterate_char_5fold(data, batch_size, self.vis, self.cap, 
                                   max_len, shuffle)    
-    def places_batcher(self, data, batch_size, max_len, shuffle):
-        return iterate_audio(data, batch_size, self.vis, self.cap, max_len,
-                             shuffle)
+    def places_batcher(self, data, batch_size, max_len, mode, shuffle):
+        return DataLoader(data, batch_size = batch_size, 
+                          collate_fn = pad_fn(max_len), 
+                          sampler = PlacesSampler(data, mode))
+
 ############ functions to set the class values and attributes ################
     # minibatcher type should match your input features, no default is set.
     def set_token_batcher(self):
@@ -131,7 +135,7 @@ class flickr_trainer():
         self.train_loss = 0
         num_batches = 0
         for batch in self.batcher(data, batch_size, self.cap_embedder.max_len, 
-                                  shuffle = True):
+                                  'train', shuffle = True):
             num_batches += 1
             # retrieve a minibatch from the batcher
             img, cap, lengths = batch           
@@ -179,7 +183,7 @@ class flickr_trainer():
         test_batches = 0
         self.test_loss = 0
         for batch in self.batcher(data, batch_size, self.cap_embedder.max_len,
-                                  shuffle = False):
+                                  'test', shuffle = False):
             # retrieve a minibatch from the batcher
             img, cap, lengths = batch
             test_batches += 1      

@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Created on Wed Feb 14 13:06:06 2018
 
@@ -13,6 +11,9 @@ pack_padded_sequence.
 import numpy as np
 import string
 import pickle
+import torch
+import tables
+from torch.utils.data import Dataset, Sampler
 ##############################################################################
 # the following functions are used to convert the input strings to indices for 
 # the word embedding layers
@@ -62,6 +63,82 @@ def word_2_index(batch, batch_size, dict_loc):
         for j, word in enumerate(words):
             index_batch[i][j] = w_dict[word]
     return index_batch, lengths
+
+class PlacesDataset(Dataset):
+    def __init__(self, h5_file, visual, audio, transform=None):
+        self.f_nodes = [node for node in self.read_data(h5_file)] 
+        
+        self.train = []
+        self.test = []
+        for idx, node in enumerate(self.f_nodes):
+            if node._f_getattr('train'):
+                self.train.append(idx)
+            else:
+                self.test.append(idx)
+        
+        self.val = self.train[:1000]
+        self.train = self.train[1000:]
+        
+        self.visual = visual
+        self.audio = audio
+    def read_data(self, h5_file):
+        h5_file = tables.open_file(h5_file, 'r+')
+        for x in h5_file.root:
+            for y in x._f_list_nodes():
+                yield y
+    def __len__(self):
+        return len(self.f_nodes)
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+        image = eval(f'self.f_nodes[idx].{self.visual}._f_list_nodes()[0].read()')
+        speech = eval(f'self.f_nodes[idx].{self.audio}._f_list_nodes()[0].read().transpose()')        
+        return {'im': image, 'sp': speech}
+    
+class pad_fn():
+    def __init__(self, max_len):
+        self.max_len = max_len   
+    def pad(self, batch):
+        # determine the length of the longest sentence in the batch
+        batch_max = max([x['sp'].shape[1] for x in batch])
+        # determine if the batch max is longer than the global allowed max
+        if batch_max > self.max_len:
+            # set the batch max to the globally allowed max
+            batch_max = self.max_len
+        lengths = []  
+        speech = []
+        for x in batch:
+            sp = x['sp']           
+            n_frames = sp.shape[1]
+            if n_frames < batch_max:
+                sp = np.pad(sp, [(0, 0), (0, batch_max - n_frames )], 'constant')            
+            if n_frames > batch_max:
+                sp = sp[:,:batch_max]
+                n_frames = batch_max  
+            lengths.append(n_frames)  
+            speech.append(torch.FloatTensor(sp))
+        im_batch = torch.stack([torch.FloatTensor(x['im']) for x in batch])
+        sp_batch = torch.stack(speech)        
+        return im_batch, sp_batch, lengths
+    def __call__(self, batch):
+        return self.pad(batch)
+ 
+class PlacesSampler(Sampler):
+    r"""Samples elements sequentially, always in the same order.
+    Arguments:
+        data_source (Dataset): dataset to sample from
+    """
+    def __init__(self, data_source, mode = 'train'):
+        if mode == 'train':
+            self.split = data_source.train
+        elif mode == 'val':
+            self.split = data_source.val
+        else:
+            self.split = data_source.test
+    def __iter__(self):        
+        return iter(self.split)
+    def __len__(self):
+        return len(self.data_source)
 
 ################################### minibatchers ##############################
 

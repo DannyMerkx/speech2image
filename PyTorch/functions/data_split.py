@@ -33,6 +33,8 @@ def split_data_flickr(f_nodes, loc):
             test.append(x) 
     return train, val, test
 
+# run this once to add an attribute to the data indicating
+# if a datapoint is in the training set.
 def prep_data_places(f_nodes, loc):
     split = json.load(open(loc))
     split = [x['uttid'].replace('-', '_') for x in split['data']]
@@ -45,9 +47,6 @@ def prep_data_places(f_nodes, loc):
             node._f_setattr('train', False)
 
 def split_data_places(f_nodes, loc):
-    split = json.load(open(loc))
-    split = [x['uttid'].replace('-', '_') for x in split['data']]
-    
     train = []
     test = []
     

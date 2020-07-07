@@ -20,8 +20,8 @@ sys.path.append('../functions')
 from trainer import flickr_trainer
 from costum_loss import batch_hinge_loss, ordered_loss, attention_loss
 from costum_scheduler import cyclic_scheduler
+from minibatchers import PlacesDataset
 
-from data_split import split_data_places
 from encoder_configs import create_encoders
 ##################################### parameter settings ######################
 
@@ -36,7 +36,7 @@ parser.add_argument('-split_loc', type = str,
                     default = '/vol/tensusers3/dmerkx/databases/places/train.json', 
                     help = 'location of the json file containing the data split information')
 parser.add_argument('-results_loc', type = str, 
-                    default = '/data/speech2image/PyTorch/flickr_audio/results/',
+                    default = '/vol/tensusers3/dmerkx/places_results/',
                     help = 'location to save the trained models')
 # args concerning training settings
 parser.add_argument('-batch_size', type = int, default = 32, 
@@ -63,7 +63,8 @@ args = parser.parse_args()
 img_net, cap_net = create_encoders('rnn')
 
 # open the data file
-data_file = tables.open_file(args.data_loc, mode='r+') 
+dataset = PlacesDataset(args.data_loc, args.visual, args.cap)
+#data_file = tables.open_file(args.data_loc, mode='r+') 
 
 # check if cuda is availlable and user wants to run on gpu
 cuda = args.cuda and torch.cuda.is_available()
@@ -77,15 +78,15 @@ def read_data(h5_file):
     for x in h5_file.root:
         for y in x._f_list_nodes():
             yield y
-f_nodes = [node for node in read_data(data_file)] 
+#f_nodes = [node for node in read_data(data_file)] 
 
 # split the database into train test and validation sets. default settings
 # uses the json file with the karpathy split
-train, test = split_data_places(f_nodes, args.split_loc)
+#train, test = split_data_places(f_nodes, args.split_loc)
 
-np.random.shuffle(train)
-val = train[:1000]
-train = train[1000:]
+#np.random.shuffle(train)
+#val = train[:1000]
+#train = train[1000:]
 ############################### Neural network setup ##########################
 
 # Adam optimiser. I found SGD to work terribly and could not find appropriate 
@@ -102,7 +103,7 @@ optimizer = torch.optim.Adam(list(img_net.parameters()) +
 
 #step_scheduler = lr_scheduler.StepLR(optimizer, 1000, gamma=0.1, last_epoch=-1)
 cyclic_scheduler = cyclic_scheduler(max_lr = args.lr, min_lr = 1e-6, 
-                                    stepsize = (int(len(train)/args.batch_size)*5)*4,
+                                    stepsize = (int(len(dataset.train)/args.batch_size)*5)*4,
                                     optimiser = optimizer)
 
 # create a trainer setting the loss function, optimizer, minibatcher, 
@@ -129,18 +130,18 @@ if args.gradient_clipping:
 # run the training loop for the indicated amount of epochs 
 while trainer.epoch <= args.n_epochs:
     # Train on the train set
-    trainer.train_epoch(train, args.batch_size)
+    trainer.train_epoch(dataset, args.batch_size)
     # save network parameters
     trainer.save_params(args.results_loc)  
     # print some info about this epoch and evaluation on the validation set
-    trainer.report_training(args.n_epochs, val)
+    trainer.report_training(args.n_epochs, dataset)
 
     if args.gradient_clipping:
         # I found that updating the clip value at each epoch did not work well     
         # trainer.update_clip()
         trainer.reset_grads()
     trainer.update_epoch()
-trainer.report_test(test)
+trainer.report_test(dataset)
 
 # save the gradients for each epoch, can be useful to select an initial 
 # clipping value.
