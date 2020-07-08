@@ -26,7 +26,7 @@ data_loc = '/vol/tensusers3/dmerkx/places_features.h5'
 #a = sorted(x, key=lambda k: len(k['asr_text'])) 
 def batcher(batch_size, img_audio):
     keys = [x for x in img_audio]
-    np.shuffle(keys)
+    np.random.shuffle(keys)
     for start_idx in range(0, len(img_audio) - 1, batch_size):
         excerpt = {}
         if not start_idx + batch_size > len(img_audio):

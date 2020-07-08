@@ -68,15 +68,16 @@ def word_2_index(batch, batch_size, dict_loc):
 
 class PlacesDataset(Dataset):
     def __init__(self, h5_file, visual, audio, transform=None):
-        self.f_nodes = [node for node in self.read_data(h5_file)] 
+        self.train, self.test = self.read_data(h5_file)
+        #self.f_nodes = [node for node in self.read_data(h5_file)] 
         
-        self.train = []
-        self.test = []
-        for idx, node in enumerate(self.f_nodes):
-            if node._f_getattr('train'):
-                self.train.append(idx)
-            else:
-                self.test.append(idx)
+        #self.train = []
+        #self.test = []
+        #for idx, node in enumerate(self.f_nodes):
+        #    if node._f_getattr('train'):
+        #        self.train.append(idx)
+        #    else:
+        #        self.test.append(idx)
         
         self.val = self.train[:1000]
         self.train = self.train[1000:]
@@ -84,22 +85,30 @@ class PlacesDataset(Dataset):
         self.visual = visual
         self.audio = audio
     def read_data(self, h5_file):
-        h5_file = tables.open_file(h5_file, 'r+')
+        train = []
+        test = []
+        h5_file = tables.open_file(h5_file, 'r')
         for x in h5_file.root:
-            for y in x._f_list_nodes():
-                yield y
+            if not x._v_name == 'test_data':      
+                for y in x._f_list_nodes():
+                    train.append(y)
+            else:
+                for y in x._f_list_nodes():
+                    test.append(y)
+        return train, test
+    
     def __len__(self):
         return len(self.f_nodes)
-    def __getitem__(self, idx):
-        if torch.is_tensor(idx):
-            idx = idx.tolist()
-        image = eval(f'self.f_nodes[idx].{self.visual}._f_list_nodes()[0].read()')
-        speech = eval(f'self.f_nodes[idx].{self.audio}._f_list_nodes()[0].read().transpose()')        
+    def __getitem__(self, node):
+        image = eval(f'node.{self.visual}._f_list_nodes()[0].read()')
+        speech = eval(f'node.{self.audio}._f_list_nodes()[0].read().transpose()')        
         return {'im': image, 'sp': speech}
 
 class FlickrDataset(Dataset):
     def __init__(self, h5_file, visual, audio, split_loc, transform=None):
-        self.f_nodes = [node for node in self.read_data(h5_file)]       
+        # get all the nodes in the h5 file
+        self.f_nodes = [node for node in self.read_data(h5_file)]
+        # split into sets using the json split file
         self.train, self.val, self.test = self.split_data_flickr(split_loc)
         self.visual = visual
         self.audio = audio
@@ -109,11 +118,10 @@ class FlickrDataset(Dataset):
                 yield x
     def __len__(self):
         return len(self.f_nodes)
-    def __getitem__(self, idx):
-        if torch.is_tensor(idx):
-            idx = idx.tolist()
-        image = eval(f'self.f_nodes[idx[1]].{self.visual}._f_list_nodes()[0].read()')
-        speech = eval(f'self.f_nodes[idx[1]].{self.audio}._f_list_nodes()[idx[0]].read().transpose()')        
+    def __getitem__(self, node):
+        # node should be a tuple of feature node and its caption idx (1-5) 
+        image = eval(f'node[1].{self.visual}._f_list_nodes()[0].read()')
+        speech = eval(f'node[1].{self.audio}._f_list_nodes()[node[0]].read().transpose()')        
         return {'im': image, 'sp': speech} 
     def split_data_flickr(self, loc):
         file = json.load(open(loc))
@@ -126,11 +134,11 @@ class FlickrDataset(Dataset):
         for idx, node in enumerate(self.f_nodes):
             name = node._v_name.replace('flickr_', '')
             if split_dict[name] == 'train':
-                train.append(idx)
+                train.append(node)
             if split_dict[name] == 'val':
-                val.append(idx)    
+                val.append(node)    
             if split_dict[name] == 'test':
-                test.append(idx) 
+                test.append(node) 
         return train, val, test
     
 class pad_fn():
@@ -147,6 +155,7 @@ class pad_fn():
         lengths = []  
         speech = []
         for x in batch:
+            # pad or truncate the caption according to the batch max length
             sp = x['sp']           
             n_frames = sp.shape[1]
             if n_frames < batch_max:
@@ -155,9 +164,10 @@ class pad_fn():
                 sp = sp[:,:batch_max]
                 n_frames = batch_max  
             lengths.append(n_frames)  
-            speech.append(self.dtype(sp))
-        im_batch = torch.stack([self.dtype(x['im']) for x in batch])
-        sp_batch = torch.stack(speech)        
+            speech.append(sp)
+        # convert to proper torch datatype
+        im_batch = self.dtype(np.array([x['im'] for x in batch]))
+        sp_batch = self.dtype(np.array(speech))        
         return im_batch, sp_batch, lengths
     def __call__(self, batch):
         return self.pad(batch)
@@ -183,8 +193,11 @@ class FlickrSampler(Sampler):
             self.split = data_source.val
         else:
             self.split = data_source.test
-    def __iter__(self):        
-        return iter([(x, idx) for x in range(5) for idx in self.split])
+    def __iter__(self):     
+        # the iterator pairs ints 1-5 to each of the node indexes to make sure
+        # all 5 captions per image are used but no 2 captions of the same img
+        # ever end up in the same batch
+        return iter([(idx, node) for idx in range(5) for node in self.split])
     def __len__(self):
         return len(self.data_source)    
 
