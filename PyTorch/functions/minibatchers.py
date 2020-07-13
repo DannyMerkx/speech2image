@@ -69,16 +69,7 @@ def word_2_index(batch, batch_size, dict_loc):
 class PlacesDataset(Dataset):
     def __init__(self, h5_file, visual, audio, transform=None):
         self.train, self.test = self.read_data(h5_file)
-        #self.f_nodes = [node for node in self.read_data(h5_file)] 
-        
-        #self.train = []
-        #self.test = []
-        #for idx, node in enumerate(self.f_nodes):
-        #    if node._f_getattr('train'):
-        #        self.train.append(idx)
-        #    else:
-        #        self.test.append(idx)
-        
+
         self.val = self.train[:1000]
         self.train = self.train[1000:]
         
@@ -98,7 +89,7 @@ class PlacesDataset(Dataset):
         return train, test
     
     def __len__(self):
-        return len(self.f_nodes)
+        return len(self.val) + len(self.train) + len(self.test) 
     def __getitem__(self, node):
         image = eval(f'node.{self.visual}._f_list_nodes()[0].read()')
         speech = eval(f'node.{self.audio}._f_list_nodes()[0].read().transpose()')        

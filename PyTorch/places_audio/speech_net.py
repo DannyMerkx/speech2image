@@ -8,11 +8,9 @@ Created on Tue Feb 27 14:13:00 2018
 #!/usr/bin/env python
 from __future__ import print_function
 
-import tables
 import argparse
 import torch
 import sys
-import numpy as np
 
 from torch.optim import lr_scheduler
 sys.path.append('../functions')
@@ -21,7 +19,6 @@ from trainer import flickr_trainer
 from costum_loss import batch_hinge_loss, ordered_loss, attention_loss
 from costum_scheduler import cyclic_scheduler
 from minibatchers import PlacesDataset
-
 from encoder_configs import create_encoders
 ##################################### parameter settings ######################
 

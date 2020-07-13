@@ -232,12 +232,12 @@ class flickr_trainer():
     # report time and evaluation of this training epoch
     def report_training(self, max_epochs, val = False):
         # run a test epoch on the validation set
-        if val:
+        if val != False:
             self.test_epoch(val, 100, 'val')
         t =  time.time() - self.start_time
         print(f'Epoch {self.epoch} of {max_epochs} took {t}s')
         print(f'Training loss: {self.train_loss:.6f}')
-        if val:
+        if val != False:
             print(f'Validation loss: {self.test_loss:.6f}')
             # calculate the recall@n on the validation set
             self.evaluator.caption_embeddings = self.caption_embeddings
