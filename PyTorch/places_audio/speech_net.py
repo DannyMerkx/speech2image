@@ -90,7 +90,7 @@ cyclic_scheduler = cyclic_scheduler(max_lr = args.lr, min_lr = 1e-6,
 trainer = flickr_trainer(img_net, cap_net, args.visual, args.cap)
 trainer.set_loss(batch_hinge_loss)
 trainer.set_optimizer(optimizer)
-trainer.set_places_batcher()
+trainer.s0, /test_data/places_A10EDAUGQ2JLIW_GSUN_6EA76E540C9E3DFD5722C37800AE8263et_places_batcher()
 trainer.set_lr_scheduler(cyclic_scheduler, 'cyclic')
 trainer.set_att_loss(attention_loss)
 # if using a VQ layer, the trainer should use the VQ layers' loss 

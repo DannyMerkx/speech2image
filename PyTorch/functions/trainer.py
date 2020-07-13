@@ -262,11 +262,11 @@ class flickr_trainer():
     # calculate the recall@n. Arguments are a set of nodes and a prepend string 
     # (e.g. to print validation or test in front of the results). emb = True
     # reembeds the given data
-    def recall_at_n(self, data, prepend, emb = False):
+    def recall_at_n(self, data, prepend, mode, emb = False):
         # if you ran a test epoch on the data before calculating recall, the 
         # trainer has buffered the embeddings
         if emb:
-            iterator = self.batcher(data, 5, self.cap_embedder.max_len, 
+            iterator = self.batcher(data, 5, self.cap_embedder.max_len, mode,
                                     shuffle = False)
             # the calc_recall function calculates and prints the recall.
             self.evaluator.embed_data(iterator)

@@ -11,7 +11,6 @@ Loads pretrained models and calculates the validation and test scores for both a
 from __future__ import print_function
 
 import os
-import tables
 import argparse
 import torch
 import sys
@@ -20,12 +19,13 @@ sys.path.append('/data/speech2image/PyTorch/functions')
 from trainer import flickr_trainer
 from minibatchers import PlacesDataset
 from encoder_configs import create_encoders
+from costum_loss import batch_hinge_loss, ordered_loss, attention_loss
 ##################################### parameter settings ##############################################
 
 parser = argparse.ArgumentParser(description='Create and run an articulatory feature classification DNN')
 
 # args concerning file location
-parser.add_argument('-data_loc', type = str, default = '/prep_data/flickr_features.h5',
+parser.add_argument('-data_loc', type = str, default = '/prep_data/places_features.h5',
                     help = 'location of the feature file, default: /prep_data/flickr_features.h5')
 parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/places_audio/results/',
                     help = 'location of the json file containing the data split information')
@@ -66,6 +66,7 @@ caption_models.sort()
 # create a trainer with just the evaluator for the purpose of testing a pretrained model
 trainer = flickr_trainer(img_net, cap_net, args.visual, args.cap)
 trainer.set_audio_batcher()
+trainer.set_loss(batch_hinge_loss)
 # optionally use cuda
 if cuda:
     trainer.set_cuda()
