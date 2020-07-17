@@ -3,6 +3,9 @@
 """
 Created on Tue Apr 10 10:57:38 2018
 this script loads the pre-defined datasplits for certain datasets
+
+This is outdated since minibatchers and dataloading was refactored to use
+internal Pytorch dataloading structures.
 @author: danny
 """
 

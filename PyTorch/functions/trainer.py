@@ -6,8 +6,8 @@ Trainer classes for caption-image retrieval, so that all DNN parts
 can be combined in one trainer object. 
 @author: danny
 """
-from minibatchers import (iterate_tokens_5fold, iterate_char_5fold, 
-                          FlickrSampler, pad_fn, PlacesSampler)
+from minibatchers import (FlickrSampler, PlacesSampler, audio_pad_fn,
+                          token_pad_fn)
 from grad_tracker import gradient_clipping
 from evaluate import evaluate
 from torch.utils.data import DataLoader
@@ -15,7 +15,6 @@ from torch.utils.data import DataLoader
 import torch
 import os
 import time
-
 # trainer for caption2image models. Combines all DNN parts (optimiser, 
 # lr_scheduler, image and caption encoder, batcher, gradient clipper, 
 # loss function), training and test loop functions, evaluation functions in one 
@@ -40,20 +39,24 @@ class flickr_trainer():
         self.epoch = 1
     # possible minibatcher types. Fkickr uses 5fold batchers since there are
     # 5 captions per image
-    def token_batcher(self, data, batch_size, max_len, shuffle):
-        return iterate_tokens_5fold(data, batch_size, self.vis, self.cap, 
-                                    self.dict_loc, max_len, shuffle)
+    def token_batcher(self, data, batch_size, max_len, mode, shuffle):
+        return DataLoader(data, batch_size = batch_size, 
+                          collate_fn = token_pad_fn(max_len, self.dtype, 
+                                                    'word'),
+                          sampler = FlickrSampler(data, mode, shuffle))
+    def raw_text_batcher(self, data, batch_size, max_len, mode, shuffle):
+        return DataLoader(data, batch_size = batch_size, 
+                          collate_fn = token_pad_fn(max_len, self.dtype, 
+                                                    'char'),
+                          sampler = FlickrSampler(data, mode, shuffle))
     def audio_batcher(self, data, batch_size, max_len, mode, shuffle):
         return DataLoader(data, batch_size = batch_size, 
-                          collate_fn = pad_fn(max_len, self.dtype),
-                          sampler = FlickrSampler(data, mode))
-    def raw_text_batcher(self, data, batch_size, max_len, shuffle):
-        return iterate_char_5fold(data, batch_size, self.vis, self.cap, 
-                                  max_len, shuffle)    
+                          collate_fn = audio_pad_fn(max_len, self.dtype),
+                          sampler = FlickrSampler(data, mode, shuffle))
     def places_batcher(self, data, batch_size, max_len, mode, shuffle):
         return DataLoader(data, batch_size = batch_size, 
-                          collate_fn = pad_fn(max_len, self.dtype), 
-                          sampler = PlacesSampler(data, mode))
+                          collate_fn = audio_pad_fn(max_len, self.dtype), 
+                          sampler = PlacesSampler(data, mode, shuffle))
 
 ############ functions to set the class values and attributes ################
     # minibatcher type should match your input features, no default is set.
@@ -242,7 +245,7 @@ class flickr_trainer():
             # calculate the recall@n on the validation set
             self.evaluator.caption_embeddings = self.caption_embeddings
             self.evaluator.image_embeddings = self.image_embeddings
-            self.recall_at_n(val, prepend = 'validation') 
+            self.recall_at_n(val, prepend = 'validation', mode = 'val') 
     
     def report_test(self, test):
         # run a test epoch on the test set
@@ -251,7 +254,7 @@ class flickr_trainer():
         # calculate the recall@n on the test set
         self.evaluator.caption_embeddings = self.caption_embeddings
         self.evaluator.image_embeddings = self.image_embeddings
-        self.recall_at_n(test, prepend = 'test')
+        self.recall_at_n(test, prepend = 'test', mode = 'test')
 
     # create an evaluator object
     def set_evaluator(self, n):

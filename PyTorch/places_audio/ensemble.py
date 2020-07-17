@@ -33,7 +33,7 @@ from minibatchers import PlacesDataset
 parser = argparse.ArgumentParser(description='Create and run an articulatory feature classification DNN')
 
 # args concerning file location
-parser.add_argument('-data_loc', type = str, default = '/prep_data/flickr_features.h5',
+parser.add_argument('-data_loc', type = str, default = '/prep_data/places_features.h5',
                     help = 'location of the feature file, default: /prep_data/flickr_features.h5')
 parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/places_audio/results/',
                     help = 'location of the json file containing the data split information')
@@ -79,8 +79,8 @@ out_size = 2048
 # run the image and caption retrieval and create an ensemble
 img_models.sort()
 caption_models.sort()
-caps = torch.autograd.Variable(trainer.dtype(np.zeros((5000, out_size)))).data
-imgs = torch.autograd.Variable(trainer.dtype(np.zeros((5000, out_size)))).data
+caps = torch.autograd.Variable(trainer.dtype(np.zeros((1000, out_size)))).data
+imgs = torch.autograd.Variable(trainer.dtype(np.zeros((1000, out_size)))).data
 
 for img, cap in zip(img_models, caption_models) :    
     epoch = img.split('.')[1]
@@ -89,10 +89,10 @@ for img, cap in zip(img_models, caption_models) :
     trainer.load_img_embedder(args.results_loc + img)   
     # calculate the recall@n
     trainer.set_epoch(epoch)
-    trainer.recall_at_n(dataset, prepend = 'val', mode = 'test')
+    trainer.recall_at_n(dataset, prepend = 'val', mode = 'test', emb = True)
 
-    caption =  trainer.evaluator.return_caption_embeddings()
-    image = trainer.evaluator.return_image_embeddings()
+    caption =  trainer.evaluator.caption_embeddings
+    image = trainer.evaluator.image_embeddings
 
     caps += caption
     imgs += image

@@ -12,9 +12,9 @@ import argparse
 import torch
 import sys
 
-from torch.optim import lr_scheduler
 sys.path.append('../functions')
 
+from torch.optim import lr_scheduler
 from trainer import flickr_trainer
 from costum_loss import batch_hinge_loss, ordered_loss, attention_loss
 from costum_scheduler import cyclic_scheduler
@@ -28,7 +28,7 @@ parser = argparse.ArgumentParser(description =
 # args concerning file location
 parser.add_argument('-data_loc', type = str, 
                     default = '/vol/tensusers3/dmerkx/databases/places/places_features.h5',
-                    help = 'location of the feature file, default: /prep_data/flickr_features.h5')
+                    help = 'location of the feature file')
 parser.add_argument('-results_loc', type = str, 
                     default = '/vol/tensusers3/dmerkx/places_results/',
                     help = 'location to save the trained models')
@@ -90,7 +90,7 @@ cyclic_scheduler = cyclic_scheduler(max_lr = args.lr, min_lr = 1e-6,
 trainer = flickr_trainer(img_net, cap_net, args.visual, args.cap)
 trainer.set_loss(batch_hinge_loss)
 trainer.set_optimizer(optimizer)
-trainer.s0, /test_data/places_A10EDAUGQ2JLIW_GSUN_6EA76E540C9E3DFD5722C37800AE8263et_places_batcher()
+trainer.set_places_batcher()
 trainer.set_lr_scheduler(cyclic_scheduler, 'cyclic')
 trainer.set_att_loss(attention_loss)
 # if using a VQ layer, the trainer should use the VQ layers' loss 

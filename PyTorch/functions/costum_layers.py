@@ -174,29 +174,6 @@ class VQ_EMA_layer(nn.Module):
                                )
         return quantized, loss
                                                                                          
-# this layer is my own attempt at a VQ layer. 
-class quantization_layer2(nn.Module):
-    def __init__(self, num_emb, emb_dim):
-        super(quantization_layer2, self).__init__()
-
-        self.embed = nn.Parameter(torch.zeros(num_emb, emb_dim))
-        torch.nn.init.uniform_(self.embed, -1/1024, 1/1024)
-        self.quant_emb = quantization_emb.apply
-    def forward(self, input):
-        # get the distance and the index of the closest embedding
-        dims = input.size()
-        embs, one_hot = self.quant_emb(input.reshape(-1, dims[-1]), 
-                                     self.embed)
-        #embs = embs.view(dims[0], dims[1], -1)
-        embeddings = torch.mm(one_hot, self.embed)
-        input = input.reshape(-1, dims[-1])
-        
-        l1 = torch.nn.functional.mse_loss(input.detach(), embeddings)
-        l2 = 0.25 * torch.nn.functional.mse_loss(input, embeddings.detach())
-        
-        embs = input + (embeddings - input).detach()
-        return embs.view(dims[0], dims[1], -1), l1 + l2
-
 def smooth(idx):   
     for c, i in enumerate(idx):
         if c != 0:
@@ -560,7 +537,7 @@ class transformer(nn.Module):
     
     # training function for caption2image encoders. Use instead of forward
     def cap2im_train(self, enc_input):
-        mask = self.create_enc_mask(enc_input)
+        mask = self.create_dec_mask(enc_input)
         # for encoders with an embedding layer, convert input to longtensor
         if hasattr(self, 'embed'):
             enc_input = self.embed(enc_input.long()) 
