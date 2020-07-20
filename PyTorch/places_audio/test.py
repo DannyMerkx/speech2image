@@ -14,7 +14,8 @@ import os
 import argparse
 import torch
 import sys
-sys.path.append('/data/speech2image/PyTorch/functions')
+
+sys.path.append('../functions')
 
 from trainer import flickr_trainer
 from minibatchers import PlacesDataset
@@ -35,7 +36,6 @@ parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, defa
 # args concerning the database and which features to load
 parser.add_argument('-visual', type = str, default = 'resnet', help = 'name of the node containing the visual features, default: resnet')
 parser.add_argument('-cap', type = str, default = 'mfcc', help = 'name of the node containing the audio features, default: mfcc')
-parser.add_argument('-gradient_clipping', type = bool, default = True, help ='use gradient clipping, default: True')
 
 args = parser.parse_args()
 
@@ -67,6 +67,7 @@ caption_models.sort()
 trainer = flickr_trainer(img_net, cap_net, args.visual, args.cap)
 trainer.set_audio_batcher()
 trainer.set_loss(batch_hinge_loss)
+trainer.no_grads()
 # optionally use cuda
 if cuda:
     trainer.set_cuda()

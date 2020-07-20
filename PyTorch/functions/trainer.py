@@ -234,7 +234,7 @@ class flickr_trainer():
 ######################## evaluation functions #################################
     # report time and evaluation of this training epoch
     def report_training(self, max_epochs, val = False):
-        # run a test epoch on the validation set
+        # run a test epoch on the validation set (if available)
         if val != False:
             self.test_epoch(val, 100, 'val')
         t =  time.time() - self.start_time
