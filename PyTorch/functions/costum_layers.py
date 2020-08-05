@@ -141,7 +141,9 @@ class VQ_EMA_layer(nn.Module):
         # flatten accross B/SL dims
         flat_input = input.view(-1, input_shape[-1])
         # retrieve the quantized input and encoding indices
-        quantized, enc_idx = self.quant_emb(flat_input, self.embed)
+        quantized, enc_idx, idx = self.quant_emb(flat_input, self.embed)
+        
+        self.idx = idx
         quantized = quantized.view(input_shape)
         # update the exponential moving average
         if self.training:
@@ -196,12 +198,11 @@ class quantization_emb(torch.autograd.Function):
                torch.mm(input, torch.transpose(emb.weight, 0, 1)) 
         # retrieve closest embedding and create onehot encoding vector   
         idx = dist.argmin(-1)   
-        smooth(idx)
+        #smooth(idx)
         one_hot_idx = nn.functional.one_hot(idx, emb.num_embeddings).float()
         quantized = torch.mm(one_hot_idx, emb.weight)
         # return quantized input and the one_hot_idx
-        return quantized, one_hot_idx
-    
+        return quantized, one_hot_idx, idx
 
     @staticmethod
     def backward(ctx, grad_quant, grad_idx):

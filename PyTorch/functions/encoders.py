@@ -11,6 +11,7 @@ import torch
 
 import torchvision.models as models
 import torch.nn as nn
+import torch.nn.functional as f
 
 from costum_layers import (multi_attention, transformer_encoder, 
                            transformer_decoder, transformer, 
@@ -144,7 +145,7 @@ class audio_rnn_encoder(nn.Module):
         for i in self.app_order:
             if i:
                 x, VQ_loss = self.VQ[v](x)
-                self.VQ_loss = VQ_loss
+                self.VQ_loss += VQ_loss
                 v += 1
             else: 
                 x = self.apply_rnn(x, l, r)
@@ -261,7 +262,7 @@ class conv_VQ_encoder(nn.Module):
                 x = x.permute(0,2,1).contiguous()
                 x, VQ_loss = self.VQ[v](x)
                 x = x.permute(0,2,1).contiguous()
-                self.VQ_loss = VQ_loss
+                self.VQ_loss += VQ_loss
                 v += 1
             else: 
                 x = self.res_convs[c](x)
@@ -270,6 +271,114 @@ class conv_VQ_encoder(nn.Module):
         x = x.permute(0,2,1)
         x = nn.functional.normalize(self.att(x), p=2, dim=1)    
         return x
+
+class rnn_pack_encoder(nn.Module):
+    def __init__(self, config):
+        super(audio_rnn_encoder, self).__init__()
+        conv = config['conv']
+        rnn = config['rnn']
+        VQ = config['VQ']
+        att = config ['att']
+        self.max_len = rnn['max_len']
+        self.Conv = nn.Conv1d(in_channels = conv['in_channels'], 
+                                  out_channels = conv['out_channels'], 
+                                  kernel_size = conv['kernel_size'],
+                                  stride = conv['stride'], 
+                                  padding = conv['padding']
+                                  )
+        
+        self.RNN = nn.ModuleList()
+        for x in range(len(rnn['n_layers'])):
+            self.RNN.append(nn.GRU(input_size = rnn['input_size'][x], 
+                                   hidden_size = rnn['hidden_size'][x], 
+                                   num_layers = rnn['n_layers'][x],
+                                   batch_first = rnn['batch_first'],
+                                   bidirectional = rnn['bidirectional'][x], 
+                                   dropout = rnn['dropout']
+                                   )
+                            )
+
+        self.VQ = nn.ModuleList()
+        for x in range(VQ['n_layers']):
+            self.VQ.append(VQ_EMA_layer(VQ['n_embs'][x], VQ['emb_dim'][x]))
+            
+        self.att = multi_attention(in_size = att['in_size'], 
+                                   hidden_size = att['hidden_size'], 
+                                   n_heads = att['heads']
+                                   )
+        # application order of the vq and conv layers. list with 1 bool per
+        # VQ/res_conv layer.
+        self.app_order = config['app_order']
+        
+    def forward(self, input, l):
+        # keep track of amount of rnn and vq layers applied and the VQ loss
+        r, v, self.VQ_loss = 0, 0, 0
+        x = self.Conv(input).permute(0,2,1).contiguous()
+        # correct the lengths after the convolution subsampling
+        cor = lambda l, ks, stride : int((l - (ks - stride)) / stride)
+        l = [cor(y, self.Conv.kernel_size[0], self.Conv.stride[0]) for y in l]     
+        # go through the application order list. If true apply VQ else RNN
+        for i in self.app_order:
+            if i == 'rnn':
+                x = self.apply_rnn(x, l, r)
+                r += 1
+            elif i == 'VQ':
+                x, VQ_loss = self.VQ[v](x)
+                self.VQ_loss += VQ_loss
+                self.segmentation = self.indices2segs(self.VQ[v].idx)
+                v += 1            
+            elif i == 'rnn_pack': 
+                x, l = self.apply_rnn_pack(x, r, self.segmentation)
+                r += 1
+        
+        x = nn.functional.normalize(self.att(x), p=2, dim=1)    
+        return x
+    
+    def indices2segs(self, inds):
+        # turn the indices returned by a VQ layer into a segmentation hypothesis
+        inds = inds.view(32, -1)
+        # roll the indice matrix to compare each index to the previous index
+        roll = inds.data.roll(1,1)
+        # set the first index of the rolled matrix to -1 to account for the sent boundary
+        roll[:,0] = -1   
+        # compare inds to roll to detect segment boundaries and roll back.
+        # the nonzero indices now indicate segment ending frames
+        segs = (inds == roll).roll(-1, 1)
+        return segs
+    
+    # combine rnn with packing and unpacking the sequence
+    def apply_rnn(self, input, l, RNN_idx):
+        input = nn.utils.rnn.pack_padded_sequence(input, l, batch_first = True, 
+                                                  enforce_sorted = False
+                                                  )
+        x, hx = self.RNN[RNN_idx](input)
+        x, lens = nn.utils.rnn.pad_packed_sequence(x, batch_first = True)        
+        return x
+    
+    def apply_rnn_pack(self, input, RNN_idx, seg):
+        # initial hidden state
+        h = torch.zeros([32, 1024])
+        # maximum sentence length after pack operation
+        max_len = (seg == False).sum(1).max()
+        # output tensor
+        output = torch.zeros(input.size(0), max_len, 
+                             self.RNN[RNN_idx].hidden_size)
+        # keep track of segment idxs for the pack operation
+        idx = [0] * 32 
+        for x in range(0, input.size(1)):
+            h, hx = self.RNN[RNN_idx](input[:, x:x+1, :], h.unsqueeze(0))
+            # check for each sent in the batch of the current timestep is a 
+            # segment end.
+            for y in range(0, input.size(0)):
+                if seg[y, x] == False:
+                    # if time step is a seg end, place hidden state in the out-
+                    # put tensor and increase the idx
+                    output[y, idx[y], :] = h[y, :]
+                    idx[y] += 1
+            # set hidden state to 0 for segment endings
+            h = seg[:, x].unsqueeze(1).expand_as(h.squeeze()) * h.squeeze()
+        # idx can now serve as new sentence length for subsequent layers
+        return output, idx
 
 ###########################transformer architectures###########################
 

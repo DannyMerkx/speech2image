@@ -43,6 +43,8 @@ parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, defa
 # args concerning the database and which features to load
 parser.add_argument('-visual', type = str, default = 'resnet', help = 'name of the node containing the visual features, default: resnet')
 parser.add_argument('-cap', type = str, default = 'mfcc', help = 'name of the node containing the audio features, default: mfcc')
+parser.add_argument('-vq', type = bool, default = False, 
+                    help = 'use vq loss, default: True')
 
 args = parser.parse_args()
 
@@ -65,6 +67,10 @@ else:
 trainer = flickr_trainer(img_net, cap_net, args.visual, args.cap)
 trainer.set_places_batcher()
 trainer.no_grads()
+# if using a VQ layer, the trainer should use the VQ layers' loss 
+if args.vq:
+    trainer.set_VQ_loss()
+    
 # optionally use cuda
 if cuda:
     trainer.set_cuda()

@@ -36,7 +36,7 @@ def batch_hinge_loss(embeddings_1, embeddings_2, dtype, neg_sample = False):
     scaling = dtype([x/(s * neg_sample) for x in range(1, neg_sample +1)]).unsqueeze(1)
                     
     cost = cost_1 * scaling + cost_2.t() * scaling
-    return cost.sum
+    return cost.sum()
 
 
 #implements the ordered embeddings loss function proposed by vendrov et all. 

@@ -26,16 +26,24 @@ from costum_loss import batch_hinge_loss, ordered_loss, attention_loss
 parser = argparse.ArgumentParser(description='Create and run an articulatory feature classification DNN')
 
 # args concerning file location
-parser.add_argument('-data_loc', type = str, default = '/prep_data/places_features.h5',
+parser.add_argument('-data_loc', type = str, 
+                    default = '/prep_data/places_features.h5',
                     help = 'location of the feature file, default: /prep_data/flickr_features.h5')
-parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/places_audio/results/',
+parser.add_argument('-results_loc', type = str, 
+                    default = '/data/speech2image/PyTorch/places_audio/results/',
                     help = 'location of the json file containing the data split information')
 # args concerning training settings
-parser.add_argument('-batch_size', type = int, default = 100, help = 'batch size, default: 100')
-parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, default: True')
+parser.add_argument('-batch_size', type = int, default = 100, 
+                    help = 'batch size, default: 100')
+parser.add_argument('-cuda', type = bool, default = True, 
+                    help = 'use cuda, default: True')
 # args concerning the database and which features to load
-parser.add_argument('-visual', type = str, default = 'resnet', help = 'name of the node containing the visual features, default: resnet')
-parser.add_argument('-cap', type = str, default = 'mfcc', help = 'name of the node containing the audio features, default: mfcc')
+parser.add_argument('-visual', type = str, default = 'resnet', 
+                    help = 'name of the node containing the visual features, default: resnet')
+parser.add_argument('-cap', type = str, default = 'mfcc', 
+                    help = 'name of the node containing the audio features, default: mfcc')
+parser.add_argument('-vq', type = bool, default = False, 
+                    help = 'use vq loss, default: True')
 
 args = parser.parse_args()
 
@@ -65,9 +73,13 @@ caption_models.sort()
 
 # create a trainer with just the evaluator for the purpose of testing a pretrained model
 trainer = flickr_trainer(img_net, cap_net, args.visual, args.cap)
-trainer.set_audio_batcher()
+trainer.set_places_batcher()
 trainer.set_loss(batch_hinge_loss)
 trainer.no_grads()
+# if using a VQ layer, the trainer should use the VQ layers' loss 
+if args.vq:
+    trainer.set_VQ_loss()
+    
 # optionally use cuda
 if cuda:
     trainer.set_cuda()
