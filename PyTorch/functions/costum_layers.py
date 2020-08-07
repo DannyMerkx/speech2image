@@ -142,7 +142,7 @@ class quantization_emb(torch.autograd.Function):
         return quantized, one_hot_idx, idx
 
     @staticmethod
-    def backward(ctx, grad_quant, grad_idx):
+    def backward(ctx, grad_quant, grad_one_hot_idx, grad_idx):
         # simply pass the gradient of the quantized embeddings
         return grad_quant, None
 
