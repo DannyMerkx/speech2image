@@ -277,6 +277,7 @@ class rnn_pack_encoder(nn.Module):
         super(rnn_pack_encoder, self).__init__()
         conv = config['conv']
         rnn = config['rnn']
+        rnn_pack = config['rnn_pack']
         VQ = config['VQ']
         att = config ['att']
         self.max_len = rnn['max_len']
@@ -297,7 +298,13 @@ class rnn_pack_encoder(nn.Module):
                                    dropout = rnn['dropout']
                                    )
                             )
-
+        self.RNN_pack = nn.ModuleList()
+        for x in range(len(rnn_pack['input_size'])):
+            self.RNN_pack.append(nn.GRUCell(input_size = rnn_pack['input_size'][x],
+                                            hidden_size = rnn_pack['hidden_size'][x]
+                                            )
+                                 )
+            
         self.VQ = nn.ModuleList()
         for x in range(VQ['n_layers']):
             self.VQ.append(VQ_EMA_layer(VQ['n_embs'][x], VQ['emb_dim'][x]))
@@ -312,8 +319,8 @@ class rnn_pack_encoder(nn.Module):
         
     def forward(self, input, l):
         self.batch_size = input.size(0)
-        # keep track of amount of rnn and vq layers applied and the VQ loss
-        r, v, self.VQ_loss = 0, 0, 0
+        # keep track of amount of rnn rnnpack and vq layers applied and the VQ loss
+        r, rp, v, self.VQ_loss = 0, 0, 0, 0
         x = self.Conv(input).permute(0,2,1).contiguous()
         # correct the lengths after the convolution subsampling
         cor = lambda l, ks, stride : int((l - (ks - stride)) / stride)
@@ -329,8 +336,8 @@ class rnn_pack_encoder(nn.Module):
                 self.segmentation = self.indices2segs(self.VQ[v].idx)
                 v += 1            
             elif i == 'rnn_pack': 
-                x, l = self.apply_rnn_pack(x, r, self.segmentation)
-                r += 1
+                x, l = self.apply_rnn_pack(x, rp, self.segmentation)
+                rp += 1
         
         x = nn.functional.normalize(self.att(x), p=2, dim=1)    
         return x
@@ -357,17 +364,18 @@ class rnn_pack_encoder(nn.Module):
         return x
     
     def apply_rnn_pack(self, input, RNN_idx, seg):
-        # initial hidden state
+        # initial hidden state (batch, features)
         h = torch.zeros([self.batch_size, self.RNN[RNN_idx].hidden_size])
         # maximum sentence length after pack operation
         max_len = (seg == False).sum(1).max()
-        # output tensor
+        # output tensor (batch, seq, features)
         output = torch.zeros(input.size(0), max_len, 
-                             self.RNN[RNN_idx].hidden_size)
+                             self.RNN_pack[RNN_idx].hidden_size)
         # keep track of segment idxs for the pack operation
         idx = [0] * self.batch_size 
         for x in range(0, input.size(1)):
-            h, hx = self.RNN[RNN_idx](input[:, x:x+1, :], h.unsqueeze(0))
+            h = self.RNN_pack[RNN_idx](input[:, x, :], h)
+
             # check for each sent in the batch of the current timestep is a 
             # segment end.
             for y in range(0, input.size(0)):

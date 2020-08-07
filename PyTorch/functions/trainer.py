@@ -51,7 +51,7 @@ class flickr_trainer():
                           sampler = FlickrSampler(data, mode, shuffle))
     def audio_batcher(self, data, batch_size, max_len, mode, shuffle):
         return DataLoader(data, batch_size = batch_size, 
-                          collate_fn = audio_pad_fn(max_len, self.dtypeHere we still check if the configuration arguments),
+                          collate_fn = audio_pad_fn(max_len, self.dtype),
                           sampler = FlickrSampler(data, mode, shuffle))
     def places_batcher(self, data, batch_size, max_len, mode, shuffle):
         return DataLoader(data, batch_size = batch_size, 

@@ -5,7 +5,8 @@ Created on Tue May 26 14:56:17 2020
 put the config dictionaries for different types of encoders here
 @author: danny
 """
-from encoders import (img_encoder, audio_rnn_encoder, conv_VQ_encoder)
+from encoders import (img_encoder, audio_rnn_encoder, conv_VQ_encoder, 
+                      rnn_pack_encoder)
 
 def create_encoders(preset_name):
     if preset_name == 'rnn':
@@ -40,9 +41,9 @@ def create_encoders(preset_name):
                                 'kernel_size': 6, 'stride': 2,'padding': 0, 
                                 'bias': False
                                 }, 
-                        'rnn':{'input_size': [64, 2048, 2048, 2048], 
-                               'hidden_size': [1024, 1024, 1024, 1024], 
-                               'n_layers': [1,1,1,1], 'batch_first': True, 
+                        'rnn':{'input_size': [64, 2048], 
+                               'hidden_size': [1024, 1024], 
+                               'n_layers': [1,3], 'batch_first': True, 
                                'bidirectional': True, 'dropout': 0, 
                                'max_len': 1024
                                }, 
@@ -64,24 +65,25 @@ def create_encoders(preset_name):
     
     elif preset_name == 'rnn_pack':
         audio_config = {'conv':{'in_channels': 39, 'out_channels': 64, 
-                        'kernel_size': 6, 'stride': 2,'padding': 0, 
-                        'bias': False
-                        }, 
-                'rnn':{'input_size': [64, 2048, 1024], 
-                       'hidden_size': [1024, 1024, 1024], 
-                       'n_layers': [1,1,2], 'batch_first': True, 
-                       'bidirectional': [True, False, True], 'dropout': 0, 
-                       'max_len': 1024
-                       }, 
-                'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1
-                       },
-                'VQ':{'n_layers': 1, 'n_embs': [64], 
-                      'emb_dim': [2048]
-                      },
-                'app_order': ['rnn', 'VQ', 'rnn_pack', 'rnn'],
-                }
+                                'kernel_size': 6, 'stride': 2,'padding': 0, 
+                                'bias': False
+                                }, 
+                        'rnn':{'input_size': [64, 1024], 
+                               'hidden_size': [1024, 1024], 
+                               'n_layers': [1,3], 'batch_first': True, 
+                               'bidirectional': [True, True], 'dropout': 0, 
+                               'max_len': 1024
+                               }, 
+                        'rnn_pack':{'input_size': [2048], 'hidden_size': [1024]},
+                        'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1
+                               },
+                        'VQ':{'n_layers': 1, 'n_embs': [64], 
+                              'emb_dim': [2048]
+                              },
+                        'app_order': ['rnn', 'VQ', 'rnn_pack', 'rnn'],
+                        }
         out_size = audio_config['rnn']['hidden_size'][-1] * 2 ** \
-                   audio_config['rnn']['bidirectional'] * audio_config['att']['heads']          
+                   audio_config['rnn']['bidirectional'][-1] * audio_config['att']['heads']          
         image_config = {'linear':{'in_size': 2048, 'out_size': out_size}, 
                         'norm': True
                         }
