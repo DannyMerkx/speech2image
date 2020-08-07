@@ -82,7 +82,7 @@ def create_encoders(preset_name):
                 'app_order': ['rnn', 'VQ', 'rnn_pack', 'rnn'],
                 }
         out_size = audio_config['rnn']['hidden_size'][-1] * 2 ** \
-                   audio_config['rnn']['bidirectional'] * audio_config['att']['heads']          
+                   audio_config['rnn']['bidirectional'][-1] * audio_config['att']['heads']          
         image_config = {'linear':{'in_size': 2048, 'out_size': out_size}, 
                         'norm': True
                         }

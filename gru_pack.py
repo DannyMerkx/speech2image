@@ -7,17 +7,19 @@ Created on Wed Jul 29 14:22:23 2020
 """
 import torch
 import torch.nn.functional as f
+import torch.nn as nn
 
 audio_config = {'conv':{'in_channels': 39, 'out_channels': 64, 
                         'kernel_size': 6, 'stride': 2,'padding': 0, 
                         'bias': False
                         }, 
-                'rnn':{'input_size': [64, 2048, 1024], 
-                       'hidden_size': [1024, 1024, 1024], 
-                       'n_layers': [1,1,2], 'batch_first': True, 
-                       'bidirectional': [True, False, True], 'dropout': 0, 
+                'rnn':{'input_size': [64, 1024], 
+                       'hidden_size': [1024, 1024], 
+                       'n_layers': [1,2], 'batch_first': True, 
+                       'bidirectional': [True, True], 'dropout': 0, 
                        'max_len': 1024
                        }, 
+                'rnn_pack':{'input_size': [2048], 'hidden_size': [1024]},
                 'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1
                        },
                 'VQ':{'n_layers': 1, 'n_embs': [64], 
@@ -27,17 +29,17 @@ audio_config = {'conv':{'in_channels': 39, 'out_channels': 64,
                 }
 
 
-cap_net = audio_rnn_encoder(audio_config)
+cap_net = rnn_pack_encoder(audio_config)
 input = torch.randint(10, [32, 39, 150]).float()/10
 
 cap_net(input, [150] * 32)
 
-
-class audio_rnn_encoder(nn.Module):
+class rnn_pack_encoder(nn.Module):
     def __init__(self, config):
-        super(audio_rnn_encoder, self).__init__()
+        super(rnn_pack_encoder, self).__init__()
         conv = config['conv']
         rnn = config['rnn']
+        rnn_pack = config['rnn_pack']
         VQ = config['VQ']
         att = config ['att']
         self.max_len = rnn['max_len']
@@ -58,7 +60,13 @@ class audio_rnn_encoder(nn.Module):
                                    dropout = rnn['dropout']
                                    )
                             )
-
+        self.RNN_pack = nn.ModuleList()
+        for x in range(len(rnn_pack['input_size'])):
+            self.RNN_pack.append(nn.GRUCell(input_size = rnn_pack['input_size'][x],
+                                            hidden_size = rnn_pack['hidden_size'][x]
+                                            )
+                                 )
+            
         self.VQ = nn.ModuleList()
         for x in range(VQ['n_layers']):
             self.VQ.append(VQ_EMA_layer(VQ['n_embs'][x], VQ['emb_dim'][x]))
@@ -72,8 +80,9 @@ class audio_rnn_encoder(nn.Module):
         self.app_order = config['app_order']
         
     def forward(self, input, l):
+        self.batch_size = input.size(0)
         # keep track of amount of rnn and vq layers applied and the VQ loss
-        r, v, self.VQ_loss = 0, 0, 0
+        r, rp, v, self.VQ_loss = 0, 0, 0, 0
         x = self.Conv(input).permute(0,2,1).contiguous()
         # correct the lengths after the convolution subsampling
         cor = lambda l, ks, stride : int((l - (ks - stride)) / stride)
@@ -86,25 +95,25 @@ class audio_rnn_encoder(nn.Module):
             elif i == 'VQ':
                 x, VQ_loss = self.VQ[v](x)
                 self.VQ_loss += VQ_loss
-                self.segmentation = indices2segs(self.VQ[v].idx)
+                self.segmentation = self.indices2segs(self.VQ[v].idx)
                 v += 1            
             elif i == 'rnn_pack': 
-                x, l = self.apply_rnn_pack(x, r, self.segmentation)
-                r += 1
+                x, l = self.apply_rnn_pack(x, rp, self.segmentation)
+                rp += 1
         
         x = nn.functional.normalize(self.att(x), p=2, dim=1)    
         return x
     
     def indices2segs(self, inds):
         # turn the indices returned by a VQ layer into a segmentation hypothesis
-        inds = inds.view(32, -1)
+        inds = inds.view(self.batch_size, -1)
         # roll the indice matrix to compare each index to the previous index
         roll = inds.data.roll(1,1)
         # set the first index of the rolled matrix to -1 to account for the sent boundary
         roll[:,0] = -1   
         # compare inds to roll to detect segment boundaries and roll back.
         # the nonzero indices now indicate segment ending frames
-        segs = (inds == roll).roll(-1, 1)
+        segs = (inds == roll).float().roll(-1, 1)
         return segs
     
     # combine rnn with packing and unpacking the sequence
@@ -118,16 +127,17 @@ class audio_rnn_encoder(nn.Module):
     
     def apply_rnn_pack(self, input, RNN_idx, seg):
         # initial hidden state
-        h = torch.zeros([32, 1024])
+        h = torch.zeros([self.batch_size, self.RNN[RNN_idx].hidden_size])
         # maximum sentence length after pack operation
         max_len = (seg == False).sum(1).max()
         # output tensor
         output = torch.zeros(input.size(0), max_len, 
-                             self.RNN[RNN_idx].hidden_size)
+                             self.RNN_pack[RNN_idx].hidden_size)
         # keep track of segment idxs for the pack operation
         idx = [0] * 32 
         for x in range(0, input.size(1)):
-            h, hx = self.RNN[RNN_idx](input[:, x:x+1, :], h.unsqueeze(0))
+            h = self.RNN_pack[RNN_idx](input[:, x, :], h)
+
             # check for each sent in the batch of the current timestep is a 
             # segment end.
             for y in range(0, input.size(0)):

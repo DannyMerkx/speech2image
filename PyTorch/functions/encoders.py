@@ -274,7 +274,7 @@ class conv_VQ_encoder(nn.Module):
 
 class rnn_pack_encoder(nn.Module):
     def __init__(self, config):
-        super(audio_rnn_encoder, self).__init__()
+        super(rnn_pack_encoder, self).__init__()
         conv = config['conv']
         rnn = config['rnn']
         VQ = config['VQ']
@@ -311,6 +311,7 @@ class rnn_pack_encoder(nn.Module):
         self.app_order = config['app_order']
         
     def forward(self, input, l):
+        self.batch_size = input.size(0)
         # keep track of amount of rnn and vq layers applied and the VQ loss
         r, v, self.VQ_loss = 0, 0, 0
         x = self.Conv(input).permute(0,2,1).contiguous()
@@ -336,14 +337,14 @@ class rnn_pack_encoder(nn.Module):
     
     def indices2segs(self, inds):
         # turn the indices returned by a VQ layer into a segmentation hypothesis
-        inds = inds.view(32, -1)
+        inds = inds.view(self.batch_size, -1)
         # roll the indice matrix to compare each index to the previous index
         roll = inds.data.roll(1,1)
         # set the first index of the rolled matrix to -1 to account for the sent boundary
         roll[:,0] = -1   
         # compare inds to roll to detect segment boundaries and roll back.
         # the nonzero indices now indicate segment ending frames
-        segs = (inds == roll).roll(-1, 1)
+        segs = (inds == roll).float().roll(-1, 1)
         return segs
     
     # combine rnn with packing and unpacking the sequence
@@ -357,14 +358,14 @@ class rnn_pack_encoder(nn.Module):
     
     def apply_rnn_pack(self, input, RNN_idx, seg):
         # initial hidden state
-        h = torch.zeros([32, 1024])
+        h = torch.zeros([self.batch_size, self.RNN[RNN_idx].hidden_size])
         # maximum sentence length after pack operation
         max_len = (seg == False).sum(1).max()
         # output tensor
         output = torch.zeros(input.size(0), max_len, 
                              self.RNN[RNN_idx].hidden_size)
         # keep track of segment idxs for the pack operation
-        idx = [0] * 32 
+        idx = [0] * self.batch_size 
         for x in range(0, input.size(1)):
             h, hx = self.RNN[RNN_idx](input[:, x:x+1, :], h.unsqueeze(0))
             # check for each sent in the batch of the current timestep is a 

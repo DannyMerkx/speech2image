@@ -6,5 +6,5 @@ save_non_project_files = False
 
 [main]
 version = 0.2.0
-recent_files = ['PyTorch/places_audio/encoder_configs.py', 'PyTorch/functions/encoders.py', 'untitled1.py', 'PyTorch/functions/costum_layers.py']
+recent_files = ['PyTorch/functions/encoders.py', 'untitled1.py', 'PyTorch/functions/costum_layers.py', 'PyTorch/places_audio/speech_net.py']
 
