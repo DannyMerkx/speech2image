@@ -18,8 +18,6 @@ from trainer import flickr_trainer
 from costum_loss import batch_hinge_loss, ordered_loss, attention_loss
 from costum_scheduler import cyclic_scheduler
 from minibatchers import FlickrDataset
-
-from data_split import split_data_flickr
 from encoder_configs import create_encoders
 ##################################### parameter settings ######################
 

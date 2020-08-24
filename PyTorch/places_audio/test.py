@@ -57,9 +57,10 @@ dataset = PlacesDataset(args.data_loc, args.visual, args.cap)
 cuda = args.cuda and torch.cuda.is_available()
 if cuda:
     print('using gpu')
+    device = 'gpu'
 else:
     print('using cpu')
-
+    device = 'cpu'
 #####################################################
 
 # list all the trained model parameters
@@ -89,9 +90,9 @@ for img, cap in zip(img_models, caption_models):
 
     epoch = img.split('.')[1]
     # load the pretrained embedders
-    trainer.load_cap_embedder(args.results_loc + cap)
-    trainer.load_img_embedder(args.results_loc + img)
-    
+    trainer.load_cap_embedder(args.results_loc + cap, device)
+    trainer.load_img_embedder(args.results_loc + img, device)
+
     # calculate the recall@n
     trainer.set_epoch(epoch)
     trainer.report_test(dataset)

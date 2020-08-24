@@ -17,24 +17,27 @@ rate cycle of 4 epochs this is every fourth epoch (except the first few)
 from __future__ import print_function
 
 import os
-import tables
 import argparse
 import torch
 import sys
 import numpy as np
-sys.path.append('/data/speech2image/PyTorch/functions')
+
+sys.path.append('../functions')
 
 from trainer import flickr_trainer
-from costum_loss import batch_hinge_loss, ordered_loss, attention_loss
 from encoder_configs import create_encoders
-from minibatchers import PlacesDataset
+from minibatchers import FlickrDataset
+from costum_loss import batch_hinge_loss, ordered_loss, attention_loss
 ##################################### parameter settings ##############################################
 
 parser = argparse.ArgumentParser(description='Create and run an articulatory feature classification DNN')
 
 # args concerning file location
-parser.add_argument('-data_loc', type = str, default = '/prep_data/flickr_features.h5',
+parser.add_argument('-data_loc', type = str, 
+                    default = '/vol/tensusers3/dmerkx/databases/flickr8k/flickr_features.h5',
                     help = 'location of the feature file, default: /prep_data/flickr_features.h5')
+parser.add_argument('-split_loc', type = str,
+                    default = '/vol/tensusers3/dmerkx/databases/flickr8k/dataset.json')
 parser.add_argument('-results_loc', type = str, default = '/data/speech2image/PyTorch/places_audio/results/',
                     help = 'location of the json file containing the data split information')
 # args concerning training settings
@@ -51,7 +54,7 @@ args = parser.parse_args()
 img_net, cap_net = create_encoders('rnn')
 
 # open the dataset
-dataset = PlacesDataset(args.data_loc, args.visual, args.cap)
+dataset = FlickrDataset(args.data_loc, args.visual, args.cap, args.split_loc)
 
 # check if cuda is availlable and user wants to run on gpu
 cuda = args.cuda and torch.cuda.is_available()
@@ -61,10 +64,14 @@ else:
     print('using cpu')
 #####################################################
 
-
 # create a trainer with just the evaluator for the purpose of testing a pretrained model
 trainer = flickr_trainer(img_net, cap_net, args.visual, args.cap)
-trainer.set_places_batcher()
+trainer.set_audio_batcher()
+trainer.no_grads()
+# if using a VQ layer, the trainer should use the VQ layers' loss 
+if args.vq:
+    trainer.set_VQ_loss()
+    
 # optionally use cuda
 if cuda:
     trainer.set_cuda()
@@ -75,7 +82,7 @@ models = os.listdir(args.results_loc)
 caption_models = [x for x in models if 'caption' in x]
 img_models = [x for x in models if 'image' in x]
 
-out_size = 2048
+out_size = img_net.linear_transform.out_features
 # run the image and caption retrieval and create an ensemble
 img_models.sort()
 caption_models.sort()
@@ -89,10 +96,10 @@ for img, cap in zip(img_models, caption_models) :
     trainer.load_img_embedder(args.results_loc + img)   
     # calculate the recall@n
     trainer.set_epoch(epoch)
-    trainer.recall_at_n(dataset, prepend = 'val', mode = 'test')
+    trainer.recall_at_n(dataset, prepend = 'val', mode = 'test', emb = True)
 
-    caption =  trainer.evaluator.return_caption_embeddings()
-    image = trainer.evaluator.return_image_embeddings()
+    caption =  trainer.evaluator.caption_embeddings
+    image = trainer.evaluator.image_embeddings
 
     caps += caption
     imgs += image

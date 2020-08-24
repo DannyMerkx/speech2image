@@ -62,7 +62,6 @@ else:
     print('using cpu')
 #####################################################
 
-
 # create a trainer with just the evaluator for the purpose of testing a pretrained model
 trainer = flickr_trainer(img_net, cap_net, args.visual, args.cap)
 trainer.set_places_batcher()

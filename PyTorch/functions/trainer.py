@@ -103,11 +103,17 @@ class flickr_trainer():
     def set_cap_embedder(self, emb):
         self.cap_embedder = emb
     # functions to load pretrained models
-    def load_cap_embedder(self, loc):
-        cap_state = torch.load(loc)
+    def load_cap_embedder(self, loc, device = 'gpu'):
+        if device == 'gpu':
+            cap_state = torch.load(loc)
+        else:
+            cap_state = torch.load(loc, map_location = torch.device('cpu'))
         self.cap_embedder.load_state_dict(cap_state)
-    def load_img_embedder(self, loc):
-        img_state = torch.load(loc)
+    def load_img_embedder(self, loc, device = 'gpu'):
+        if device == 'gpu':    
+            img_state = torch.load(loc)
+        else:
+            img_state = torch.load(loc, map_location = torch.device('cpu'))
         self.img_embedder.load_state_dict(img_state)
     # Load glove embeddings for token based embedders, optional. encoder needs
     # to have a load_embeddings method
