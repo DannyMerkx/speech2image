@@ -52,12 +52,18 @@ parser.add_argument('-gradient_clipping', type = bool, default = False,
                     help ='use gradient clipping, default: False')
 
 args = parser.parse_args()
+# this official split for places is relatively new.
+split_files = {'./split/dev_seen_2020.json': 'dev',
+               './split/dev_unseen_2020.json': 'dev_unseen',
+               './split/test_seen_2020.json': 'test',
+               './split/test_unseen_2020.json': 'test_unseen',
+               './split/train_2020.json': 'train'}
 
 # create encoders using presets defined in encoder_configs
 img_net, cap_net = create_encoders('rnn')
 
 # open the dataset
-dataset = PlacesDataset(args.data_loc, args.visual, args.cap)
+dataset = PlacesDataset(args.data_loc, args.visual, args.cap, split_files)
 
 # check if cuda is availlable and user wants to run on gpu
 cuda = args.cuda and torch.cuda.is_available()

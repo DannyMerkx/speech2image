@@ -105,6 +105,7 @@ class audio_rnn_encoder(nn.Module):
         VQ = config['VQ']
         att = config ['att']
         self.max_len = rnn['max_len']
+        self.norm = nn.LayerNorm(conv['in_channels'])
         self.Conv = nn.Conv1d(in_channels = conv['in_channels'], 
                                   out_channels = conv['out_channels'], 
                                   kernel_size = conv['kernel_size'],
@@ -137,7 +138,7 @@ class audio_rnn_encoder(nn.Module):
     def forward(self, input, l):
         # keep track of amount of rnn and vq layers applied
         r, v, self.VQ_loss = 0, 0, 0
-        x = self.Conv(input).permute(0,2,1).contiguous()
+        x = self.Conv(self.norm(input)).permute(0,2,1).contiguous()
         # correct the lengths after the convolution subsampling
         cor = lambda l, ks, stride : int((l - (ks - stride)) / stride)
         l = [cor(y, self.Conv.kernel_size[0], self.Conv.stride[0]) for y in l]        
@@ -319,13 +320,13 @@ class rnn_pack_encoder(nn.Module):
         
     def forward(self, input, l):
         self.batch_size = input.size(0)
-        # keep track of amount of rnn rnnpack and vq layers applied and the VQ loss
+        # keep track of amount of rnn, rnnpack and vq layers applied and the VQ loss
         r, rp, v, self.VQ_loss = 0, 0, 0, 0
         x = self.Conv(input).permute(0,2,1).contiguous()
         # correct the lengths after the convolution subsampling
         cor = lambda l, ks, stride : int((l - (ks - stride)) / stride)
         l = [cor(y, self.Conv.kernel_size[0], self.Conv.stride[0]) for y in l]     
-        # go through the application order list. If true apply VQ else RNN
+        # go through the application order list. 
         for i in self.app_order:
             if i == 'rnn':
                 x = self.apply_rnn(x, l, r)
@@ -336,7 +337,7 @@ class rnn_pack_encoder(nn.Module):
                 self.segmentation = self.indices2segs(self.VQ[v].idx)
                 v += 1            
             elif i == 'rnn_pack': 
-                x, l = self.apply_rnn_pack(x, rp, self.segmentation)
+                x, l = self.apply_rnn_pack(x, l, rp, self.segmentation)
                 rp += 1
         
         x = nn.functional.normalize(self.att(x), p=2, dim=1)    
@@ -363,7 +364,7 @@ class rnn_pack_encoder(nn.Module):
         x, lens = nn.utils.rnn.pad_packed_sequence(x, batch_first = True)        
         return x
     
-    def apply_rnn_pack(self, input, RNN_idx, seg):
+    def apply_rnn_pack(self, input, l, RNN_idx, seg):
         # initial hidden state (batch, features)
         h = torch.zeros([self.batch_size, self.RNN[RNN_idx].hidden_size])
         # maximum sentence length after pack operation
@@ -379,7 +380,7 @@ class rnn_pack_encoder(nn.Module):
             # check for each sent in the batch of the current timestep is a 
             # segment end.
             for y in range(0, input.size(0)):
-                if seg[y, x] == False:
+                if seg[y, x] == False and x < l[y]:
                     # if time step is a seg end, place hidden state in the out-
                     # put tensor and increase the idx
                     output[y, idx[y], :] = h[y, :]

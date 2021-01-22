@@ -16,6 +16,7 @@ import json
 import numpy as np
 
 from torch.utils.data import Dataset, Sampler
+from collections import defaultdict
 ######################### utility functions ###################################
 # the following functions are used to convert the input strings to indices for 
 # the embedding layers
@@ -55,33 +56,56 @@ class word_2_index():
     
 ########################### Datasets #########################################
 class PlacesDataset(Dataset):
-    def __init__(self, h5_file, visual, cap, transform=None):
-        self.train, self.test = self.read_data(h5_file)
+    def __init__(self, h5_file, visual, cap, split_files, transform=None):        
+        self.f_nodes = [node for node in self.read_data(h5_file)]
 
-        self.val = self.train[:1000]
-        self.train = self.train[1000:]
+        self.train, self.val, self.val_unseen, self.test, self.test_unseen = \
+        self.split_data_places(split_files)
         
         self.visual = visual
         self.cap = cap
-    def read_data(self, h5_file):
-        train = []
-        test = []
+    def read_data(self, h5_file):       
         h5_file = tables.open_file(h5_file, 'r')
-        for x in h5_file.root:
-            if not x._v_name == 'test_data':      
-                for y in x._f_list_nodes():
-                    train.append(y)
-            else:
-                for y in x._f_list_nodes():
-                    test.append(y)
-        return train, test
-    
+        for subgroup in h5_file.root:
+            for node in subgroup:
+                yield node
     def __len__(self):
-        return len(self.val) + len(self.train) + len(self.test) 
+        return len(self.val) + len(self.train) + len(self.test) + \
+               len(self.val_unseen) + len(self.test_unseen)
     def __getitem__(self, node):
         image = eval(f'node.{self.visual}._f_list_nodes()[0].read()')
         caption = eval(f'node.{self.cap}._f_list_nodes()[0].read().transpose()')        
         return {'im': image, 'cap': caption}
+    def split_data_places(self, split_files):
+        split_dict = defaultdict(str)
+        for loc in split_files.keys():
+            file = open(loc, 'r')
+            file = json.load(file)     
+            for f in file['data']: 
+                split_dict[f['uttid'].replace('-', '_')] = split_files[loc]           
+        train = []
+        val = []
+        val_unseen = []
+        test = []
+        test_unseen = []
+        oov = []
+        for idx, node in enumerate(self.f_nodes):
+            name = node._v_name.replace('places_', '')
+            if split_dict[name] == 'train':
+                train.append(node)
+            elif split_dict[name] == 'dev':
+                val.append(node)    
+            elif split_dict[name] == 'test':
+                test.append(node) 
+            elif split_dict[name] == 'dev_unseen':
+                val_unseen.append(node) 
+            elif split_dict[name] == 'test_unseen':
+                test_unseen.append(node) 
+            else:
+                oov.append(node)
+            if oov:
+                print(f'could not find split for {len(oov)} files')
+        return train, val, val_unseen, test, test_unseen
 
 class FlickrDataset(Dataset):
     def __init__(self, h5_file, visual, cap, split_loc, transform=None):
@@ -115,9 +139,9 @@ class FlickrDataset(Dataset):
             name = node._v_name.replace('flickr_', '')
             if split_dict[name] == 'train':
                 train.append(node)
-            if split_dict[name] == 'val':
+            elif split_dict[name] == 'val':
                 val.append(node)    
-            if split_dict[name] == 'test':
+            elif split_dict[name] == 'test':
                 test.append(node) 
         return train, val, test
 

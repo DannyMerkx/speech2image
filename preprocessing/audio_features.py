@@ -9,12 +9,11 @@ may 2020: switched to python_speech_features for feature calculation.
 import os
 import wave
 import tables
+import librosa
 
 import numpy as np
 import python_speech_features.base as base
 import python_speech_features.sigproc as sigproc
-
-from scipy.io.wavfile import read
 
 def fix_wav(path_to_file):
     # In the flickr dataset there is one wav file with an incorrect header, 
@@ -64,22 +63,23 @@ def audio_features (params, img_audio, audio_path, append_name, node_list):
                 base_capt = base_capt.split('/')[-1]
             # read audio samples
             try:
-                input_data = read(os.path.join(audio_path, cap))
+                input_data, fs = librosa.load(os.path.join(audio_path, cap))
+                #input_data = read(os.path.join(audio_path, cap))
                 # in the places database some of the audiofiles are empty
-                if len(input_data[1]) == 0:
+                #if len(input_data[1]) == 0:
+                if len(input_data) == 0:    
                     break
             except:
                 # try to repair broken files, some files had a wrong header. 
                 # In Places I found some that could not be fixed however
                 try:
                     fix_wav(os.path.join(audio_path, cap))
-                    input_data = read(os.path.join(audio_path, cap))
+                    #input_data = read(os.path.join(audio_path, cap))
+                    input_data, fs = librosa.load(os.path.join(audio_path, cap))
                 except:
                     # the loop will break, if no valid audio features could 
                     # be made for this image, the entire node is deleted.
-                    break
-            # sampling frequency
-            fs = input_data[0]            
+                    break           
             # set the fft size to the power of two equal to or greater than 
             # the window size.
             window_size = int(fs * params['t_window'])
@@ -97,9 +97,9 @@ def audio_features (params, img_audio, audio_path, append_name, node_list):
                 # calculate the needed frame shift, premphasize and frame
                 # the signal
                 frame_shift = int(fs * params['t_shift'])
-                input = sigproc.preemphasis(input_data[1], 
+                input = sigproc.preemphasis(input_data, 
                                             coeff = params['alpha'])
-                features = sigproc.framesig(input_data[1], 
+                features = sigproc.framesig(input_data, 
                                             frame_len = window_size, 
                                             frame_step = frame_shift, 
                                             winfunc = params['windowing']
@@ -109,7 +109,7 @@ def audio_features (params, img_audio, audio_path, append_name, node_list):
                 # calculate the needed frame shift, premphasize and frame
                 # the signal
                 frame_shift = int(fs * params['t_shift'])
-                input = sigproc.preemphasis(input_data[1], 
+                input = sigproc.preemphasis(input_data, 
                                             coeff = params['alpha'])
                 frames = sigproc.framesig(input, frame_len = window_size, 
                                           frame_step = frame_shift, 
@@ -120,7 +120,7 @@ def audio_features (params, img_audio, audio_path, append_name, node_list):
                 
             elif params['feat'] == 'fbanks':
                 # create mel filterbank features
-                [features, energy] = base.fbank(input_data[1], samplerate = fs, 
+                [features, energy] = base.fbank(input_data, samplerate = fs, 
                                                 winlen = params['t_window'], 
                                                 winstep = params['t_shift'], 
                                                 nfilt = params['nfilters'], 
@@ -132,7 +132,7 @@ def audio_features (params, img_audio, audio_path, append_name, node_list):
             
             elif params['feat'] == 'mfcc':
                 # create mfcc features
-                features = base.mfcc(input_data[1], samplerate = fs,
+                features = base.mfcc(input_data, samplerate = fs,
                                      winlen = params['t_window'], 
                                      winstep = params['t_shift'], 
                                      numcep = params['ncep'], 

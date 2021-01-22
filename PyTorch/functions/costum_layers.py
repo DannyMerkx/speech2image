@@ -112,16 +112,7 @@ class VQ_EMA_layer(nn.Module):
                                           )
                                )
         return quantized, loss
-                                                                                         
-def smooth(idx):   
-    for c, i in enumerate(idx):
-        if c != 0:
-            if i != idx[c -1] and i != idx[c + 1]:
-                rand = np.random.rand()
-                if rand <0.5:
-                    idx[c] = idx[c - 1]
-                else:
-                    idx[c] = idx[c + 1]    
+ 
 # autograd function for the embedding mapping which also implements the 
 # skipping the gradient for this layer. 
 class quantization_emb(torch.autograd.Function):

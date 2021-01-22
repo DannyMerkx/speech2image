@@ -41,18 +41,18 @@ def create_encoders(preset_name):
                                 'kernel_size': 6, 'stride': 2,'padding': 0, 
                                 'bias': False
                                 }, 
-                        'rnn':{'input_size': [64, 2048], 
-                               'hidden_size': [1024, 1024], 
-                               'n_layers': [1,3], 'batch_first': True, 
+                        'rnn':{'input_size': [64, 2048, 2048], 
+                               'hidden_size': [1024, 1024, 1024], 
+                               'n_layers': [1, 1, 2], 'batch_first': True, 
                                'bidirectional': True, 'dropout': 0, 
                                'max_len': 1024
                                }, 
                         'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1
                                },
-                        'VQ':{'n_layers': 1, 'n_embs': [64], 
-                              'emb_dim': [2048]
+                        'VQ':{'n_layers': 2, 'n_embs': [128, 2048], 
+                              'emb_dim': [2048, 2048]
                               },
-                        'app_order': [0, 1, 0],
+                        'app_order': [0, 1, 0, 1, 0],
                         }
         # calculate the required output size of the image encoder
         out_size = audio_config['rnn']['hidden_size'][-1] * 2 ** \

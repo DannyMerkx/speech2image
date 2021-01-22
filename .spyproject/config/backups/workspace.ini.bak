@@ -6,5 +6,5 @@ save_non_project_files = False
 
 [main]
 version = 0.2.0
-recent_files = ['PyTorch/functions/encoders.py', 'PyTorch/functions/costum_layers.py', 'PyTorch/functions/trainer.py', 'PyTorch/functions/minibatchers.py', 'PyTorch/flickr_audio/speech_net.py']
+recent_files = ['../../databases/Flickr_Test/Image_annotations/feature_preprocessing.py', 'patn_test.py', 'PyTorch/flickr_audio/encoder_configs.py']
 

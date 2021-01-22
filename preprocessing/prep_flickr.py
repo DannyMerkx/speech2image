@@ -21,7 +21,7 @@ img_path = os.path.join('/data/databases/flickr/Flicker8k_Dataset')
 text_path = os.path.join('/data/databases/flickr/dataset.json')
 # save the resulting feature file here
 data_loc = os.path.join('/prep_data/flickr_features.h5')
-vis = ['resnet', 'vgg19']
+vis = ['resnet']
 speech = ['fbanks', 'mfcc']
 text = True
 
