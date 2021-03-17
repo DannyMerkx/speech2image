@@ -32,7 +32,7 @@ parser.add_argument('-split_loc', type = str,
                     default = '/vol/tensusers2/dmerkx/flickr8k/dataset.json', 
                     help = 'location of the json file containing the data split information')
 parser.add_argument('-results_loc', type = str, 
-                    default = '/vol/tensusers2/dmerkx/results',
+                    default = '/vol/tensusers2/dmerkx/results/',
                     help = 'location of the json file containing the data split information')
 # args concerning training settings
 parser.add_argument('-batch_size', type = int, default = 100, 

@@ -269,3 +269,113 @@ class FlickrSampler(Sampler):
         return iter([(idx, node) for idx in range(5) for node in self.split])
     def __len__(self):
         return len(self.data_source)    
+    
+    
+
+class ParaphrasingDataset(Dataset):
+    def __init__(self, h5_file, cap, split_loc, transform=None):
+        # get all the nodes in the h5 file
+        self.f_nodes = [node for node in self.read_data(h5_file)]
+        # split into sets using the json split file
+        self.train, self.val, self.test = self.split_data_flickr(split_loc)
+        self.cap = cap
+    def read_data(self, h5_file):
+        h5_file = tables.open_file(h5_file, 'r')
+        for x in h5_file.root:
+                yield x
+    def __len__(self):
+        return len(self.f_nodes)
+    def __getitem__(self, sample):
+        idx, node = sample
+        # node should be a tuple of feature node and its caption idx (1-5) 
+        cap_1 = eval(f'node.{self.cap}._f_list_nodes()[idx[0]].read().transpose()')
+        cap_2 = eval(f'node.{self.cap}._f_list_nodes()[idx[1]].read().transpose()')        
+        return {'cap_1': cap_1, 'cap_2': cap_2} 
+    def split_data_flickr(self, loc):
+        file = json.load(open(loc))
+        split_dict = {}
+        for x in file['images']:
+            split_dict[x['filename'].replace('.jpg', '')] = x['split']       
+        train = []
+        val = []
+        test = []   
+        for idx, node in enumerate(self.f_nodes):
+            name = node._v_name.replace('flickr_', '')
+            if split_dict[name] == 'train':
+                train.append(node)
+            elif split_dict[name] == 'val':
+                val.append(node)    
+            elif split_dict[name] == 'test':
+                test.append(node) 
+        return train, val, test
+
+class ParaphrasingSampler(Sampler):
+    def __init__(self, data_source, mode = 'train', shuffle = False):
+        if mode == 'train':
+            self.split = list(data_source.train)
+            if shuffle:
+                np.random.shuffle(self.split)
+        elif mode == 'val':
+            self.split = list(data_source.val)
+        else:
+            self.split = list(data_source.test)
+    def __iter__(self):     
+        com = [(1,2), (1,3), (1,4), (1,5), (2,3), (2,4), (2,5), (3,4), (3,5), 
+               (4,5)]
+        # the iterator pairs ints 1-5 to each of the node indexes to make sure
+        # all 5 captions per image are used but no 2 captions of the same img
+        # ever end up in the same batch
+        return iter([(idx, node) for idx in com for node in self.split])
+    def __len__(self):
+        return len(self.data_source)    
+
+# receives a batch of audio and images, reshaping the audio to either given 
+# max len or the batch max len (whichever is shortest) 
+class audio_pad_para():
+    def __init__(self, max_len, dtype):
+        self.dtype = dtype
+        self.max_len = max_len   
+    def pad(self, batch):
+        # determine the length of the longest sentence in the batch
+        batch_max1 = max([x['cap_1'].shape[1] for x in batch])
+        batch_max2 = max([x['cap_2'].shape[1] for x in batch])
+        # determine if the batch max is longer than the global allowed max
+        if batch_max1 > self.max_len:
+            # set the batch max to the globally allowed max
+            batch_max1 = self.max_len
+        if batch_max2 > self.max_len:
+            batch_max2 = self.max_len
+        lengths = []
+        lengths_2 = []
+        cap = []
+        cap_2 = []
+        for x in batch:
+            # pad or truncate the caption according to the batch max length
+            c = x['cap_1']
+            n_frames = c.shape[1]
+            if n_frames < batch_max1:
+                c = np.pad(c, [(0, 0), (0, batch_max1 - n_frames )], 'constant')            
+            if n_frames > batch_max1:
+                c = c[:,:batch_max1]
+                n_frames = batch_max1  
+            lengths.append(n_frames)  
+            cap.append(c)
+            
+        for x in batch:
+            # pad or truncate the caption according to the batch max length
+            c = x['cap_2']
+            n_frames = c.shape[1]
+            if n_frames < batch_max2:
+                c = np.pad(c, [(0, 0), (0, batch_max2 - n_frames )], 'constant')            
+            if n_frames > batch_max2:
+                c = c[:,:batch_max2]
+                n_frames = batch_max2 
+            lengths_2.append(n_frames)  
+            cap_2.append(c)
+            
+        # convert to proper torch datatype
+        cap_batch = self.dtype(np.array(cap))   
+        cap_batch2 = self.dtype(np.array(cap))
+        return cap_batch, cap_batch2, lengths, lengths_2
+    def __call__(self, batch):
+        return self.pad(batch)
