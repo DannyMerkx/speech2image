@@ -43,8 +43,6 @@ parser.add_argument('-n_epochs', type = int, default = 32,
                     help = 'number of training epochs, default: 32')
 parser.add_argument('-cuda', type = bool, default = True,
                     help = 'use cuda, default: True')
-parser.add_argument('-vq', type = bool, default = True, 
-                    help = 'use vq loss, default: True')
 # args concerning the database and which features to load
 parser.add_argument('-visual', type = str, default = 'resnet', 
                     help = 'name of the node containing the visual features, default: resnet')

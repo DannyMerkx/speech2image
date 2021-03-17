@@ -76,9 +76,6 @@ trainer = flickr_trainer(img_net, cap_net, args.visual, args.cap)
 trainer.set_audio_batcher()
 trainer.set_loss(batch_hinge_loss)
 trainer.no_grads()
-# if using a VQ layer, the trainer should use the VQ layers' loss 
-if args.vq:
-    trainer.set_VQ_loss()
 
 # optionally use cuda
 if cuda:
