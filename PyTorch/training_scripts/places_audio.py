@@ -27,10 +27,10 @@ parser = argparse.ArgumentParser(description =
 
 # args concerning file location
 parser.add_argument('-data_loc', type = str, 
-                    default = '/vol/tensusers3/dmerkx/databases/places/places_features.h5',
+                    default = '/vol/tensusers2/dmerkx/databases/places/places_features.h5',
                     help = 'location of the feature file')
 parser.add_argument('-results_loc', type = str, 
-                    default = '/vol/tensusers3/dmerkx/places_results/',
+                    default = '/vol/tensusers2/dmerkx/places_results/',
                     help = 'location to save the trained models')
 # args concerning training settings
 parser.add_argument('-batch_size', type = int, default = 32, 

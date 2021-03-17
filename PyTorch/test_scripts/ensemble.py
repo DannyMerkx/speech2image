@@ -34,11 +34,13 @@ parser = argparse.ArgumentParser(description='Create and run an articulatory fea
 
 # args concerning file location
 parser.add_argument('-data_loc', type = str, 
-                    default = '/home/danny/Downloads/flickr_features.h5',
+                    default = '/vol/tensusers2/dmerkx/flickr8k/flickr_features.h5',
                     help = 'location of the feature file, default: /prep_data/flickr_features.h5')
-parser.add_argument('-split_loc', type = str,
-                    default = '/home/danny/Downloads/dataset.json')
-parser.add_argument('-results_loc', type = str, default = '/home/danny/Downloads/results/',
+parser.add_argument('-split_loc', type = str, 
+                    default = '/vol/tensusers2/dmerkx/flickr8k/dataset.json', 
+                    help = 'location of the json file containing the data split information')
+parser.add_argument('-results_loc', type = str, 
+                    default = '/vol/tensusers2/dmerkx/results',
                     help = 'location of the json file containing the data split information')
 # args concerning training settings
 parser.add_argument('-batch_size', type = int, default = 100, help = 'batch size, default: 100')
