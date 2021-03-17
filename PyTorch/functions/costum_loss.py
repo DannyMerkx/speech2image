@@ -31,12 +31,9 @@ def batch_hinge_loss(embeddings_1, embeddings_2, dtype, neg_sample = False):
     cost_1 = ((1 - I_2) * cost_1).sort(0)[0][-neg_sample:, :]
     cost_2 = torch.clamp(.2 - error + diag.view(-1, 1), min = 0)
     cost_2 = ((1 - I_2) * cost_2).sort(1)[0][:, -neg_sample:]
-    
-    s = sum([x for x in range(1, neg_sample + 1)])
-    scaling = dtype([x/(s * neg_sample) for x in range(1, neg_sample +1)]).unsqueeze(1)
                     
-    cost = cost_1 * scaling + cost_2.t() * scaling
-    return cost.sum()
+    cost = cost_1 + cost_2.t()
+    return cost.mean()
 
 
 #implements the ordered embeddings loss function proposed by vendrov et all. 

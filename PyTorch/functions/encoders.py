@@ -11,7 +11,6 @@ import torch
 
 import torchvision.models as models
 import torch.nn as nn
-import torch.nn.functional as f
 
 from costum_layers import (multi_attention, transformer_encoder, 
                            transformer_decoder, transformer, 
@@ -21,8 +20,8 @@ from collections import defaultdict
 #################### functions for loading word embeddings ####################
 # load pickled dictionary
 def load_obj(loc):
-    with open(f'{loc}.pkl', 'rb') as f:
-        return pickle.load(f)
+    with open(f'{loc}.pkl', 'rb') as file:
+        return pickle.load(file)
 # make a dictionary of pretrained vectors for words occuring in your data
 def make_emb_dict(embs, index_dict):
     emb_dict = defaultdict(str)
@@ -96,6 +95,7 @@ class text_rnn_encoder(nn.Module):
 
 # rnn encoder for audio (mfcc, mbn etc.) start with convolution for temporal 
 # subsampling followed by n rnn layers and (multi)attention pooling.
+# optional VQ layers can be specified.
 # expects input of dimensions Batch/Features/Time. 
 class audio_rnn_encoder(nn.Module):
     def __init__(self, config):
@@ -105,7 +105,7 @@ class audio_rnn_encoder(nn.Module):
         VQ = config['VQ']
         att = config ['att']
         self.max_len = rnn['max_len']
-        self.norm = nn.LayerNorm(conv['in_channels'])
+        #self.norm = nn.LayerNorm(conv['in_channels'])
         self.Conv = nn.Conv1d(in_channels = conv['in_channels'], 
                                   out_channels = conv['out_channels'], 
                                   kernel_size = conv['kernel_size'],
@@ -114,7 +114,7 @@ class audio_rnn_encoder(nn.Module):
                                   )
         self.RNN = nn.ModuleList()
         for x in range(len(rnn['n_layers'])):
-            self.RNN.append(nn.GRU(input_size = rnn['input_size'][x], 
+            self.RNN.append(nn.LSTM(input_size = rnn['input_size'][x], 
                                    hidden_size = rnn['hidden_size'][x], 
                                    num_layers = rnn['n_layers'][x],
                                    batch_first = rnn['batch_first'],
@@ -138,7 +138,7 @@ class audio_rnn_encoder(nn.Module):
     def forward(self, input, l):
         # keep track of amount of rnn and vq layers applied
         r, v, self.VQ_loss = 0, 0, 0
-        x = self.Conv(self.norm(input)).permute(0,2,1).contiguous()
+        x = self.Conv(input).permute(0,2,1).contiguous()
         # correct the lengths after the convolution subsampling
         cor = lambda l, ks, stride : int((l - (ks - stride)) / stride)
         l = [cor(y, self.Conv.kernel_size[0], self.Conv.stride[0]) for y in l]        
@@ -180,7 +180,7 @@ class img_encoder(nn.Module):
         else:
             return x
 
-# encoder which finetunes the final layers of resnet
+# image encoder which finetunes the final layers of resnet
 class resnet_encoder(nn.Module):
     def __init__(self, config):
         super(resnet_encoder, self).__init__()
@@ -272,7 +272,7 @@ class conv_VQ_encoder(nn.Module):
         x = x.permute(0,2,1)
         x = nn.functional.normalize(self.att(x), p=2, dim=1)    
         return x
-
+# rnn audio encoder following Havard et al.'s catplayinginthesnow paper. 
 class rnn_pack_encoder(nn.Module):
     def __init__(self, config):
         super(rnn_pack_encoder, self).__init__()

@@ -7,12 +7,13 @@ Created on Thu May 17 11:49:51 2018
 """
 import os
 import json
-import pickle
+import tables
+
 from visual_features import vis_feats
 from audio_features import audio_features
 from text_features import text_features_flickr
 from pathlib import Path
-import tables
+
 import numpy as np
 
 # path to the flickr audio, caption and image files 
@@ -20,14 +21,10 @@ audio_path = os.path.join('/data/databases/flickr/flickr_audio/wavs')
 img_path = os.path.join('/data/databases/flickr/Flicker8k_Dataset')
 text_path = os.path.join('/data/databases/flickr/dataset.json')
 # save the resulting feature file here
-data_loc = os.path.join('/prep_data/flickr_features.h5')
+data_loc = '/vol/tensusers3/dmerkx/flickr_features.h5'
 vis = ['resnet']
 speech = ['fbanks', 'mfcc']
 text = True
-
-def load_obj(loc):
-    with open(loc + '.pkl', 'rb') as f:
-        return pickle.load(f)
 
 # list the img and audio directories
 audio = os.listdir(audio_path)
@@ -95,6 +92,7 @@ params['use_deltas'] = True
 params['use_energy'] = True
 params['windowing'] = np.hamming
 params['delta_n'] = 2
+params['normalise'] = True
 #############################################################################
 
 # create the audio features for all captions

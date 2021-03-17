@@ -6,7 +6,6 @@ prepare the places database
 
 @author: danny
 """
-import numpy as np
 import os
 import tables
 import json
@@ -15,6 +14,7 @@ from visual_features import vis_feats
 from audio_features import audio_features
 from pathlib import Path
 
+import numpy as np
 # places is a rather large dataset, be prepared for 20-60GB of extra data just
 # by adding another feature type. vis features can be resnet, vgg19,
 # resnet_trunc or raw
@@ -23,7 +23,7 @@ vis = ['resnet']
 speech = ['mfcc']
 
 data_loc = '/vol/tensusers3/dmerkx/places_features.h5'
-#a = sorted(x, key=lambda k: len(k['asr_text'])) 
+
 def batcher(batch_size, img_audio):
     keys = [x for x in img_audio]
     np.random.shuffle(keys)
@@ -43,19 +43,25 @@ audio_path = os.path.join('/vol/tensusers3/dmerkx/databases/places/PlacesAudio_4
 
 img_path = os.path.join('/vol/tensusers3/dmerkx/databases/places/img_data')
 
-meta_data_loc = '/vol/tensusers3/dmerkx/databases/places/'
-val = json.load(open(os.path.join(meta_data_loc, 'val.json')))
-train = json.load(open(os.path.join(meta_data_loc, 'train.json')))
+#meta_data_loc = '/vol/tensusers3/dmerkx/databases/places/'
+
+meta_data_loc = '/home/danny/Downloads/placesaudio_2020_splits/'
+# load the metadata for places
+places_meta = []
+places_meta.append(json.load(open(os.path.join(meta_data_loc, 'dev_seen_2020.json'))))
+places_meta.append(json.load(open(os.path.join(meta_data_loc, 'dev_unseen_2020.json'))))
+places_meta.append(json.load(open(os.path.join(meta_data_loc, 'test_seen_2020.json'))))
+places_meta.append(json.load(open(os.path.join(meta_data_loc, 'test_unseen_2020.json'))))
+places_meta.append(json.load(open(os.path.join(meta_data_loc, 'train_2020.json'))))
+
 
 # create a dictionary with the unique identifier as key pointing to the image 
 # and its caption. The id contains a hyphen which is invalid for h5 naming 
 # conventions so it is replaced by an underscore
-train_dict = {}
-test_dict = {}
-for im in train['data']:
-    train_dict[im['uttid'].replace('-', '_')] = im['image'], [im['wav']]
-for im in val['data']:
-    test_dict[im['uttid'].replace('-', '_')] = im['image'], [im['wav']]
+img_audio = {}
+for split in places_meta:
+    for im in split['data']:
+        img_audio[im['uttid'].replace('-', '_')] = im['image'], [im['wav']]
 
 # we need to append something to the flickr files names because pytable group 
 # names cannot start with integers.
@@ -67,19 +73,13 @@ if not Path(data_loc).is_file():
     count = 0
     # the size of this database is bigger than the maximum amount of children
     # a single node can have. I split the database smaller 10k subgroups.
-    for batch in batcher(10000, train_dict):
+    for batch in batcher(10000, img_audio):
         node = output_file.create_group('/', 'subgroup_' + str(count))
         for x in batch:
             output_file.create_group(node, append_name + x)
         count +=1
-    
-    keys = [x for x in test_dict]
-    node = output_file.create_group('/', 'test_data')
-    for x in keys:
-        output_file.create_group(node, append_name + x)
-    
 else:
-    # create h5 output file for preprocessed images and audio
+    # open existing h5 output file
     output_file = tables.open_file(data_loc, mode='a')
 
 node_list = []
@@ -89,7 +89,7 @@ for subgroup in subgroups:
 
 # create the visual features for all images  
 for ftype in vis:
-    vis_feats(img_path, output_file, append_name, {**train_dict, **test_dict}, 
+    vis_feats(img_path, output_file, append_name, img_audio, 
               node_list, ftype)
 ######### parameter settings for the audio preprocessing ###############
 # put the parameters in a dictionary
@@ -105,12 +105,13 @@ params['use_deltas'] = True
 params['use_energy'] = True
 params['windowing'] = np.hamming
 params['delta_n'] = 2
+params['normalise'] = True
 #############################################################################
 
 # create the audio features for all captions
 for ftype in speech:
     params['feat'] = ftype
-    audio_features(params, {**train_dict, **test_dict}, audio_path, 
+    audio_features(params, img_audio, audio_path, 
                    append_name, node_list)
 
 # close the output files

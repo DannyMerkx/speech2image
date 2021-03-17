@@ -29,7 +29,6 @@ class flickr_trainer():
         self.scheduler = False
         self.grad_clipping = False
         self.att_loss = False
-        self.VQ = False
         # names of the features to be loaded by the batcher
         self.vis = vis
         self.cap = cap
@@ -37,8 +36,9 @@ class flickr_trainer():
         self.iteration = 0
         # keep track of the number of training epochs
         self.epoch = 1
-    # possible minibatcher types. Fkickr uses 5fold batchers since there are
-    # 5 captions per image
+    # different feature types require different collate functions for the 
+    # batches. Flickr requires a different sampler because it has 5 captions 
+    # to an image.
     def token_batcher(self, data, batch_size, max_len, mode, shuffle):
         return DataLoader(data, batch_size = batch_size, 
                           collate_fn = token_pad_fn(max_len, self.dtype, 
@@ -78,9 +78,6 @@ class flickr_trainer():
     # model
     def set_loss(self, loss):
         self.loss = loss    
-    # when using an encoder with a VQ layer, the VQ loss will be added to loss
-    def set_VQ_loss(self):
-        self.VQ = True
     def set_optimizer(self, optim):
         self.optimizer = optim
     # set the dictionary with embedding indices (token based models only)

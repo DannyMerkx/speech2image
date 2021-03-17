@@ -7,7 +7,7 @@ Created on Thu May 17 11:49:51 2018
 """
 import string
 import sys
-sys.path.append('/data/speech2image/preprocessing/dictionaries')
+sys.path.append('./dictionaries')
 
 from text_cleanup import tokenise
 

@@ -23,28 +23,30 @@ import sys
 import numpy as np
 
 sys.path.append('../functions')
-
+sys.path.append('../training_scripts')
 from trainer import flickr_trainer
 from encoder_configs import create_encoders
-from minibatchers import PlacesDataset
+from minibatchers import FlickrDataset
 from costum_loss import batch_hinge_loss, ordered_loss, attention_loss
 ##################################### parameter settings ##############################################
 
 parser = argparse.ArgumentParser(description='Create and run an articulatory feature classification DNN')
 
 # args concerning file location
-parser.add_argument('-data_loc', type = str, default = '/vol/tensusers3/dmerkx/places_features.h5',
+parser.add_argument('-data_loc', type = str, 
+                    default = '/home/danny/Downloads/flickr_features.h5',
                     help = 'location of the feature file, default: /prep_data/flickr_features.h5')
-parser.add_argument('-results_loc', type = str, default = '/vol/tensusers3/dmerkx/places_results/',
-                    help = 'location of the stored models')
+parser.add_argument('-split_loc', type = str,
+                    default = '/home/danny/Downloads/dataset.json')
+parser.add_argument('-results_loc', type = str, default = '/home/danny/Downloads/results/',
+                    help = 'location of the json file containing the data split information')
 # args concerning training settings
 parser.add_argument('-batch_size', type = int, default = 100, help = 'batch size, default: 100')
 parser.add_argument('-cuda', type = bool, default = True, help = 'use cuda, default: True')
 # args concerning the database and which features to load
 parser.add_argument('-visual', type = str, default = 'resnet', help = 'name of the node containing the visual features, default: resnet')
 parser.add_argument('-cap', type = str, default = 'mfcc', help = 'name of the node containing the audio features, default: mfcc')
-parser.add_argument('-vq', type = bool, default = False, 
-                    help = 'use vq loss, default: True')
+parser.add_argument('-gradient_clipping', type = bool, default = True, help ='use gradient clipping, default: True')
 
 args = parser.parse_args()
 
@@ -52,7 +54,7 @@ args = parser.parse_args()
 img_net, cap_net = create_encoders('rnn')
 
 # open the dataset
-dataset = PlacesDataset(args.data_loc, args.visual, args.cap)
+dataset = FlickrDataset(args.data_loc, args.visual, args.cap, args.split_loc)
 
 # check if cuda is availlable and user wants to run on gpu
 cuda = args.cuda and torch.cuda.is_available()
@@ -64,11 +66,8 @@ else:
 
 # create a trainer with just the evaluator for the purpose of testing a pretrained model
 trainer = flickr_trainer(img_net, cap_net, args.visual, args.cap)
-trainer.set_places_batcher()
+trainer.set_audio_batcher()
 trainer.no_grads()
-# if using a VQ layer, the trainer should use the VQ layers' loss 
-if args.vq:
-    trainer.set_VQ_loss()
     
 # optionally use cuda
 if cuda:
@@ -84,14 +83,15 @@ out_size = img_net.linear_transform.out_features
 # run the image and caption retrieval and create an ensemble
 img_models.sort()
 caption_models.sort()
-caps = torch.autograd.Variable(trainer.dtype(np.zeros((1000, out_size)))).data
-imgs = torch.autograd.Variable(trainer.dtype(np.zeros((1000, out_size)))).data
+caps = torch.autograd.Variable(trainer.dtype(np.zeros((5000, out_size)))).data
+imgs = torch.autograd.Variable(trainer.dtype(np.zeros((5000, out_size)))).data
 
 for img, cap in zip(img_models, caption_models) :    
     epoch = img.split('.')[1]
     # load the pretrained embedders
-    trainer.load_cap_embedder(args.results_loc + cap)
-    trainer.load_img_embedder(args.results_loc + img)   
+    trainer.load_cap_embedder(args.results_loc + cap, device = 'cpu')
+    trainer.load_img_embedder(args.results_loc + img, device = 'cpu') 
+    trainer.no_grads()
     # calculate the recall@n
     trainer.set_epoch(epoch)
     trainer.recall_at_n(dataset, prepend = 'val', mode = 'test', emb = True)

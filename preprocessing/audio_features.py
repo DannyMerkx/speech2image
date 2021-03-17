@@ -63,7 +63,9 @@ def audio_features (params, img_audio, audio_path, append_name, node_list):
                 base_capt = base_capt.split('/')[-1]
             # read audio samples
             try:
-                input_data, fs = librosa.load(os.path.join(audio_path, cap))
+                input_data, fs = librosa.load(os.path.join(audio_path, cap),
+                                              sr = None)
+                input_data = (input_data - input_data.mean())/input_data.std()
                 #input_data = read(os.path.join(audio_path, cap))
                 # in the places database some of the audiofiles are empty
                 #if len(input_data[1]) == 0:
@@ -75,7 +77,9 @@ def audio_features (params, img_audio, audio_path, append_name, node_list):
                 try:
                     fix_wav(os.path.join(audio_path, cap))
                     #input_data = read(os.path.join(audio_path, cap))
-                    input_data, fs = librosa.load(os.path.join(audio_path, cap))
+                    input_data, fs = librosa.load(os.path.join(audio_path, cap),
+                                                  sr = None)
+                    input_data = (input_data - input_data.mean())/input_data.std()
                 except:
                     # the loop will break, if no valid audio features could 
                     # be made for this image, the entire node is deleted.
@@ -144,9 +148,9 @@ def audio_features (params, img_audio, audio_path, append_name, node_list):
                                      winfunc = params['windowing']
                                      )
             
-            # optionally add the frame energy
-            #if params['']:
-            #   features = np.concatenate([energy[:, None], features], 1)
+            # apply cepstral mean variance normalisation
+            if params['normalise']:
+                features = (features - features.mean(0))/features.std(0)
             # optionally add the deltas and double deltas
             if params['use_deltas']:
                 
