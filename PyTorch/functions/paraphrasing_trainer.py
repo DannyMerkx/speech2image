@@ -18,7 +18,7 @@ import time
 # loss function), training and test loop functions, evaluation functions in one 
 # object. 
 class flickr_trainer():
-    def __init__(self, cap_embedder, cap_embedder_2 cap):
+    def __init__(self, cap_embedder, cap_embedder_2, cap):
         # default datatype, change if using cuda by calling set_cuda
         self.dtype = torch.FloatTensor
         self.cap_embedder = cap_embedder
@@ -76,6 +76,7 @@ class flickr_trainer():
     def set_cuda(self):
         self.dtype = torch.cuda.FloatTensor
         self.cap_embedder.cuda()
+        self.cap_embedder_2.cuda()
     # manually set the epoch to some number e.g. if continuing training from a 
     # pretrained model
     def set_epoch(self, epoch):
@@ -101,8 +102,12 @@ class flickr_trainer():
     def no_grads(self):
         for param in self.cap_embedder.parameters():
             param.requires_grad = False
+        for param in self.cap_embedder_2.parameters():
+            param.requires_grad = False
     def req_grads(self):
         for param in self.cap_embedder.parameters():
+            param.requires_grad = True
+        for param in self.cap_embedder_2.parameters():
             param.requires_grad = True
 
 ################## functions to perform training and testing ##################
