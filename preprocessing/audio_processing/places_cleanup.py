@@ -11,19 +11,21 @@ import json
 import glob
 
 # location of the json files
-meta_data_loc = '/vol/tensusers3/dmerkx/databases/places/'
+meta_data_loc = '/vol/tensusers3/dmerkx/databases/places/split/'
 # location of the jpeg files
 img_path = os.path.join('/vol/tensusers3/dmerkx/databases/places/data/')
 # load metadata for the train and val sets
-val = json.load(open(os.path.join(meta_data_loc, 'val.json')))
-train = json.load(open(os.path.join(meta_data_loc, 'train.json')))
+places_meta = []
+places_meta.append(json.load(open(os.path.join(meta_data_loc, 'dev_seen_2020.json'))))
+places_meta.append(json.load(open(os.path.join(meta_data_loc, 'dev_unseen_2020.json'))))
+places_meta.append(json.load(open(os.path.join(meta_data_loc, 'test_seen_2020.json'))))
+places_meta.append(json.load(open(os.path.join(meta_data_loc, 'test_unseen_2020.json'))))
+places_meta.append(json.load(open(os.path.join(meta_data_loc, 'train_2020.json'))))
 
-imgs = val['data'] + train['data']
+imgs = [img_path+y['image'] for x in places_meta for y in x['data']]
 
-imgs= [os.path.join(img_path, x['image']) for x in imgs]
-
-x = glob.glob(img_path + '/*/*.jpg')
-y = glob.glob(img_path + '/*/*/*.jpg')
+x = glob.glob(img_path + '/*/*/*.jpg')
+y = glob.glob(img_path + '/*/*/*/*.jpg')
 places_data = x + y 
 
 # check if all files in the metadata are actually in the places database
@@ -35,3 +37,5 @@ disjunct = set(places_data) - set(imgs)
 # remove places images for which there is no caption to save disk space
 for x in list(disjunct):
     os.remove(x)
+
+    

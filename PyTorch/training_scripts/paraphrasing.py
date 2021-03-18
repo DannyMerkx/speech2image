@@ -53,6 +53,7 @@ args = parser.parse_args()
 
 # create encoders using presets defined in encoder_configs
 img_net, cap_net = create_encoders('rnn')
+img_net, cap_net_2 = create_encoders('rnn')
 
 # open the dataset
 dataset = ParaphrasingDataset(args.data_loc, args.cap, args.split_loc) 
@@ -67,7 +68,8 @@ else:
 
 # Adam optimiser. I found SGD to work terribly and could not find appropriate 
 # parameter settings for it.
-optimizer = torch.optim.Adam(cap_net.parameters())
+optimizer = torch.optim.Adam(list(cap_net.parameters()) + 
+                             list(cap_net_2.parameters()), 1)
 
 # plateau_scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode = 'min', 
 #                                                    factor = 0.9, 
@@ -77,17 +79,17 @@ optimizer = torch.optim.Adam(cap_net.parameters())
 #                                                    cooldown = 100)
 
 #step_scheduler = lr_scheduler.StepLR(optimizer, 1000, gamma=0.1, last_epoch=-1)
-cyclic_scheduler = cyclic_scheduler(max_lr = args.lr, min_lr = 1e-6, 
-                                    stepsize = (int(len(dataset.train)/args.batch_size)*5)*4,
-                                    optimiser = optimizer)
+#cyclic_scheduler = cyclic_scheduler(max_lr = args.lr, min_lr = 1e-6, 
+#                                    stepsize = (int(len(dataset.train)/args.batch_size)*5)*4,
+#                                    optimiser = optimizer)
 
 # create a trainer setting the loss function, optimizer, minibatcher, 
 # lr_scheduler and the r@n evaluator
-trainer = flickr_trainer(cap_net, args.cap)
+trainer = flickr_trainer(cap_net, cap_net_2, args.cap)
 trainer.set_loss(batch_hinge_loss)
 trainer.set_optimizer(optimizer)
 trainer.set_paraphrasing_batcher()
-trainer.set_lr_scheduler(cyclic_scheduler, 'cyclic')
+#trainer.set_lr_scheduler(cyclic_scheduler, 'cyclic')
 trainer.set_att_loss(attention_loss)
 # optionally use cuda, gradient clipping and pretrained glove vectors
 if cuda:
@@ -104,9 +106,9 @@ while trainer.epoch <= args.n_epochs:
     # Train on the train set
     trainer.train_epoch(dataset, args.batch_size)
     # save network parameters
-    trainer.save_params(args.results_loc)  
+    #trainer.save_params(args.results_loc)  
     # print some info about this epoch and evaluation on the validation set
-    trainer.report_training(args.n_epochs, dataset)
+    #trainer.report_training(args.n_epochs, dataset)
 
     if args.gradient_clipping:
         # I found that updating the clip value at each epoch did not work well     

@@ -41,7 +41,7 @@ def batcher(batch_size, img_audio):
 # path to the audio and image files
 audio_path = os.path.join('/vol/tensusers3/dmerkx/databases/places/PlacesAudio_400k_distro/')
 
-img_path = os.path.join('/vol/tensusers3/dmerkx/databases/places/img_data')
+img_path = os.path.join('/vol/tensusers3/dmerkx/databases/places/img_data/')
 
 #meta_data_loc = '/vol/tensusers3/dmerkx/databases/places/'
 

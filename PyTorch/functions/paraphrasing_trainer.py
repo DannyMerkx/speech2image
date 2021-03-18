@@ -18,10 +18,11 @@ import time
 # loss function), training and test loop functions, evaluation functions in one 
 # object. 
 class flickr_trainer():
-    def __init__(self, cap_embedder, cap):
+    def __init__(self, cap_embedder, cap_embedder_2 cap):
         # default datatype, change if using cuda by calling set_cuda
         self.dtype = torch.FloatTensor
         self.cap_embedder = cap_embedder
+        self.cap_embedder_2 = cap_embedder_2
         # lr scheduler, grad clipping and attention loss are optional 
         self.scheduler = False
         self.grad_clipping = False
@@ -74,7 +75,6 @@ class flickr_trainer():
     # set data type and the networks to use the gpu if required.
     def set_cuda(self):
         self.dtype = torch.cuda.FloatTensor
-        self.img_embedder.cuda()
         self.cap_embedder.cuda()
     # manually set the epoch to some number e.g. if continuing training from a 
     # pretrained model
@@ -112,7 +112,6 @@ class flickr_trainer():
         # keep track of runtime
         self.start_time = time.time()
         # set networks to training mode
-        self.img_embedder.train()
         self.cap_embedder.train()
         # keep track of the average loss over all batches
         self.train_loss = 0
@@ -158,7 +157,6 @@ class flickr_trainer():
     # test epoch
     def test_epoch(self, data, batch_size, mode):
         # set to evaluation mode to disable dropout
-        self.img_embedder.eval()
         self.cap_embedder.eval()
         # set buffers to store the embeddings
         self.image_embeddings = self.dtype()
@@ -208,7 +206,7 @@ class flickr_trainer():
             cap2.requires_grad_(False)
         # embed the images and audio using the networks
         cap_embedding = self.cap_embedder(cap, lengths)
-        cap_embedding2 = self.cap_embedder(cap2, lengths2)
+        cap_embedding2 = self.cap_embedder_2(cap2, lengths2)
         return cap_embedding, cap_embedding2
     
 ######################## evaluation functions #################################

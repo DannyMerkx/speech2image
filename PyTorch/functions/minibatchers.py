@@ -375,7 +375,7 @@ class audio_pad_para():
             
         # convert to proper torch datatype
         cap_batch = self.dtype(np.array(cap))   
-        cap_batch2 = self.dtype(np.array(cap))
+        cap_batch2 = self.dtype(np.array(cap_2))
         return cap_batch, cap_batch2, lengths, lengths_2
     def __call__(self, batch):
         return self.pad(batch)
