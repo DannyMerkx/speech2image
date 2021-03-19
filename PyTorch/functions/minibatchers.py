@@ -320,8 +320,9 @@ class ParaphrasingSampler(Sampler):
         else:
             self.split = list(data_source.test)
     def __iter__(self):     
-        com = [(1,2), (1,3), (1,4), (1,5), (2,3), (2,4), (2,5), (3,4), (3,5), 
-               (4,5)]
+        com = [(0,1), (0,2), (0,3), (0,4), (1,0), (1,2), (1,3), (1,4), (2,0), 
+               (2,1), (2,3), (2,4), (3,0), (3,1), (3,2), (3,4), (4,0), (4,1),
+               (4,2), (4,3)]
         # the iterator pairs ints 1-5 to each of the node indexes to make sure
         # all 5 captions per image are used but no 2 captions of the same img
         # ever end up in the same batch

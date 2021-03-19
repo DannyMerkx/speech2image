@@ -143,5 +143,34 @@ def create_encoders(preset_name):
                         }
         img_net = img_encoder(image_config)
         cap_net = conv_VQ_encoder(audio_config)
+
+    elif preset_name == 'rnn_text':
+        import pickle
+        dict_loc = '../../preprocessing/dictionaries/flickr_indices'
+        def load_obj(loc):
+            with open(loc + '.pkl', 'rb') as f:
+                return pickle.load(f)
+        dict_size = len(load_obj(dict_loc))
+        # create config dictionaries with all the parameters for your encoders
+        char_config = {'embed':{'num_chars': dict_size, 'embedding_dim': 1024, 
+                                'sparse': False, 'padding_idx': 0
+                                }, 
+                        'rnn':{'input_size': 1024, 
+                               'hidden_size': 1024, 
+                               'n_layers': 1, 'batch_first': True, 
+                               'bidirectional': True, 'dropout': 0, 
+                               'max_len': 1024
+                               }, 
+                        'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1
+                               }
+                        }
+        # calculate the required output size of the image encoder
+        out_size = char_config['rnn']['hidden_size'] * 2 ** \
+                   audio_config['rnn']['bidirectional'] * audio_config['att']['heads']          
+        image_config = {'linear':{'in_size': 2048, 'out_size': out_size}, 
+                        'norm': True
+                        }
+        img_net = img_encoder(image_config)
+        cap_net = audio_rnn_encoder(audio_config)
         
-    return(img_net, cap_net)
+        return(img_net, cap_net)

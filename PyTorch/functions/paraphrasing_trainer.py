@@ -18,11 +18,11 @@ import time
 # loss function), training and test loop functions, evaluation functions in one 
 # object. 
 class flickr_trainer():
-    def __init__(self, cap_embedder, cap_embedder_2, cap):
+    def __init__(self, cap_embedder_l, cap_embedder_r, cap):
         # default datatype, change if using cuda by calling set_cuda
         self.dtype = torch.FloatTensor
-        self.cap_embedder = cap_embedder
-        self.cap_embedder_2 = cap_embedder_2
+        self.cap_embedder_l = cap_embedder_l
+        self.cap_embedder_r = cap_embedder_r
         # lr scheduler, grad clipping and attention loss are optional 
         self.scheduler = False
         self.grad_clipping = False
@@ -75,39 +75,38 @@ class flickr_trainer():
     # set data type and the networks to use the gpu if required.
     def set_cuda(self):
         self.dtype = torch.cuda.FloatTensor
-        self.cap_embedder.cuda()
-        self.cap_embedder_2.cuda()
+        self.cap_embedder_l.cuda()
+        self.cap_embedder_r.cuda()
     # manually set the epoch to some number e.g. if continuing training from a 
     # pretrained model
     def set_epoch(self, epoch):
         self.epoch = epoch
     def update_epoch(self):
         self.epoch += 1
-    # functions to replace embedders
-    def set_cap_embedder(self, emb):
-        self.cap_embedder = emb
     # functions to load pretrained models
-    def load_cap_embedder(self, loc, device = 'gpu'):
+    def load_l_embedder(self, loc, device = 'gpu'):
         if device == 'gpu':
             cap_state = torch.load(loc)
         else:
             cap_state = torch.load(loc, map_location = torch.device('cpu'))
-        self.cap_embedder.load_state_dict(cap_state)
-    # Load glove embeddings for token based embedders, optional. encoder needs
-    # to have a load_embeddings method
-    def load_glove_embeddings(self, glove_loc):
-        self.cap_embedder.load_embeddings(self.dict_loc, glove_loc)
+        self.cap_embedder_l.load_state_dict(cap_state)
+    def load_r_embedder(self, loc, device = 'gpu'):
+        if device == 'gpu':
+            cap_state = torch.load(loc)
+        else:
+            cap_state = torch.load(loc, map_location = torch.device('cpu'))
+        self.cap_embedder_r.load_state_dict(cap_state)
     # functions to enable/disable gradients on the networks, useful to speed
     # up testing
     def no_grads(self):
-        for param in self.cap_embedder.parameters():
+        for param in self.cap_embedder_l.parameters():
             param.requires_grad = False
-        for param in self.cap_embedder_2.parameters():
+        for param in self.cap_embedder_r.parameters():
             param.requires_grad = False
     def req_grads(self):
-        for param in self.cap_embedder.parameters():
+        for param in self.cap_embedder_l.parameters():
             param.requires_grad = True
-        for param in self.cap_embedder_2.parameters():
+        for param in self.cap_embedder_r.parameters():
             param.requires_grad = True
 
 ################## functions to perform training and testing ##################
@@ -117,26 +116,26 @@ class flickr_trainer():
         # keep track of runtime
         self.start_time = time.time()
         # set networks to training mode
-        self.cap_embedder.train()
+        self.cap_embedder_l.train()
+        self.cap_embedder_r.train()
         # keep track of the average loss over all batches
         self.train_loss = 0
         num_batches = 0
-        for batch in self.batcher(data, batch_size, self.cap_embedder.max_len, 
+        for batch in self.batcher(data, batch_size, self.cap_embedder_l.max_len, 
                                   'train', shuffle = True):
             num_batches += 1
             # retrieve a minibatch from the batcher
-            cap, cap2, lengths, lengths2 = batch           
+            cap_l, cap_r, lengths_l, lengths_r = batch           
             # embed the images and audio using the networks
-            cap_embedding, cap_embedding2 = self.embed(cap, cap2, lengths, 
-                                                       lengths2)
+            cap_embedding_l, cap_embedding_r = self.embed(cap_l, cap_r, 
+                                                          lengths_l, lengths_r)
             # calculate the loss
-            loss = self.loss(cap_embedding, cap_embedding2, self.dtype)
+            loss = self.loss(cap_embedding_l, cap_embedding_r, self.dtype)
             # add vq_loss if the cap_embedder has VQ layers
-            if hasattr(self.cap_embedder, 'VQ_loss'):
-                loss += self.cap_embedder.VQ_loss
-            # optionally calculate the attention loss for multihead attention
-            if self.att_loss:
-                loss += self.att_loss(self.cap_embedder.att, cap_embedding)
+            if hasattr(self.cap_embedder_l, 'VQ_loss'):
+                loss += self.cap_embedder_l.VQ_loss
+            if hasattr(self.cap_embedder_r, 'VQ_loss'):
+                loss += self.cap_embedder_r.VQ_loss
             # reset the gradients of the optimiser
             self.optimizer.zero_grad()
             # calculate the gradients and perform the backprop step
@@ -162,37 +161,38 @@ class flickr_trainer():
     # test epoch
     def test_epoch(self, data, batch_size, mode):
         # set to evaluation mode to disable dropout
-        self.cap_embedder.eval()
+        self.cap_embedder_l.eval()
+        self.cap_embedder_r.eval()
         # set buffers to store the embeddings
-        self.image_embeddings = self.dtype()
-        self.caption_embeddings = self.dtype()
+        self.caption_embeddings_l = self.dtype()
+        self.caption_embeddings_r = self.dtype()
         # keeping track of the average loss
         test_batches = 0
         self.test_loss = 0
-        for batch in self.batcher(data, batch_size, self.cap_embedder.max_len,
+        for batch in self.batcher(data, batch_size, self.cap_embedder_l.max_len,
                                   mode, shuffle = False):
             # retrieve a minibatch from the batcher
-            img, cap, lengths = batch
+            cap_l, cap_r, lengths_l, lengths_r = batch
             test_batches += 1      
             # embed the images and audio using the networks
-            img_embedding, cap_embedding = self.embed(img, cap, lengths)
+            cap_embedding_l, cap_embedding_r = self.embed(cap_l, cap_r, 
+                                                          lengths_l, lengths_r)
             # store the embeddings in the buffers for later use (R@N)
-            self.caption_embeddings = torch.cat((self.caption_embeddings, 
-                                                 cap_embedding.data
-                                                 )
-                                                )
-            self.image_embeddings = torch.cat((self.image_embeddings, 
-                                               img_embedding.data
-                                               )
-                                              )                        
+            self.caption_embeddings_l = torch.cat((self.caption_embeddings_l, 
+                                                   cap_embedding_l.data
+                                                   )
+                                                  )
+            self.caption_embeddings_r = torch.cat((self.caption_embeddings_r, 
+                                                   cap_embedding_r.data
+                                                   )
+                                                  )                        
             # calculate the loss
-            loss = self.loss(img_embedding, cap_embedding, self.dtype)
+            loss = self.loss(cap_embedding_l, cap_embedding_r, self.dtype)
             # add VQ loss if the cap_embedder has VQ layers
-            if hasattr(self.cap_embedder, 'VQ_loss'):
-                loss += self.cap_embedder.VQ_loss
-            # optionally calculate the attention loss for multihead attention
-            if self.att_loss:
-                loss += self.att_loss(self.cap_embedder.att, cap_embedding)
+            if hasattr(self.cap_embedder_l, 'VQ_loss'):
+                loss += self.cap_embedder_l.VQ_loss
+            if hasattr(self.cap_embedder_r, 'VQ_loss'):
+                loss += self.cap_embedder_r.VQ_loss
             # add loss to the running average
             self.test_loss += loss.data 
         self.test_loss = self.test_loss.cpu().data.numpy()/test_batches
@@ -202,17 +202,17 @@ class flickr_trainer():
             self.lr_scheduler.step(self.test_loss)   
  
     # Function which combines embeddings the images and captions
-    def embed(self, cap, cap2, lengths, lengths2):
+    def embed(self, cap_l, cap_r, lengths_l, lengths_r):
         # convert data to the right pytorch tensor type
         #img, cap = self.dtype(img), self.dtype(cap)  
         # set requires_grad to false to speed up test/validation epochs
-        if not self.cap_embedder.training:
-            cap.requires_grad_(False)
-            cap2.requires_grad_(False)
+        if not self.cap_embedder_l.training:
+            cap_l.requires_grad_(False)
+            cap_r.requires_grad_(False)
         # embed the images and audio using the networks
-        cap_embedding = self.cap_embedder(cap, lengths)
-        cap_embedding2 = self.cap_embedder_2(cap2, lengths2)
-        return cap_embedding, cap_embedding2
+        cap_embedding_l = self.cap_embedder_l(cap_l, lengths_l)
+        cap_embedding_r = self.cap_embedder_r(cap_r, lengths_r)
+        return cap_embedding_l, cap_embedding_r
     
 ######################## evaluation functions #################################
     # report time and evaluation of this training epoch
@@ -226,8 +226,8 @@ class flickr_trainer():
         if val != False:
             print(f'Validation loss: {self.test_loss:.6f}')
             # calculate the recall@n on the validation set
-            self.evaluator.caption_embeddings = self.caption_embeddings
-            self.evaluator.image_embeddings = self.image_embeddings
+            self.evaluator.caption_embeddings = self.caption_embeddings_l
+            self.evaluator.image_embeddings = self.caption_embeddings_r
             self.recall_at_n(val, prepend = 'validation', mode = 'val') 
     
     def report_test(self, test):
@@ -235,14 +235,14 @@ class flickr_trainer():
         self.test_epoch(test, 100, 'test')
         print(f'Test loss: {self.test_loss:.6f}')
         # calculate the recall@n on the test set
-        self.evaluator.caption_embeddings = self.caption_embeddings
-        self.evaluator.image_embeddings = self.image_embeddings
+        self.evaluator.caption_embeddings = self.caption_embeddings_l
+        self.evaluator.image_embeddings = self.image_embeddings_r
         self.recall_at_n(test, prepend = 'test', mode = 'test')
 
     # create an evaluator object
     def set_evaluator(self, n):
-        self.evaluator = evaluate(self.dtype, self.img_embedder, 
-                                  self.cap_embedder
+        self.evaluator = evaluate(self.dtype, self.cap_embedder_l, 
+                                  self.cap_embedder_r
                                   )
         self.evaluator.set_n(n)
     # calculate the recall@n. Arguments are a set of nodes and a prepend string 
@@ -252,7 +252,7 @@ class flickr_trainer():
         # if you ran a test epoch on the data before calculating recall, the 
         # trainer has buffered the embeddings
         if emb:
-            iterator = self.batcher(data, 5, self.cap_embedder.max_len, mode,
+            iterator = self.batcher(data, 5, self.cap_embedder_l.max_len, mode,
                                     shuffle = False)
             # the calc_recall function calculates and prints the recall.
             self.evaluator.embed_data(iterator)
@@ -265,11 +265,11 @@ class flickr_trainer():
         self.evaluator.fivefold_i2c('1k ' + prepend, self.epoch)
     # function to save parameters in a results folder
     def save_params(self, loc):
-        torch.save(self.cap_embedder.state_dict(), 
-                   os.path.join(loc, f'caption_model.{str(self.epoch)}')
+        torch.save(self.cap_embedder_l.state_dict(), 
+                   os.path.join(loc, f'caption_model_l.{str(self.epoch)}')
                    )
-        torch.save(self.img_embedder.state_dict(), 
-                   os.path.join(loc, f'image_model.{str(self.epoch)}')
+        torch.save(self.cap_embedder_r.state_dict(), 
+                   os.path.join(loc, f'caption_model_r.{str(self.epoch)}')
                    )
 
 ############ functions to deal with the trainer's gradient clipper ############

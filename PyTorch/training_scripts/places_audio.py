@@ -98,8 +98,7 @@ trainer.set_places_batcher()
 trainer.set_lr_scheduler(cyclic_scheduler, 'cyclic')
 trainer.set_att_loss(attention_loss)
 # if using a VQ layer, the trainer should use the VQ layers' loss 
-if args.vq:
-    trainer.set_VQ_loss()
+
 # optionally use cuda, gradient clipping and pretrained glove vectors
 if cuda:
     trainer.set_cuda()

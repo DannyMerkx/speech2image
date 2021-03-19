@@ -22,7 +22,7 @@ vis = ['resnet']
 # speech features can be raw, freq_spectrum, fbanks or mfcc
 speech = ['mfcc']
 
-data_loc = '/vol/tensusers3/dmerkx/places_features.h5'
+data_loc = '/media/danny/seagate_2tb/places_features.h5'
 
 def batcher(batch_size, img_audio):
     keys = [x for x in img_audio]
@@ -39,9 +39,9 @@ def batcher(batch_size, img_audio):
             yield excerpt
 
 # path to the audio and image files
-audio_path = os.path.join('/vol/tensusers3/dmerkx/databases/places/PlacesAudio_400k_distro/')
+audio_path = os.path.join('/media/danny/seagate_2tb/PlacesAudio_400k_distro/')
 
-img_path = os.path.join('/vol/tensusers3/dmerkx/databases/places/img_data/')
+img_path = os.path.join('/media/danny/seagate_2tb/data/')
 
 #meta_data_loc = '/vol/tensusers3/dmerkx/databases/places/'
 
