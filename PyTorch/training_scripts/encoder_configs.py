@@ -173,4 +173,4 @@ def create_encoders(preset_name):
         img_net = img_encoder(image_config)
         cap_net = audio_rnn_encoder(audio_config)
         
-        return(img_net, cap_net)
+    return(img_net, cap_net)

@@ -86,7 +86,7 @@ optimizer = torch.optim.Adam(list(img_net.parameters()) +
 
 #step_scheduler = lr_scheduler.StepLR(optimizer, 1000, gamma=0.1, last_epoch=-1)
 cyclic_scheduler = cyclic_scheduler(max_lr = args.lr, min_lr = 1e-6, 
-                                    stepsize = (int(len(dataset.train)/args.batch_size)*5)*4,
+                                    stepsize = int(len(dataset.train)/args.batch_size)*4,
                                     optimiser = optimizer)
 
 # create a trainer setting the loss function, optimizer, minibatcher, 

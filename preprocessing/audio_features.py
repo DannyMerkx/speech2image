@@ -58,9 +58,11 @@ def audio_features (params, img_audio, audio_path, append_name, node_list):
         for cap in caption_files:
             # remove extension from the caption filename
             base_capt = cap.split('.')[0]
-            # remove folder path from file names (Places database)
+            # remove folder path from file names (Places/coco database)
             if '/' in base_capt:
                 base_capt = base_capt.split('/')[-1]
+            if '-' in base_capt:
+                base_capt = base_capt.replace('-', '_')
             # read audio samples
             try:
                 input_data, fs = librosa.load(os.path.join(audio_path, cap),

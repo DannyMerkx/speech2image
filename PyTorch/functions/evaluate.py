@@ -75,6 +75,30 @@ class evaluate():
             rank = indices[np.mod(index, embeddings_2.size()[0])] + 1
             ranks.append(rank)
 
+    def c2i(self):
+        # total number of the embeddings
+        n_emb = self.image_embeddings.size()[0]
+	
+        embeddings_1 = self.caption_embeddings
+        embeddings_1 = embeddings_1.view(5, n_emb/5, -1)
+        # if we get 5 captions per image (e.g. flickr) we got 5 copies of each image embedding 
+        # get rid of the copies.
+        embeddings_2 = self.image_embeddings
+        embeddings_2 = embeddings_2.view(5, n_emb/5, -1)
+        
+        if self.test_size != n_emb:
+            embeddings_2 = self.image_embeddings[0:self.test_size, :]   
+        ranks = []
+        for index, emb in enumerate(embeddings_1):
+            sim = self.dist(emb, embeddings_2)
+            # apply sort two times to get a tensor where the values for each 
+            # image indicates the rank of its distance to the caption
+            sorted, indices = sim.sort(descending = True)
+            sorted, indices = indices.sort()
+            # add 1 to the rank so that the recall measure has 1 as best rank
+            rank = indices[np.mod(index, embeddings_2.size()[0])] + 1
+            ranks.append(rank)
+
         # create vector with the rank of the correct image for each caption
         self.ranks = self.dtype(ranks)        
     # calculate image2caption

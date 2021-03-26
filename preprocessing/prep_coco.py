@@ -8,17 +8,22 @@ prepare the mscoco data into h5 file format
 
 import os
 import json
-import pickle
+import tables 
+
+from pathlib import Path
 from visual_features import vis_feats
 from text_features import text_features_coco
-from collections import defaultdict
-import tables
-# paths to the coco caption and image files 
-train_img_path = os.path.join('/data/mscoco/train2017')
-val_img_path = os.path.join('/data/mscoco/val2017')
-text_path = os.path.join('/data/mscoco/annotations')
-# save the resulting feature file here
-data_loc = os.path.join('/prep_data/coco_features.h5')
+from audio_features import audio_features
+
+import numpy as np
+# places is a rather large dataset, be prepared for 20-60GB of extra data just
+# by adding another feature type. vis features can be resnet, vgg19,
+# resnet_trunc or raw
+vis = ['resnet']
+# speech features can be raw, freq_spectrum, fbanks or mfcc
+speech = ['mfcc']
+
+data_loc = '/media/danny/seagate_2tb/coco_features.h5'
 
 def batcher(batch_size, dictionary):
     keys = [x for x in dictionary]
@@ -33,90 +38,77 @@ def batcher(batch_size, dictionary):
                 excerpt[keys[x]] = dictionary[keys[x]]
             yield excerpt
 
-def load_obj(loc):
-    with open(loc + '.pkl', 'rb') as f:
-        return pickle.load(f)
-    
-# list the image and annotations directory
-train_imgs = os.listdir(train_img_path)
-val_imgs = os.listdir(val_img_path)
+audio_path = ''
 
-annotations = [os.path.join(text_path, x) for x in os.listdir(text_path)]
-annotations.sort()
-# load the validation annotations
-val_cap = json.load(open(annotations[1]))
-val_cap = val_cap['annotations']
-# load the training annotations
-train_cap = json.load(open(annotations[0]))
-train_cap = train_cap['annotations']
+img_path = ''
 
-# prepare dictionaries with all the captions and file ids
-train_dict = defaultdict(list)  
-for x in train_cap:
-   key = str(x['image_id'])
-   while len(key) < 6:
-       key = '0' + key
-   train_dict[key] = train_dict[key] + [x]
-       
-val_dict = defaultdict(list)   
-for x in val_cap:
-   key = str(x['image_id'])
-   while len(key) < 6:
-       key = '0' + key
-   val_dict[key] = val_dict[key] + [x]
+#meta_data_loc = '/vol/tensusers3/dmerkx/databases/places/'
 
-# strip the files to their basename (remove file extension)
-train_imgs_base = [x.split('.')[0] for x in train_imgs]
-val_imgs_base = [x.split('.')[0] for x in val_imgs]
-# create a dictionary with image id pointing to the location of the image file
-train_img = {}
-for im in train_imgs_base:
-    train_img[im.split('_')[-1][-6:]] = [im + '.jpg']
-val_img = {}
-for im in val_imgs_base:
-    val_img[im.split('_')[-1][-6:]] = [im + '.jpg']
+meta_data_loc = '/home/danny/Downloads/'
+# load the metadata for places
+coco_meta = []
+coco_meta.append(json.load(open(os.path.join(meta_data_loc, 'SpokenCOCO_train.json'))))
+coco_meta.append(json.load(open(os.path.join(meta_data_loc, 'SpokenCOCO_val.json'))))
 
-# create h5 output file for preprocessed images and text
-output_file = tables.open_file(data_loc, mode='a')
+# create a dictionary with the unique identifier as key pointing to the image 
+# and its caption. The id contains a hyphen which is invalid for h5 naming 
+# conventions so it is replaced by an underscore
+img_audio = {}
+for split in coco_meta:
+    for im in split['data']:
+        wavs = [x['wav'] for x in im['captions']]
+        img_audio[im['image'].split('/')[1].split('.')[0]] = im['image'], wavs
 
-# we need to append something to the flickr files names because pytable group names cannot start
-# with integers.
+# we need to append something to the flickr files names because pytable group 
+# names cannot start with integers.
 append_name = 'coco_'
 
-# the size of this database is bigger than the maximum recommended amount of children
-# a node can have so they cannot all be directly under the root node. instead the 
-# database is split in smaller 10k bits.
-count = 0
-subgroups = []
-for batch in batcher(10000, train_img):
-    node = output_file.create_group('/', 'subgroup_' + str(count))
-    subgroups.append(node)
-    for x in batch:
-        output_file.create_group(node, append_name + x.split('.')[0])
-    count +=1
-# list all the nodes containing training instances
-train_node_list = []
-for subgroup in subgroups:
-    train_node_list = train_node_list + subgroup._f_list_nodes()
+if not Path(data_loc).is_file():
+    # create h5 output file for preprocessed images and audio
+    output_file = tables.open_file(data_loc, mode='a')
+    count = 0
+    # the size of this database is bigger than the maximum amount of children
+    # a single node can have. I split the database smaller 10k subgroups.
+    for batch in batcher(10000, img_audio):
+        node = output_file.create_group('/', 'subgroup_' + str(count))
+        for x in batch:
+            output_file.create_group(node, append_name + x)
+        count +=1
+else:
+    # open existing h5 output file
+    output_file = tables.open_file(data_loc, mode='a')
 
-subgroups = []
-for batch in batcher(10000, val_img):
-    node = output_file.create_group('/', 'subgroup_' + str(count))
-    subgroups.append(node)
-    for x in batch:
-        output_file.create_group(node, append_name + x.split('.')[0])
-    count +=1     
-# list all the nodes containing validation instances
-val_node_list = []
+node_list = []
+subgroups = output_file.root._f_list_nodes()
 for subgroup in subgroups:
-    val_node_list = val_node_list + subgroup._f_list_nodes()
+    node_list = node_list + subgroup._f_list_nodes()
     
-# create the visual features for all images  
-vis_feats(val_img_path, output_file, append_name, val_img, val_node_list, 'resnet')
-vis_feats(train_img_path, output_file, append_name, train_img, train_node_list, 'resnet') 
+for ftype in vis:
+    vis_feats(img_path, output_file, append_name, img_audio, 
+              node_list, ftype)
+    
+######### parameter settings for the audio preprocessing ###############
+# put the parameters in a dictionary
+params = {}
+params['alpha'] = 0.97
+params['nfilters'] = 40
+params['ncep'] = 13
+params['t_window'] = .025
+params['t_shift'] = 0.01
+params['feat'] = ''
+params['output_file'] = output_file
+params['use_deltas'] = True
+params['use_energy'] = True
+params['windowing'] = np.hamming
+params['delta_n'] = 2
+params['normalise'] = True
+#############################################################################
 
-# add text features for all captions
-text_features_coco(train_dict, output_file, append_name, train_node_list)
-text_features_coco(val_dict, output_file, append_name, val_node_list)
+# create the audio features for all captions
+for ftype in speech:
+    params['feat'] = ftype
+    audio_features(params, img_audio, audio_path, 
+                   append_name, node_list)
+
 # close the output files
 output_file.close()
