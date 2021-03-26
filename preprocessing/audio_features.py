@@ -67,10 +67,7 @@ def audio_features (params, img_audio, audio_path, append_name, node_list):
             try:
                 input_data, fs = librosa.load(os.path.join(audio_path, cap),
                                               sr = None)
-                input_data = (input_data - input_data.mean())/input_data.std()
-                #input_data = read(os.path.join(audio_path, cap))
                 # in the places database some of the audiofiles are empty
-                #if len(input_data[1]) == 0:
                 if len(input_data) == 0:    
                     break
             except:
@@ -79,9 +76,6 @@ def audio_features (params, img_audio, audio_path, append_name, node_list):
                 try:
                     fix_wav(os.path.join(audio_path, cap))
                     #input_data = read(os.path.join(audio_path, cap))
-                    input_data, fs = librosa.load(os.path.join(audio_path, cap),
-                                                  sr = None)
-                    input_data = (input_data - input_data.mean())/input_data.std()
                 except:
                     # the loop will break, if no valid audio features could 
                     # be made for this image, the entire node is deleted.

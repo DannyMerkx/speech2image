@@ -145,6 +145,45 @@ class FlickrDataset(Dataset):
                 test.append(node) 
         return train, val, test
 
+class CocoDataset(Dataset):
+    def __init__(self, h5_file, visual, cap, split_files, transform=None):
+        # get all the nodes in the h5 file
+        self.f_nodes = [node for node in self.read_data(h5_file)]
+        # split into sets using the json split file
+        self.train, self.val = self.split_data_coco(split_files)
+        self.visual = visual
+        self.cap = cap
+    def read_data(self, h5_file):       
+        h5_file = tables.open_file(h5_file, 'r')
+        for subgroup in h5_file.root:
+            for node in subgroup:
+                yield node
+    def __len__(self):
+        return len(self.f_nodes)
+    def __getitem__(self, sample):
+        idx, node = sample
+        # node should be a tuple of feature node and its caption idx (1-5) 
+        image = eval(f'node.{self.visual}._f_list_nodes()[0].read()')
+        caption = eval(f'node.{self.cap}._f_list_nodes()[idx].read().transpose()')        
+        return {'im': image, 'cap': caption} 
+    def split_data_coco(self, split_files):
+        split_dict = defaultdict(str)
+        for loc in split_files.keys():
+            file = open(loc, 'r')
+            file = json.load(file)     
+            for f in file['data']: 
+                split_dict[f['image'].split('/')[-1].split('.')[0]] = split_files[loc] 
+           
+        train = []
+        val = [] 
+        for idx, node in enumerate(self.f_nodes):
+            name = node._v_name.replace('coco_', '')
+            if split_dict[name] == 'train':
+                train.append(node)
+            elif split_dict[name] == 'val':
+                val.append(node)    
+        return train, val
+
 ############################# Batch collate functions #########################
 
 # receives a batch of audio and images, reshaping the audio to either given 
@@ -270,7 +309,23 @@ class FlickrSampler(Sampler):
     def __len__(self):
         return len(self.data_source)    
     
-    
+class CocoSampler(Sampler):
+    def __init__(self, data_source, mode = 'train', shuffle = False):
+        if mode == 'train':
+            self.split = list(data_source.train)
+            if shuffle:
+                np.random.shuffle(self.split)
+        elif mode == 'val':
+            self.split = list(data_source.val)[:1000]
+        else:
+            self.split = list(data_source.val)[4000:]
+    def __iter__(self):     
+        # the iterator pairs ints 1-5 to each of the node indexes to make sure
+        # all 5 captions per image are used but no 2 captions of the same img
+        # ever end up in the same batch
+        return iter([(idx, node) for idx in range(5) for node in self.split])
+    def __len__(self):
+        return len(self.data_source)        
 
 class ParaphrasingDataset(Dataset):
     def __init__(self, h5_file, cap, split_loc, transform=None):
