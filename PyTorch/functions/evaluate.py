@@ -74,35 +74,10 @@ class evaluate():
             # add 1 to the rank so that the recall measure has 1 as best rank
             rank = indices[np.mod(index, embeddings_2.size()[0])] + 1
             ranks.append(rank)
-
-    def c2i(self):
-        # total number of the embeddings
-        n_emb = self.image_embeddings.size()[0]
-	
-        embeddings_1 = self.caption_embeddings
-        embeddings_1 = embeddings_1.view(5, n_emb/5, -1)
-        # if we get 5 captions per image (e.g. flickr) we got 5 copies of each image embedding 
-        # get rid of the copies.
-        embeddings_2 = self.image_embeddings
-        embeddings_2 = embeddings_2.view(5, n_emb/5, -1)
-        
-        if self.test_size != n_emb:
-            embeddings_2 = self.image_embeddings[0:self.test_size, :]   
-        ranks = []
-        for index, emb in enumerate(embeddings_1):
-            sim = self.dist(emb, embeddings_2)
-            # apply sort two times to get a tensor where the values for each 
-            # image indicates the rank of its distance to the caption
-            sorted, indices = sim.sort(descending = True)
-            sorted, indices = indices.sort()
-            # add 1 to the rank so that the recall measure has 1 as best rank
-            rank = indices[np.mod(index, embeddings_2.size()[0])] + 1
-            ranks.append(rank)
-
-        # create vector with the rank of the correct image for each caption
-        self.ranks = self.dtype(ranks)        
-    # calculate image2caption
-    def i2c(self):
+            
+        self.ranks = self.dtype(ranks)
+    # calculate image2caption, n is the number of captions per image
+    def i2c(self, n = 5):
         # total number of embeddings
         n_emb = self.image_embeddings.size()[0]
         # if we get 5 captions per image (e.g. flickr) we got 5 copies of each image embedding 
@@ -121,7 +96,7 @@ class evaluate():
             sorted, indices = indices.sort()
             # extract the ranks of all 5 captions and append them to the total
             if self.test_size != n_emb:
-                inds = [index + (x * (n_emb // 5)) for x in range (5)]
+                inds = [index + (x * (n_emb // n)) for x in range (n)]
                 ranks.append(indices[inds].unsqueeze(1) + 1)
             else:
                 rank = indices[np.mod(index, embeddings_2.size()[0])] + 1

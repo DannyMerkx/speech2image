@@ -18,7 +18,7 @@ sys.path.append('../functions')
 sys.path.append('../training_scripts')
 from trainer import flickr_trainer
 from encoder_configs import create_encoders
-from minibatchers import FlickrDataset, PlacesDataset
+from minibatchers import FlickrDataset, PlacesDataset, CocoDataset
 from costum_loss import batch_hinge_loss, ordered_loss, attention_loss
 ##################################### parameter settings ##############################################
 
@@ -26,10 +26,10 @@ parser = argparse.ArgumentParser(description='Create and run an articulatory fea
 
 # args concerning file location
 parser.add_argument('-data_loc', type = str, 
-                    default = '/vol/tensusers2/dmerkx/flickr8k/flickr_features.h5',
+                    default = '/vol/tensusers2/dmerkx/coco/coco_features.h5',
                     help = 'location of the feature file, default: /prep_data/flickr_features.h5')
 parser.add_argument('-split_loc', type = str, 
-                    default = '/vol/tensusers2/dmerkx/flickr8k/dataset.json', 
+                    default = '/vol/tensusers2/dmerkx/coco/', 
                     help = 'location of the json file containing the data split information')
 parser.add_argument('-results_loc', type = str, 
                     default = '/vol/tensusers2/dmerkx/results/',
@@ -49,8 +49,15 @@ args = parser.parse_args()
 
 img_net, cap_net = create_encoders('rnn')
 
+# flickr needs a single location of the split json file, but places and coco have seperate json 
+# files for the val and train splits, you can pass a dictionary of file locations to these 
+# dataloaders
+split_files = {args.split_loc + 'SpokenCOCO_train.json': 'train',
+               args.split_loc + 'SpokenCOCO_val.json': 'val'
+               }
+
 # open the data file
-dataset = FlickrDataset(args.data_loc, args.visual, args.cap, args.split_loc)
+dataset = COCODataset(args.data_loc, args.visual, args.cap, split_files)
 
 # check if cuda is available and user wants to run on gpu
 cuda = args.cuda and torch.cuda.is_available()
