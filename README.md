@@ -1,5 +1,5 @@
 # speech2image 
-This branch contains the code at the state it was in when submitting our Interspeech21 paper and can be used to replicate the results presented therein.
+This branch contains the code at the state it was in when submitting our Interspeech 2021 paper and can be used to replicate the results presented therein.
 
 This project is an implementation of a speech to image network which is trained to map images and captions of those images to the same vector space. This project contains networks for tokenized captions, raw text (character based prediction) and spoken captions. 
 
