@@ -24,3 +24,7 @@ Citation:
   doi={10.21437/Interspeech.2019-3067},
   url={http://dx.doi.org/10.21437/Interspeech.2019-3067}
 }
+
+will appear at Interspeech in September
+
+@inproceedings{Merkx2021, author={Danny Merkx and Stefan L. Frank and Mirjam Ernestus}, title={{Semantic Sentence Similarity: Size Does Not Always Matter}}, year=2021, booktitle={Proc. Interspeech 2021}, pages={1-5}, url={https://arxiv.org/abs/2106.08648} }
