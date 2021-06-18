@@ -13,9 +13,9 @@ The speech2image neural networks were originally introduced by D. Harwath and J.
 
 Been doing a lot of work on implementing the Vector Quantization layers as used Harwath, D., Hsu, W.-N., & Glass, J. (2019). Learning Hierarchical Discrete Linguistic Units from Visually-Grounded Speech, 000, 1–19. Retrieved from http://arxiv.org/abs/1911.09602. There is now a working reimplementation of the convolutional architecture in this paper + a working addition of VQ layers to my own RNN based model. 
 
-The VQ layer is so far based on the code from Zalando research, still working on getting my own implementation working.
+The VQ layer is largely based on the code from Zalando research. 
 
-Feel free to use this repo in your own work, please consider citing my paper and the relevant papers used in this repo. 
+Feel free to use this repo in your own work if you cite my paper and please also consider citing the relevant papers used in this repo. 
 Citation: 
 @inproceedings{Merkx2019,
   author={Danny Merkx and Stefan L. Frank and Mirjam Ernestus},
@@ -25,4 +25,14 @@ Citation:
   pages={1841--1845},
   doi={10.21437/Interspeech.2019-3067},
   url={http://dx.doi.org/10.21437/Interspeech.2019-3067}
+}
+
+will appear at Interspeech in September
+@inproceedings{Merkx2021,
+  author={Danny Merkx and Stefan L. Frank and Mirjam Ernestus},
+  title={{Semantic Sentence Similarity: Size Does Not Always Matter}},
+  year=2021,
+  booktitle={Proc. Interspeech 2021},
+  pages={1-5},
+  url={https://arxiv.org/abs/2106.08648}
 }
