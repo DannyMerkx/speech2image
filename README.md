@@ -13,3 +13,10 @@ The Interspeech19 branch contains the code as it was used in our Interspeech2019
 I continued work on this model and the most recent version of the code has large differences from the Interspeech 2019 version. Please make sure to 
 use the correct branch if you want to reproduce the results in the paper as old models and analysis code might not work on the newest 
 version of my code.
+
+Feel free to use this repo in your own work if you cite my paper and please also consider citing the relevant papers used in this repo. 
+
+Citation: 
+
+@inproceedings{Merkx2019, author={Danny Merkx and Stefan L. Frank and Mirjam Ernestus}, title={{Language Learning Using Speech to Image Retrieval}}, year=2019, booktitle={Proc. Interspeech 2019}, pages={1841--1845}, doi={10.21437/Interspeech.2019-3067}, url={http://dx.doi.org/10.21437/Interspeech.2019-3067} }
+
