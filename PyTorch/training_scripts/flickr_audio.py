@@ -66,7 +66,6 @@ else:
     print('using cpu')
 
 ############################### Neural network setup ##########################
-
 # Adam optimiser. I found SGD to work terribly and could not find appropriate 
 # parameter settings for it.
 optimizer = torch.optim.Adam(list(img_net.parameters()) + 

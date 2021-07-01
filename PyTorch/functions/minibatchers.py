@@ -222,14 +222,15 @@ class audio_pad_fn():
 # receives a batch of tex captions and images, reshaping the caption to either
 # given max len or the batch max len (whichever is shortest) 
 class token_pad_fn():
-    def __init__(self, max_len, dtype, token_type = 'char'):
+    def __init__(self, max_len, dtype, token_type = 'char', dict_loc = None):
         self.dtype = dtype
         self.max_len = max_len 
         self.token_type = token_type
+        self.dict_loc = dict_loc
         if token_type == 'char':
             self.token_2_idx = char_2_index()
         elif token_type == 'word':
-            self.token_2_idx = word_2_index()
+            self.token_2_idx = word_2_index(dict_loc)
             # subtract 2 from maxlen to account for sos and eos tokens
             self.max_len -= 2
         else:

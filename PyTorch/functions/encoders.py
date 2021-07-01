@@ -66,13 +66,13 @@ class text_rnn_encoder(nn.Module):
                                   sparse = embed['sparse'],
                                   padding_idx = embed['padding_idx']
                                   )
-        self.RNN = nn.GRU(input_size = rnn['input_size'], 
-                          hidden_size = rnn['hidden_size'], 
-                          num_layers = rnn['num_layers'], 
-                          batch_first = rnn['batch_first'],
-                          bidirectional = rnn['bidirectional'], 
-                          dropout = rnn['dropout']
-                          )
+        self.RNN = nn.LSTM(input_size = rnn['input_size'], 
+                           hidden_size = rnn['hidden_size'], 
+                           num_layers = rnn['n_layers'], 
+                           batch_first = rnn['batch_first'],
+                           bidirectional = rnn['bidirectional'], 
+                           dropout = rnn['dropout']
+                           )
         self.att = multi_attention(in_size = att['in_size'], 
                                    hidden_size = att['hidden_size'], 
                                    n_heads = att['heads']

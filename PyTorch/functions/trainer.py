@@ -42,7 +42,7 @@ class flickr_trainer():
     def token_batcher(self, data, batch_size, max_len, mode, shuffle):
         return DataLoader(data, batch_size = batch_size, 
                           collate_fn = token_pad_fn(max_len, self.dtype, 
-                                                    'word'),
+                                                    'word', self.dict_loc),
                           sampler = FlickrSampler(data, mode, shuffle))
     def raw_text_batcher(self, data, batch_size, max_len, mode, shuffle):
         return DataLoader(data, batch_size = batch_size, 
@@ -60,8 +60,9 @@ class flickr_trainer():
 
 ############ functions to set the class values and attributes ################
     # minibatcher type should match your input features, no default is set.
-    def set_token_batcher(self):
+    def set_token_batcher(self, dict_loc):
         self.batcher = self.token_batcher
+        self.dict_loc = dict_loc
     def set_raw_text_batcher(self):
         self.batcher = self.raw_text_batcher
     def set_audio_batcher(self):

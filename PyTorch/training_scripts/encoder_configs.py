@@ -5,10 +5,11 @@ Created on Tue May 26 14:56:17 2020
 put the config dictionaries for different types of encoders here
 @author: danny
 """
-from encoders import (img_encoder, audio_rnn_encoder, conv_VQ_encoder,
-                      rnn_pack_encoder)
 
-def create_encoders(preset_name):
+from encoders import (img_encoder, audio_rnn_encoder, conv_VQ_encoder,
+                      rnn_pack_encoder, text_rnn_encoder)
+
+def create_encoders(preset_name, dict_size):
     if preset_name == 'rnn':
         # create config dictionaries with all the parameters for your encoders
         audio_config = {'conv':{'in_channels': 39, 'out_channels': 64, 
@@ -145,12 +146,6 @@ def create_encoders(preset_name):
         cap_net = conv_VQ_encoder(audio_config)
 
     elif preset_name == 'rnn_text':
-        import pickle
-        dict_loc = '../../preprocessing/dictionaries/flickr_indices'
-        def load_obj(loc):
-            with open(loc + '.pkl', 'rb') as f:
-                return pickle.load(f)
-        dict_size = len(load_obj(dict_loc))
         # create config dictionaries with all the parameters for your encoders
         char_config = {'embed':{'num_chars': dict_size, 'embedding_dim': 1024, 
                                 'sparse': False, 'padding_idx': 0
@@ -166,11 +161,11 @@ def create_encoders(preset_name):
                         }
         # calculate the required output size of the image encoder
         out_size = char_config['rnn']['hidden_size'] * 2 ** \
-                   audio_config['rnn']['bidirectional'] * audio_config['att']['heads']          
+                   char_config['rnn']['bidirectional'] * char_config['att']['heads']          
         image_config = {'linear':{'in_size': 2048, 'out_size': out_size}, 
                         'norm': True
                         }
         img_net = img_encoder(image_config)
-        cap_net = audio_rnn_encoder(audio_config)
+        cap_net = text_rnn_encoder(char_config)
         
     return(img_net, cap_net)

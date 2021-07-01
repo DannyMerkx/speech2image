@@ -65,7 +65,7 @@ def load_obj(loc):
     with open(loc + '.pkl', 'rb') as f:
         return pickle.load(f)
 dict_size = len(load_obj(args.dict_loc))
-dict_size =1000
+
 # create encoders using presets defined in encoder_configs
 img_net, cap_net = create_encoders('rnn_text', dict_size)
 
