@@ -93,10 +93,9 @@ cyclic_scheduler = cyclic_scheduler(max_lr = args.lr, min_lr = 1e-6,
 trainer = flickr_trainer(img_net, cap_net, args.visual, args.cap)
 trainer.set_loss(batch_hinge_loss)
 trainer.set_optimizer(optimizer)
-trainer.set_coco_batcher()
+trainer.set_audio_batcher()
 trainer.set_lr_scheduler(cyclic_scheduler, 'cyclic')
 trainer.set_att_loss(attention_loss)
-# if using a VQ layer, the trainer should use the VQ layers' loss 
 
 # optionally use cuda, gradient clipping and pretrained glove vectors
 if cuda:
@@ -107,7 +106,6 @@ trainer.set_evaluator([1, 5, 10])
 if args.gradient_clipping:
     trainer.set_gradient_clipping(0.0025, 0.05)
 ################################# training/test loop ##########################
-
 # run the training loop for the indicated amount of epochs 
 while trainer.epoch <= args.n_epochs:
     # Train on the train set

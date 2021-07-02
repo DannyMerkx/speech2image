@@ -125,7 +125,9 @@ class FlickrDataset(Dataset):
         idx, node = sample
         # node should be a tuple of feature node and its caption idx (1-5) 
         image = eval(f'node.{self.visual}._f_list_nodes()[0].read()')
-        caption = eval(f'node.{self.cap}._f_list_nodes()[idx].read().transpose()')        
+        caption = eval(f'node.{self.cap}._f_list_nodes()[idx].read()')
+        if self.cap != 'tokens':
+            caption = caption.transpose()    
         return {'im': image, 'cap': caption} 
     def split_data_flickr(self, loc):
         file = json.load(open(loc))
@@ -164,7 +166,9 @@ class CocoDataset(Dataset):
         idx, node = sample
         # node should be a tuple of feature node and its caption idx (1-5) 
         image = eval(f'node.{self.visual}._f_list_nodes()[0].read()')
-        caption = eval(f'node.{self.cap}._f_list_nodes()[idx].read().transpose()')        
+        caption = eval(f'node.{self.cap}._f_list_nodes()[idx].read()')
+        if self.cap != 'tokens':
+            caption = caption.transpose()   
         return {'im': image, 'cap': caption} 
     def split_data_coco(self, split_files):
         split_dict = defaultdict(str)
@@ -172,8 +176,7 @@ class CocoDataset(Dataset):
             file = open(loc, 'r')
             file = json.load(file)     
             for f in file['data']: 
-                split_dict[f['image'].split('/')[-1].split('.')[0]] = split_files[loc] 
-           
+                split_dict[f['image'].split('/')[-1].split('.')[0]] = split_files[loc]    
         train = []
         val = [] 
         for idx, node in enumerate(self.f_nodes):
@@ -245,6 +248,7 @@ class token_pad_fn():
     def pad(self, batch):
         # determine the length of the longest sentence in the batch
         batch_max = max([x['cap'].shape[1] for x in batch])
+        
         # determine if the batch max is longer than the global allowed max
         if batch_max > self.max_len:
             # set the batch max to the globally allowed max
@@ -256,14 +260,16 @@ class token_pad_fn():
             # batch max length
             c = self.decode(x['cap'])
             n_tokens = len(c)
-            if n_tokens < batch_max:
-                c = np.pad(c, [0, batch_max - n_tokens], 'constant')            
             if n_tokens > batch_max:
                 c = c[:batch_max]
                 n_tokens = batch_max
             if self.token_type == 'word':
                 c = ['<s>'] + c + ['</s>']
-                n_tokens += 2            
+                if n_tokens < batch_max + 2:
+                    c = np.pad(c, [0, batch_max+2 - n_tokens], 'constant')
+                n_tokens += 2 
+            elif n_tokens < batch_max:
+                c = np.pad(c, [0, batch_max - n_tokens], 'constant')
             lengths.append(n_tokens) 
             # convert the input to character indices
             c = self.token_2_idx.find_index(c)

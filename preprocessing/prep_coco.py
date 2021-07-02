@@ -14,6 +14,7 @@ from pathlib import Path
 from visual_features import vis_feats
 from text_features import text_features_coco
 from audio_features import audio_features
+from collections import defaultdict
 
 import numpy as np
 # places is a rather large dataset, be prepared for 20-60GB of extra data just
@@ -22,8 +23,12 @@ import numpy as np
 vis = ['resnet']
 # speech features can be raw, freq_spectrum, fbanks or mfcc
 speech = ['mfcc']
+text = True
 
-data_loc = '/media/danny/seagate_2tb/coco_features.h5'
+data_loc = '/home/user/coco_features.h5'
+meta_data_loc = '/home/user/'
+audio_path = '/home/user'
+img_path = '/home/user'
 
 def batcher(batch_size, dictionary):
     keys = [x for x in dictionary]
@@ -38,13 +43,8 @@ def batcher(batch_size, dictionary):
                 excerpt[keys[x]] = dictionary[keys[x]]
             yield excerpt
 
-audio_path = ''
 
-img_path = ''
 
-#meta_data_loc = '/vol/tensusers3/dmerkx/databases/places/'
-
-meta_data_loc = '/home/danny/Downloads/'
 # load the metadata for places
 coco_meta = []
 coco_meta.append(json.load(open(os.path.join(meta_data_loc, 'SpokenCOCO_train.json'))))
@@ -109,6 +109,29 @@ for ftype in speech:
     params['feat'] = ftype
     audio_features(params, img_audio, audio_path, 
                    append_name, node_list)
+
+###################### text features #########################################
+if text:
+    img_to_id = {}
+    for key in img_audio.keys():
+        idx= int(key[-12:])
+        img_to_id[idx] = key
+    
+    txt = []
+    
+    txt += json.load(open(os.path.join(meta_data_loc,
+                                       'captions_train2017.json')))['annotations']
+    txt += json.load(open(os.path.join(meta_data_loc,
+                                       'captions_val2017.json')))['annotations']
+    text_dict = defaultdict(list)
+    for x in txt:
+        idx = x['image_id']
+        text_dict[img_to_id[x['image_id']]].append({'caption':x['caption'], 
+                                                    'id': x['id']})
+     
+    text_features_coco(text_dict, output_file, append_name, node_list)
+
+##############################################################################
 
 # close the output files
 output_file.close()

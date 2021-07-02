@@ -126,7 +126,6 @@ trainer.set_evaluator([1, 5, 10])
 if args.gradient_clipping:
     trainer.set_gradient_clipping(0.0025, 0.05)
 ################################# training/test loop #####################################
-    
 # run the training loop for the indicated amount of epochs 
 while trainer.epoch <= args.n_epochs:
     # Train on the train set

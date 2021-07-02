@@ -18,20 +18,16 @@ sys.path.append('../functions')
 from trainer import flickr_trainer
 from costum_loss import batch_hinge_loss, ordered_loss, attention_loss
 from costum_scheduler import cyclic_scheduler
-from minibatchers import FlickrDataset
+from minibatchers import CocoDataset
 from encoder_configs import create_encoders
 ##################################### parameter settings ##############################################
 
 parser = argparse.ArgumentParser(description = 
                                  'Create and run an articulatory feature classification DNN')
-
 # args concerning file location
 parser.add_argument('-data_loc', type = str, 
-                    default = '/home/danny/Werkgroepmap/FDL-CLS-D_Merkx_speech2image/Interspeech2019/Data/flickr_features.h5',
+                    default = '//Data/coco_features.h5',
                     help = 'location of the feature file')
-parser.add_argument('-split_loc', type = str, 
-                    default = '/home/danny/Documents/databases/Flickr8k/dataset.json', 
-                    help = 'location of the json file containing the data split information')
 parser.add_argument('-results_loc', type = str, 
                     default = '/vol/tensuser3/dmerkx/results/',
                     help = 'location to save the results and network parameters')
@@ -65,12 +61,18 @@ def load_obj(loc):
     with open(loc + '.pkl', 'rb') as f:
         return pickle.load(f)
 dict_size = len(load_obj(args.dict_loc))
-dict_size =1000
+
+#use the coco split by Harwath et al. so we can compare to SpokenCOCO models
+meta_loc = '/vol/tensusers2/dmerkx/coco/SpokenCOCO/'
+split_files = {meta_loc + 'SpokenCOCO_train.json': 'train',
+               meta_loc + 'SpokenCOCO_val.json': 'val'
+               }
+
 # create encoders using presets defined in encoder_configs
 img_net, cap_net = create_encoders('rnn_text', dict_size)
 
 # open the dataset
-dataset = FlickrDataset(args.data_loc, args.visual, args.cap, args.split_loc)
+dataset = CocoDataset(args.data_loc, args.visual, args.cap, args.split_loc)
 
 # check if cuda is availlable and if user wants to run on gpu
 cuda = args.cuda and torch.cuda.is_available()
@@ -78,7 +80,7 @@ if cuda:
     print('using gpu')
 else:
     print('using cpu')
-############################### Neural network setup ##########################
+############################### Neural network setup #################################################
 # Adam optimiser. I found SGD to work terribly and could not find appropriate parameter settings for it.
 optimizer = torch.optim.Adam(list(img_net.parameters())+
                              list(cap_net.parameters()), 1)
@@ -126,7 +128,6 @@ trainer.set_evaluator([1, 5, 10])
 if args.gradient_clipping:
     trainer.set_gradient_clipping(0.0025, 0.05)
 ################################# training/test loop #####################################
-    
 # run the training loop for the indicated amount of epochs 
 while trainer.epoch <= args.n_epochs:
     # Train on the train set
