@@ -27,7 +27,6 @@ Citation:
   url={http://dx.doi.org/10.21437/Interspeech.2019-3067}
 }
 
-will appear at Interspeech in September
 @inproceedings{Merkx2021,
   author={Danny Merkx and Stefan L. Frank and Mirjam Ernestus},
   title={{Semantic Sentence Similarity: Size Does Not Always Matter}},
