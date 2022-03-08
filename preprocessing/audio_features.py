@@ -2,137 +2,177 @@
 # -*- coding: utf-8 -*-
 """
 Created on Wed Dec  7 09:41:59 2016
-
+Main script for generating audio features such as filterbanks and mfccs
+may 2020: switched to python_speech_features for feature calculation. 
 @author: danny
 """
-from aud_feat_functions import get_fbanks, get_freqspectrum, get_mfcc, delta, raw_frames
-from scipy.io.wavfile import read
-import numpy
-import tables
 import os
 import wave
-#  script for creating the features derived from the spoken captions. 
-# fix_wav is included because in the original Flickr database there is a broken
-# wav file with a wrong header which causes the script to crash.
+import tables
+import librosa
 
-
+import numpy as np
+import python_speech_features.base as base
+import python_speech_features.sigproc as sigproc
 
 def fix_wav(path_to_file):
-    #fix wav file. In the flickr dataset there is one wav file with an incorrect 
-    #number of frames indicated in the header, causing it to be unreadable by pythons
-    #wav read function. This opens the file with the wave package, extracts the correct
-    #number of frames and saves the file with a correct header
+    # In the flickr dataset there is one wav file with an incorrect header, 
+    # causing it to be unreadable by wav read. This opens the file with the 
+    # wave package, extracts the correct number of frames and saves the file 
+    # with a correct header
 
     file = wave.open(path_to_file, 'r')
     # derive the correct number of frames from the file
     frames = file.readframes(file.getnframes())
     # get all other header parameters
-    params = file.getparams()
+    p = file.getparams()
     file.close()
-    # now save the file with a new header containing the correct number of frames
+    # save the file with a new header containing the correct number of frames
     out_file = wave.open(path_to_file, 'w')
     out_file.setparams(out_file.getparams())
     out_file.writeframes(frames)
     out_file.close()
 
-
-# extract the audio features, params is a big list containg most of the settings
-# for feature extraction, img_audio is a dictionary mapping each img to its corresponding
-# audio files, append_name is some arbitrary name which has to start with a letter. The Flickr
-# audio file names start with numbers but pytables naming conventions require group names to 
-# start with a letter in order to call the nodes and their contents.
-
-def audio_features (params, img_audio, audio_path, append_name, node_list):
-    
-    output_file = params[5]
+# extract the audio features, params contains most of the settings for feature 
+# extraction, img_audio is a dictionary mapping each img to the corresponding
+# audio files, append_name is some arbitrary name which has to start with a 
+# letter (required by pytables).
+def audio_features (params, img_audio, audio_path, append_name, node_list):    
+    output_file = params['output_file']
     # create pytable atom for the features   
     f_atom= tables.Float32Atom() 
     count = 1
-    # keep track of the nodes for which no features could be made, places database contains some
-    # empty audio files
+    # keep track of the nodes for which no features could be made, places 
+    # database contains some empty audio files
     invalid = []
     for node in node_list:
-        print('processing file:' + str(count))
+        print(f'processing file: {count}')
         count+=1
-        # create a group for the desired feature type (e.g. a group called 'fbanks')
-        audio_node = output_file.create_group(node, params[4])
+        # create a group for the desired feature type
+        audio_node = output_file.create_group(node, params['feat'])
         # get the base name of the node this feature will be appended to
         base_name = node._v_name.split(append_name)[1]
         # get the caption file names corresponding to the image of this node
         caption_files = img_audio[base_name][1]
         
         for cap in caption_files:
-            # basename for the caption file, i.e. cut of the file extension as dots arent
-	        # allowed in pytables group names. 
+            # remove extension from the caption filename
             base_capt = cap.split('.')[0]
-            # as the places database splits the audio files over multiple subfolders these paths from
-            # the top folder are included the captions in the dictionary but can be removed from the base_name
-            # of the node in the h5 file. 
+            # remove folder path from file names (Places/coco database)
             if '/' in base_capt:
                 base_capt = base_capt.split('/')[-1]
+            if '-' in base_capt:
+                base_capt = base_capt.replace('-', '_')
             # read audio samples
             try:
-                input_data = read(os.path.join(audio_path, cap))
-                # in the places database some of the audiofiles are empty. To keep this script
-                #compatible with database that might have more captions to one image, we check 
-                # if the audio node is empty at the end of the loop and delete the entire node
-                # if no caption features could be made.
-                if len(input_data[1]) == 0:
-                    # break as we can do nothing with an empty audio file.
+                input_data, fs = librosa.load(os.path.join(audio_path, cap),
+                                              sr = None)
+                # in the places database some of the audiofiles are empty
+                if len(input_data) == 0:    
                     break
             except:
-                # try to repair the file, however I found some files in places, so broken that
-                # such that they could not be read at all. Just remove such nodes
+                # try to repair broken files, some files had a wrong header. 
+                # In Places I found some that could not be fixed however
                 try:
                     fix_wav(os.path.join(audio_path, cap))
-                    input_data = read(os.path.join(audio_path, cap))
+                    #input_data = read(os.path.join(audio_path, cap))
                 except:
+                    # the loop will break, if no valid audio features could 
+                    # be made for this image, the entire node is deleted.
+                    break           
+            # set the fft size to the power of two equal to or greater than 
+            # the window size.
+            window_size = int(fs * params['t_window'])
+            exp = 1
+            while True:
+                if np.power(2, exp) - window_size >= 0:
+                    fft_size = np.power(2, exp)
                     break
-            # sampling frequency
-            fs = input_data[0]
-            # get window and frameshift size in samples
-            window_size = int(fs*params[2])
-            frame_shift = int(fs*params[3])
+                else:
+                    exp += 1
+
+###############################################################################        
+            # create audio features 
+            if params['feat'] == 'raw':
+                # calculate the needed frame shift, premphasize and frame
+                # the signal
+                frame_shift = int(fs * params['t_shift'])
+                input = sigproc.preemphasis(input_data, 
+                                            coeff = params['alpha'])
+                features = sigproc.framesig(input_data, 
+                                            frame_len = window_size, 
+                                            frame_step = frame_shift, 
+                                            winfunc = params['windowing']
+                                            )
         
-            # create features (implemented are raw audio, the frequency spectrum, fbanks and
-            # mfcc's)
-            if params[4] == 'raw':
-                [features, energy] = raw_frames(input_data, frame_shift, window_size)
-        
-            elif params[4] == 'freq_spectrum':
-                [frames, energy] = raw_frames(input_data, frame_shift, window_size)
-                features = get_freqspectrum(frames, params[0], fs, window_size)
-        
-            elif params[4] == 'fbanks':
-                [frames, energy] = raw_frames(input_data, frame_shift, window_size)
-                freq_spectrum = get_freqspectrum(frames, params[0], fs, window_size)
-                features = get_fbanks(freq_spectrum, params[1], fs) 
+            elif params['feat'] == 'freq_spectrum':
+                # calculate the needed frame shift, premphasize and frame
+                # the signal
+                frame_shift = int(fs * params['t_shift'])
+                input = sigproc.preemphasis(input_data, 
+                                            coeff = params['alpha'])
+                frames = sigproc.framesig(input, frame_len = window_size, 
+                                          frame_step = frame_shift, 
+                                          winfunc = params['windowing']
+                                          )
+                # create the power spectrum
+                features = sigproc.powspec(frames, fft_size)
+                
+            elif params['feat'] == 'fbanks':
+                # create mel filterbank features
+                [features, energy] = base.fbank(input_data, samplerate = fs, 
+                                                winlen = params['t_window'], 
+                                                winstep = params['t_shift'], 
+                                                nfilt = params['nfilters'], 
+                                                nfft = fft_size, lowfreq = 0, 
+                                                highfreq = None, 
+                                                preemph = params['alpha'], 
+                                                winfunc = params['windowing']
+                                                )
             
-            elif params[4] == 'mfcc':
-                [frames, energy] = raw_frames(input_data, frame_shift, window_size)
-                freq_spectrum = get_freqspectrum(frames, params[0], fs, window_size)
-                fbanks = get_fbanks(freq_spectrum, params[1], fs)
-                features = get_mfcc(fbanks)
+            elif params['feat'] == 'mfcc':
+                # create mfcc features
+                features = base.mfcc(input_data, samplerate = fs,
+                                     winlen = params['t_window'], 
+                                     winstep = params['t_shift'], 
+                                     numcep = params['ncep'], 
+                                     nfilt = params['nfilters'], 
+                                     nfft = fft_size, lowfreq = 0, 
+                                     highfreq = None, 
+                                     preemph = params['alpha'], ceplifter = 0, 
+                                     appendEnergy = params['use_energy'], 
+                                     winfunc = params['windowing']
+                                     )
             
-            # optionally add the frame energy
-            if params[7]:
-                features = numpy.concatenate([energy[:,None], features],1)
+            # apply cepstral mean variance normalisation
+            if params['normalise']:
+                features = (features - features.mean(0))/features.std(0)
             # optionally add the deltas and double deltas
-            if params[6]:
-                single_delta= delta (features,2)
-                double_delta= delta(single_delta,2)
-                features= numpy.concatenate([features,single_delta,double_delta],1)
-           
-            # create new leaf node in the feature node for the current audio file
-            feature_shape= numpy.shape(features)[1]
-            f_table = output_file.create_earray(audio_node, append_name + base_capt, f_atom, (0,feature_shape),expectedrows=5000)
+            if params['use_deltas']:
+                
+                single_delta = base.delta(features, params['delta_n'])
+                double_delta = base.delta(single_delta, params['delta_n'])
+                features= np.concatenate([features, single_delta, 
+                                          double_delta], 1
+                                         )
+###############################################################################               
+            # create new leaf node in the feature node for the current audio 
+            # file
+            feature_shape= np.shape(features)[1]
+            f_table = output_file.create_earray(audio_node, 
+                                                append_name + base_capt, 
+                                                f_atom, (0, feature_shape),
+                                                expectedrows = 5000
+                                                )
         
             # append new data to the tables
             f_table.append(features)
         if audio_node._f_list_nodes() == []:
-            # keep track of all the invalid nodes for which no features could be made
+            # keep track of all the invalid nodes for which no features could 
+            # be made
             invalid.append(node._v_name)
-            # remove the top node including all other features if no captions features could be created
+            # remove the top node including all other features if no captions 
+            # features could be created
             output_file.remove_node(node, recursive = True)
     print(invalid)
-    return 
+    print(f'There were {len(invalid)} files that could not be processed')

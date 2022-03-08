@@ -1,0 +1,17 @@
+This folder contains all scripts for the wordsim and priming evaluations in the paper. Since I cannot redistribute data, you have to fill the appropriate folders with the wordvector files, wordsim and SPP data or make sure to change paths to where they are on your system.
+
+Run prep_coco to create a text file of MSCOCO captions appropriate for training word vectors.
+
+Run fasttext and word2vec to then create these wordvecs trained on mscoco
+
+Run create_embeddings to get embeddings from a trained caption model
+
+Run filter_vecs to prep the vector files to only include words that appear in all vector types
+
+Run analysis to get the results of all tests done in the paper 
+
+
+
+Your wordvector files (in standard word2vec text format) go in word_vectors. All datasets mentioned in the paper (all freely downloadable) go in dataset. No need to pre-process any wordsimilarity datasets or subtlex. SPP however was filtered and processed as indicated in the paper.
+
+trained caption to image models go in models
