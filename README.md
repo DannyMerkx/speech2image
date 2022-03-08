@@ -13,7 +13,7 @@ This branch is associated with our latest paper where we compare grounded word e
 
 Distributional semantic models capture word-level meaning that is useful in many natural language processing tasks and have even been shown to capture cognitive aspects of word meaning. The majority of these models are purely text based, even though the human sensory experience is much richer. In this paper we create visually grounded word embeddings by combining English text and images and compare them to popular text-based methods, to see if visual information allows our model to better capture cognitive aspects of word meaning. Our analysis shows that visually grounded embedding similarities are more predictive of the human reaction times in a large priming experiment than the purely text-based embeddings. The visually grounded embeddings also correlate well with human word similarity ratings. Importantly, in both experiments we show that the grounded embeddings account for a unique portion of explained variance, even when we include text-based embeddings trained on huge corpora. This shows that visual grounding allows our model to capture information that cannot be extracted using text as the only source of information. 
 
-This branch contains the state of the code at time of submission.
+This branch contains the state of the code at time of submission and can be used to reproduce the results presented in the paper.
 
 Feel free to use this repo in your own work, please consider citing my papers and the relevant papers used in this repo. 
 Citation: 
