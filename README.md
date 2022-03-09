@@ -1,6 +1,8 @@
 # speech2image 
 This branch contains the code at the state it was in when submitting our Interspeech 2021 paper and can be used to replicate the results presented therein.
 
+The SpokenSTS data created for our paper can be found at: https://doi.org/10.17026/dans-z48-3ev6
+
 This project is an implementation of a speech to image network which is trained to map images and captions of those images to the same vector space. This project contains networks for tokenized captions, raw text (character based prediction) and spoken captions. 
 
 Important notice:
@@ -33,5 +35,5 @@ Citation:
   year=2021,
   booktitle={Proc. Interspeech 2021},
   pages={1-5},
-  url={https://arxiv.org/abs/2106.08648}
+  doi={10.21437/Interspeech.2021-1464}
 }
