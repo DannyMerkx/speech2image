@@ -1,5 +1,5 @@
 # speech2image
-This project is an implementation of a speech to image network which is trained to map images and captions of those images to the same vector space. This project contains networks for tokenized captions, raw text (character based prediction) and spoken captions. 
+This project is an implementation of a speech to image network which is trained to map images and captions of those images to the same vector space. This project contains networks for tokenized captions, raw text (character based prediction) and spoken captions. This branch contains the state of the code at time of submission of our paper.
 
 Important notice:
 The code is my own work, using python and Pytorch. However some of the ideas and data are not:
@@ -13,18 +13,15 @@ Been doing a lot of work on implementing the Vector Quantization layers as used 
 
 The VQ layer is so far based on the code from Zalando research, still working on getting my own implementation working.
 
-Feel free to use this repo in your own work, please consider citing my paper and the relevant papers used in this repo. 
-Citation: 
-@inproceedings{Merkx2019,
-  author={Danny Merkx and Stefan L. Frank and Mirjam Ernestus},
-  title={{Language Learning Using Speech to Image Retrieval}},
-  year=2019,
-  booktitle={Proc. Interspeech 2019},
-  pages={1841--1845},
-  doi={10.21437/Interspeech.2019-3067},
-  url={http://dx.doi.org/10.21437/Interspeech.2019-3067}
+Feel free to use this repo in your own work if you cite my paper and please also consider citing the relevant papers used in this repo. Citation: @inproceedings{Merkx2019, author={Danny Merkx and Stefan L. Frank and Mirjam Ernestus}, title={{Language Learning Using Speech to Image Retrieval}}, year=2019, booktitle={Proc. Interspeech 2019}, pages={1841--1845}, doi={10.21437/Interspeech.2019-3067}, url={http://dx.doi.org/10.21437/Interspeech.2019-3067} }
+
+@inproceedings{Merkx2021, author={Danny Merkx and Stefan L. Frank and Mirjam Ernestus}, title={{Semantic Sentence Similarity: Size Does Not Always Matter}}, year=2021, booktitle={Proc. Interspeech 2021}, pages={1-5}, doi={10.21437/Interspeech.2021-1464} }
+
+@misc{merkx2022,
+      title={Seeing the advantage: visually grounding word embeddings to better capture human semantic knowledge}, 
+      author={Danny Merkx and Stefan L. Frank and Mirjam Ernestus},
+      year={2022},
+      eprint={2202.10292},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL}
 }
-
-will appear at Interspeech in September
-
-@inproceedings{Merkx2021, author={Danny Merkx and Stefan L. Frank and Mirjam Ernestus}, title={{Semantic Sentence Similarity: Size Does Not Always Matter}}, year=2021, booktitle={Proc. Interspeech 2021}, pages={1-5}, url={https://arxiv.org/abs/2106.08648} }
