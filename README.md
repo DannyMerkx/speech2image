@@ -11,9 +11,9 @@ The speech2image neural networks were originally introduced by D. Harwath and J.
 
 Been doing a lot of work on implementing the Vector Quantization layers as used Harwath, D., Hsu, W.-N., & Glass, J. (2019). Learning Hierarchical Discrete Linguistic Units from Visually-Grounded Speech, 000, 1–19. Retrieved from http://arxiv.org/abs/1911.09602. There is now a working reimplementation of the convolutional architecture in this paper + a working addition of VQ layers to my own RNN based model. 
 
-The VQ layer is so far based on the code from Zalando research, still working on getting my own implementation working.
+The VQ layer is my own implementation based on the code from Zalando research.
 
-Feel free to use this repo in your own work, please consider citing my paper and the relevant papers used in this repo. 
+Feel free to use this repo in your own work, please consider citing my papers and the relevant papers used in this repo. 
 Citation: 
 @inproceedings{Merkx2019,
   author={Danny Merkx and Stefan L. Frank and Mirjam Ernestus},
@@ -25,6 +25,22 @@ Citation:
   url={http://dx.doi.org/10.21437/Interspeech.2019-3067}
 }
 
-will appear at Interspeech in September
-
 @inproceedings{Merkx2021, author={Danny Merkx and Stefan L. Frank and Mirjam Ernestus}, title={{Semantic Sentence Similarity: Size Does Not Always Matter}}, year=2021, booktitle={Proc. Interspeech 2021}, pages={1-5}, url={https://arxiv.org/abs/2106.08648} }
+
+@article{merkx2019NLE, 
+title={Learning semantic sentence representations from visually grounded language without lexical knowledge}, 
+volume={25}, 
+number={4}, 
+journal={Natural Language Engineering}, 
+publisher={Cambridge University Press}, 
+author={Merkx, Danny and Frank, Stefan L.},
+year={2019}, pages={451–466}}
+
+@misc{merkx2022,
+      title={Seeing the advantage: visually grounding word embeddings to better capture human semantic knowledge}, 
+      author={Danny Merkx and Stefan L. Frank and Mirjam Ernestus},
+      year={2022},
+      eprint={2202.10292},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL}
+}
