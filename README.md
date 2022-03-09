@@ -1,5 +1,5 @@
 # speech2image
-This project is an implementation of a (spoken) caption to image network which is trained to map images and captions of those images to the same vector space. This project contains networks for tokenized captions, raw text (character based prediction) and spoken captions. 
+This project is an implementation of a (spoken) caption to image network which is trained to map images and captions of those images to the same vector space. This project contains networks for tokenized captions, raw text (character based prediction) and spoken captions. This branch contains the state of the code at time of submission of our CMCL 2022 paper.
 
 Important notice:
 The code is my own work, using python and Pytorch. However some of the ideas and data are not:
@@ -31,5 +31,3 @@ Citation:
 }
 
 @inproceedings{Merkx2021, author={Danny Merkx and Stefan L. Frank and Mirjam Ernestus}, title={{Semantic Sentence Similarity: Size Does Not Always Matter}}, year=2021, booktitle={Proc. Interspeech 2021}, pages={1-5}, url={https://arxiv.org/abs/2106.08648} }
-
-
