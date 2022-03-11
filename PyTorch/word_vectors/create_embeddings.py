@@ -42,7 +42,7 @@ class text_rnn_encoder(nn.Module):
                                   )
         self.RNN = nn.ModuleList()
         for x in range(len(rnn['n_layers'])):
-            self.RNN.append(nn.GRU(input_size = rnn['input_size'][x], 
+            self.RNN.append(nn.LSTM(input_size = rnn['input_size'][x], 
                                    hidden_size = rnn['hidden_size'][x], 
                                    num_layers = rnn['n_layers'][x],
                                    batch_first = rnn['batch_first'],
