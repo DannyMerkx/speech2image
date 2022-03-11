@@ -64,7 +64,11 @@ args = parser.parse_args()
 def load_obj(loc):
     with open(loc + '.pkl', 'rb') as f:
         return pickle.load(f)
-dict_size = len(load_obj(args.dict_loc))
+if args.cap == 'tokens':
+    dict_size = len(load_obj(args.dict_loc))
+else:
+    dict_size = 100
+
 
 # create encoders using presets defined in encoder_configs
 img_net, cap_net = create_encoders('rnn_text', dict_size)
@@ -99,7 +103,10 @@ cyclic_scheduler = cyclic_scheduler(max_lr = args.lr, min_lr = 1e-6,
 trainer = flickr_trainer(img_net, cap_net, args.visual, args.cap)
 trainer.set_loss(batch_hinge_loss)
 trainer.set_optimizer(optimizer)
-trainer.set_token_batcher(args.dict_loc)
+if args.cap == 'tokens':
+    trainer.set_token_batcher(args.dict_loc)
+else:
+    trainer.set_raw_text_batcher()
 trainer.set_dict_loc(args.dict_loc)
 trainer.set_lr_scheduler(cyclic_scheduler, 'cyclic')
 trainer.set_att_loss(attention_loss)

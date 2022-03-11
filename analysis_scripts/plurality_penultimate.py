@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 """
 Created on Thu May 20 16:33:48 2021
-
+This was a little test that was added later to see how well plural nouns are recognised if you
+drop the final phoneme i.e. the plural marker.
 @author: danny
 """
 import pandas as pd

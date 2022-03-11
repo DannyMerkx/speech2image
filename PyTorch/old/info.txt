@@ -1,3 +1,0 @@
-This contains training scripts in an old style before I did some major 
-refactoring of database handling and some other stuff. I have not had any use for these scripts since and they have thus not been updated yet
-

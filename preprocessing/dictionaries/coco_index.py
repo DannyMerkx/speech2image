@@ -17,11 +17,11 @@ from text_cleanup import remove_numerical, remove_low_occurence
 # name of the token feature nodes in the h5 file
 feature = 'tokens'
 # location of the frequency dictionary
-freq_dict_loc = os.path.join('/data/speech2image/PyTorch/coco_words/coco_frequency')
+freq_dict_loc = os.path.join('./coco_frequency')
 # save the resulting dictionary here
-dict_loc = os.path.join('/data/speech2image/PyTorch/coco_words/')
+dict_loc = os.path.join('./')
 # location of the mscoco features
-data_loc = os.path.join('/prep_data/coco_features.h5')
+data_loc = os.path.join('../../PyTorch/word_vectors/coco_features.h5')
 # load data
 data_file = tables.open_file(data_loc)
 
@@ -55,9 +55,8 @@ coco_dict = defaultdict(int)
 # make a dictionary with a unique index for each word in the database
 for cap in captions:
     # replace tokens with numerical values and low occurence tokens by oov 
-    cap = remove_low_occurence(remove_numerical(cap, '<oov>'), freq_dict, 5, '<oov>')
-    for word in cap:
-        coco_dict[word]      
+    #cap = remove_low_occurence(remove_numerical(cap, '<oov>'), freq_dict, 5, '<oov>')
+    for word in cap:      
         if coco_dict[word] == 0:
             coco_dict[word] = index
             index += 1

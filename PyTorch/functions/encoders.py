@@ -60,39 +60,65 @@ class text_rnn_encoder(nn.Module):
         embed = config['embed']
         rnn= config['rnn']
         att = config['att'] 
+        VQ = config['VQ']
         self.max_len = rnn['max_len']
         self.embed = nn.Embedding(num_embeddings = embed['num_chars'], 
                                   embedding_dim = embed['embedding_dim'], 
                                   sparse = embed['sparse'],
                                   padding_idx = embed['padding_idx']
                                   )
-        self.RNN = nn.LSTM(input_size = rnn['input_size'], 
-                           hidden_size = rnn['hidden_size'], 
-                           num_layers = rnn['n_layers'], 
-                           batch_first = rnn['batch_first'],
-                           bidirectional = rnn['bidirectional'], 
-                           dropout = rnn['dropout']
-                           )
+        self.RNN = nn.ModuleList()
+        for x in range(len(rnn['n_layers'])):
+            self.RNN.append(nn.LSTM(input_size = rnn['input_size'][x], 
+                                   hidden_size = rnn['hidden_size'][x], 
+                                   num_layers = rnn['n_layers'][x],
+                                   batch_first = rnn['batch_first'],
+                                   bidirectional = rnn['bidirectional'], 
+                                   dropout = rnn['dropout']
+                                   )
+                            )
+        # VQ layers
+        self.VQ = nn.ModuleList()
+        for x in range(VQ['n_layers']):
+            self.VQ.append(VQ_EMA_layer(VQ['n_embs'][x], VQ['emb_dim'][x]))
+            
         self.att = multi_attention(in_size = att['in_size'], 
                                    hidden_size = att['hidden_size'], 
                                    n_heads = att['heads']
                                    )
-        
+        # application order of the vq and conv layers. list with 1 bool per
+        # VQ/res_conv layer.
+        self.app_order = config['app_order']
+               
     def forward(self, input, l):
+        # keep track of amount of rnn and vq layers applied
+        r, v, self.VQ_loss = 0, 0, 0
         # embedding layers expect Long tensors
         x = self.embed(input.long())
-        x = torch.nn.utils.rnn.pack_padded_sequence(x, l, batch_first=True,
-                                                    enforce_sorted = False
-                                                    )
-        x, hx = self.RNN(x)
-        x, lens = nn.utils.rnn.pad_packed_sequence(x, batch_first = True)       
+        for i in self.app_order:
+            if i:
+                x, VQ_loss = self.VQ[v](x)
+                self.VQ_loss += VQ_loss
+                v += 1
+            else: 
+                x = self.apply_rnn(x, l, r)
+                r += 1    
         x = nn.functional.normalize(self.att(x), p=2, dim=1)    
         return x
 
     def load_embeddings(self, dict_loc, embedding_loc):
         # optionally load pretrained word embeddings. 
-        load_word_embeddings(dict_loc, embedding_loc, self.embed.weight.data)      
-
+        load_word_embeddings(dict_loc, embedding_loc, self.embed.weight.data) 
+        
+    # function to pack sequences, apply RNN and unpack sequence again
+    def apply_rnn(self, input, l, RNN_idx):
+        input = nn.utils.rnn.pack_padded_sequence(input, l, batch_first = True, 
+                                                  enforce_sorted = False
+                                                  )
+        x, hx = self.RNN[RNN_idx](input)
+        x, lens = nn.utils.rnn.pad_packed_sequence(x, batch_first = True)        
+        return x
+    
 # rnn encoder for audio (mfcc, mbn etc.) start with convolution for temporal 
 # subsampling followed by n rnn layers and (multi)attention pooling.
 # optional VQ layers can be specified.

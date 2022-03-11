@@ -150,18 +150,20 @@ def create_encoders(preset_name, dict_size):
         char_config = {'embed':{'num_chars': dict_size, 'embedding_dim': 1024, 
                                 'sparse': False, 'padding_idx': 0
                                 }, 
-                        'rnn':{'input_size': 1024, 
-                               'hidden_size': 1024, 
-                               'n_layers': 1, 'batch_first': True, 
+                        'rnn':{'input_size': [1024], 
+                               'hidden_size': [1024], 
+                               'n_layers': [1], 'batch_first': True, 
                                'bidirectional': True, 'dropout': 0, 
                                'max_len': 1024
                                }, 
                         'att':{'in_size': 2048, 'hidden_size': 128, 'heads': 1
-                               }
+                               },
+                        'VQ':{'n_layers': 0, 'n_embs': [], 'emb_dim': []},
+                        'app_order': [0]
                         }
         # calculate the required output size of the image encoder
-        out_size = char_config['rnn']['hidden_size'] * 2 ** \
-                   char_config['rnn']['bidirectional'] * char_config['att']['heads']          
+        out_size = audio_config['rnn']['hidden_size'][-1] * 2 ** \
+                   audio_config['rnn']['bidirectional'] * audio_config['att']['heads']          
         image_config = {'linear':{'in_size': 2048, 'out_size': out_size}, 
                         'norm': True
                         }

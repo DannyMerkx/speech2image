@@ -126,7 +126,7 @@ class FlickrDataset(Dataset):
         # node should be a tuple of feature node and its caption idx (1-5) 
         image = eval(f'node.{self.visual}._f_list_nodes()[0].read()')
         caption = eval(f'node.{self.cap}._f_list_nodes()[idx].read()')
-        if self.cap != 'tokens':
+        if self.cap != ['tokens', 'raw_text']:
             caption = caption.transpose()    
         return {'im': image, 'cap': caption} 
     def split_data_flickr(self, loc):
@@ -241,13 +241,13 @@ class token_pad_fn():
     # decoded the byte encoded text captions
     def decode(self, sent):
         if self.token_type == 'char':
-            return sent.decode('utf-8')
+            return [c for c in sent.decode('utf-8')]
         else:
             return [w.decode('utf-8') for w in sent]
     
     def pad(self, batch):
         # determine the length of the longest sentence in the batch
-        batch_max = max([x['cap'].shape[1] for x in batch])
+        batch_max = max([len(x['cap']) for x in batch])
         
         # determine if the batch max is longer than the global allowed max
         if batch_max > self.max_len:

@@ -72,7 +72,7 @@ split_files = {meta_loc + 'SpokenCOCO_train.json': 'train',
 img_net, cap_net = create_encoders('rnn_text', dict_size)
 
 # open the dataset
-dataset = CocoDataset(args.data_loc, args.visual, args.cap, args.split_loc)
+dataset = CocoDataset(args.data_loc, args.visual, args.cap, split_files)
 
 # check if cuda is availlable and if user wants to run on gpu
 cuda = args.cuda and torch.cuda.is_available()
